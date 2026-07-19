@@ -81,6 +81,8 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
       releases: 0,
       fixes: 0,
       changedLines: 0,
+      additions: 0,
+      deletions: 0,
       lastActive: null,
       role: 'Contributor',
       summary: [],
@@ -93,7 +95,11 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
     if (row.type === 'pr_opened') contributor.prsOpened += 1;
     if (row.type === 'pr_merged') {
       contributor.prsMerged += 1;
-      contributor.changedLines += asNumber(payload.additions) + asNumber(payload.deletions);
+      const add = asNumber(payload.additions);
+      const del = asNumber(payload.deletions);
+      contributor.changedLines += add + del;
+      contributor.additions += add;
+      contributor.deletions += del;
     }
     if (row.type === 'review_submitted') contributor.reviews += 1;
     if (row.type.startsWith('issue_')) contributor.issues += 1;

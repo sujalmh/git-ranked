@@ -8,12 +8,14 @@ import {
   Trophy,
   Activity,
   BarChart,
+  GitPullRequest,
 } from 'lucide-react';
 import { ActivityFeed } from '@/components/ActivityFeed';
 import { HealthRadar } from '@/components/HealthRadar';
 import { AiFindings } from '@/components/AiFindings';
 import { ContributorAreas, type AreaContributor } from '@/components/ContributorAreas';
 import { ContributorCard } from '@/components/ContributorCard';
+import { CodeContributionDonut, type ContributionSlice } from '@/components/collaboration/CodeContributionDonut';
 import { EvidenceProvider } from '@/components/evidence';
 import { StructuredSummary, TeamInsightsCard } from '@/components/ai';
 import type { RepoAnalysisData, ContributorAiData } from '@/lib/analysis';
@@ -179,7 +181,38 @@ export function RepoAnalysisView({
         </section>
       )}
 
-      {/* 4. Contributors × Areas matrix + Activity Feed */}
+      {/* 4. Code Contribution Distribution */}
+      {(() => {
+        const slices: ContributionSlice[] = contributors
+          .filter((c) => c.changedLines > 0)
+          .slice()
+          .sort((a, b) => b.changedLines - a.changedLines)
+          .map((c) => ({
+            username: c.username,
+            avatarUrl: c.avatarUrl,
+            additions: c.additions,
+            deletions: c.deletions,
+            changedLines: c.changedLines,
+            prsMerged: c.prsMerged,
+          }));
+
+        if (slices.length === 0) return null;
+
+        return (
+          <section className="glass-card p-5 mb-6">
+            <div className="flex items-center gap-2 mb-5">
+              <GitPullRequest className="w-4 h-4 text-cyan-300" />
+              <h2 className="text-base font-semibold text-white">Code Contribution</h2>
+              <span className="text-xs text-zinc-500 ml-1">
+                Share of all code changes (merged PRs)
+              </span>
+            </div>
+            <CodeContributionDonut slices={slices} />
+          </section>
+        );
+      })()}
+
+      {/* 5. Contributors × Areas matrix + Activity Feed */}
       <section className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-5 mb-6">
         <ContributorAreas contributors={areaContributors} />
         <div className="glass-card p-5">

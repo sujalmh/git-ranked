@@ -1,7 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Share2, Copy, Check, Loader2, Link2Off } from 'lucide-react';
+
+function toAbsoluteUrl(value: string | null, origin: string): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value, origin).toString();
+  } catch {
+    return value;
+  }
+}
 
 export function ShareButton({
   owner,
@@ -15,7 +24,15 @@ export function ShareButton({
   initialUrl: string | null;
 }) {
   const [enabled, setEnabled] = useState(initialEnabled);
+  const [origin, setOrigin] = useState<string | null>(null);
   const [url, setUrl] = useState<string | null>(initialUrl);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOrigin(window.location.origin);
+  }, []);
+
+  const displayUrl = toAbsoluteUrl(url, origin ?? 'http://localhost');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -53,9 +70,9 @@ export function ShareButton({
   }
 
   async function copyLink() {
-    if (!url) return;
+    if (!displayUrl) return;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(displayUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -78,13 +95,13 @@ export function ShareButton({
 
       {showMenu && (
         <div className="absolute right-0 top-12 z-40 w-80 glass-card p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
-          {enabled && url ? (
+          {enabled && displayUrl ? (
             <>
               <div className="text-xs uppercase tracking-wide text-zinc-500">Public read-only link</div>
               <div className="flex items-center gap-2">
                 <input
                   readOnly
-                  value={url}
+                  value={displayUrl}
                   className="flex-1 rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-xs text-zinc-200 truncate"
                   onFocus={(e) => e.target.select()}
                 />

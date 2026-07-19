@@ -20,6 +20,8 @@ export type ContributorInsight = {
   releases: number;
   fixes: number;
   changedLines: number;
+  additions: number;
+  deletions: number;
   lastActive: Date | null;
   role: string;
   summary: string[];
