@@ -1,66 +1,133 @@
 import { sql } from './db';
 
-export async function getRepoInsights(repoId: number) {
-  // 1. Basic Pulse (Last 30 days events)
-  const pulseEvents = await sql`
-    SELECT event_type, created_at
+export interface HealthMetrics {
+  delivery: number;
+  collaboration: number;
+  codeQuality: number;
+  reviewHealth: number;
+  knowledgeDistribution: number;
+  overallScore: number;
+}
+
+export async function generateRepoInsights(repoId: number) {
+  // Compute Health Metrics for the last 30 days
+  const events = await sql`
+    SELECT event_type, payload, contributor_id
     FROM github_events
     WHERE repo_id = ${repoId} AND created_at > NOW() - INTERVAL '30 days'
   `;
 
-  const eventCountsByDay: Record<string, number> = {};
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    eventCountsByDay[d.toISOString().split('T')[0]] = 0;
+  let prsMerged = 0;
+  let prsOpened = 0;
+  let reviews = 0;
+  let fixes = 0;
+  let discussions = 0;
+  
+  const contributorActivity: Record<number, number> = {};
+
+  for (const e of events) {
+    const type = e.event_type;
+    const payload = e.payload || {};
+    const cid = e.contributor_id;
+    
+    contributorActivity[cid] = (contributorActivity[cid] || 0) + 1;
+
+    if (type === 'pr_merged') prsMerged++;
+    if (type === 'pr_opened') prsOpened++;
+    if (type === 'review_submitted') reviews++;
+    if (type === 'issue_opened' || type === 'issue_closed') discussions++;
+    
+    // Check if it's a fix
+    const title = (
+      typeof payload.title === 'string' ? payload.title :
+      typeof payload.message === 'string' ? payload.message :
+      ''
+    ).toLowerCase();
+    
+    if (type === 'pr_merged' || type === 'push') {
+      if (['fix', 'bug', 'error', 'refactor'].some(w => title.includes(w))) {
+        fixes++;
+      }
+    }
   }
 
-  pulseEvents.forEach(e => {
-    const dateStr = e.created_at.toISOString().split('T')[0];
-    if (eventCountsByDay[dateStr] !== undefined) {
-      eventCountsByDay[dateStr]++;
-    }
-  });
+  // 1. Delivery (0-100)
+  const delivery = Math.min(100, (prsMerged * 10) + (prsOpened * 2));
+  
+  // 2. Collaboration (0-100)
+  const collaboration = Math.min(100, (discussions * 5) + (reviews * 2));
+  
+  // 3. Code Quality (0-100)
+  // Higher if we have a healthy balance of fixes to features. Let's say 20-40% fixes is ideal.
+  const totalShipped = prsMerged + (events.filter(e => e.event_type === 'push').length);
+  const fixRatio = totalShipped > 0 ? (fixes / totalShipped) : 0;
+  let codeQuality = 50;
+  if (totalShipped > 0) {
+    if (fixRatio > 0.1 && fixRatio < 0.5) codeQuality = 90;
+    else if (fixRatio <= 0.1) codeQuality = 70; // Maybe not enough fixing
+    else codeQuality = 60; // Too much fixing (buggy)
+  }
 
-  const pulseData = Object.keys(eventCountsByDay).map(date => ({
-    date,
-    events: eventCountsByDay[date]
-  }));
+  // 4. Review Health (0-100)
+  const reviewCoverage = prsMerged > 0 ? (reviews / prsMerged) : 0;
+  const reviewHealth = Math.min(100, reviewCoverage * 50); // 2 reviews per PR = 100
 
-  // 2. PR Health
-  const prEvents = await sql`
-    SELECT event_type, payload, created_at 
-    FROM github_events 
-    WHERE repo_id = ${repoId} AND event_type IN ('pr_opened', 'pr_merged', 'pr_closed')
-  `;
+  // 5. Knowledge Distribution (0-100)
+  const activeContributors = Object.keys(contributorActivity).length;
+  let knowledgeDistribution = 0;
+  if (activeContributors > 0) {
+    const totalActivity = Object.values(contributorActivity).reduce((a, b) => a + b, 0);
+    // Calculate Gini-like coefficient or just simple variance
+    const maxActivity = Math.max(...Object.values(contributorActivity));
+    const busFactor = totalActivity > 0 ? maxActivity / totalActivity : 1; 
+    // If busFactor is 1, one person did everything (score = 10). If busFactor is low, evenly distributed (score = 90)
+    knowledgeDistribution = Math.max(10, 100 - (busFactor * 100));
+  }
 
-  let totalOpened = 0;
-  let totalMerged = 0;
-  let totalClosed = 0;
+  const overallScore = Math.round(
+    (delivery * 0.3) + 
+    (collaboration * 0.2) + 
+    (codeQuality * 0.2) + 
+    (reviewHealth * 0.15) + 
+    (knowledgeDistribution * 0.15)
+  );
 
-  prEvents.forEach(e => {
-    if (e.event_type === 'pr_opened') totalOpened++;
-    else if (e.event_type === 'pr_merged') totalMerged++;
-    else if (e.event_type === 'pr_closed') totalClosed++;
-  });
-
-  const mergeRate = totalOpened > 0 ? (totalMerged / (totalMerged + totalClosed || 1)) * 100 : 0;
-
-  // 3. Active Contributors (Last 30 days)
-  const activeContributors = await sql`
-    SELECT COUNT(DISTINCT contributor_id) as count
-    FROM github_events
-    WHERE repo_id = ${repoId} AND created_at > NOW() - INTERVAL '30 days'
-  `;
-
-  return {
-    pulseData,
-    prHealth: {
-      opened: totalOpened,
-      merged: totalMerged,
-      closed: totalClosed,
-      mergeRate: Math.round(mergeRate)
-    },
-    activeContributors: parseInt(activeContributors[0].count) || 0,
+  const metrics: HealthMetrics = {
+    delivery: Math.round(delivery),
+    collaboration: Math.round(collaboration),
+    codeQuality: Math.round(codeQuality),
+    reviewHealth: Math.round(reviewHealth),
+    knowledgeDistribution: Math.round(knowledgeDistribution),
+    overallScore
   };
+
+  // Cache it
+  await sql`
+    INSERT INTO insight_caches (repo_id, insight_type, payload)
+    VALUES (${repoId}, 'health_metrics', ${JSON.stringify(metrics)})
+    ON CONFLICT (repo_id, insight_type) DO UPDATE
+    SET payload = ${JSON.stringify(metrics)}, generated_at = CURRENT_TIMESTAMP
+  `;
+
+  return metrics;
+}
+
+export async function getRepoInsights(repoId: number): Promise<HealthMetrics | null> {
+  const cache = await sql`
+    SELECT payload, generated_at
+    FROM insight_caches
+    WHERE repo_id = ${repoId} AND insight_type = 'health_metrics'
+  `;
+
+  if (cache.length > 0) {
+    const isStale = new Date(cache[0].generated_at).getTime() < Date.now() - 24 * 60 * 60 * 1000;
+    if (isStale) {
+      // Fire and forget background regeneration
+      generateRepoInsights(repoId).catch(console.error);
+    }
+    return cache[0].payload as HealthMetrics;
+  }
+
+  // Generate synchronously if not found
+  return await generateRepoInsights(repoId);
 }

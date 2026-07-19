@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { GitBranch, ArrowRight, LayoutDashboard, Settings } from 'lucide-react';
 import { redirect } from 'next/navigation';
 
+import { getRepoInsights, HealthMetrics } from '@/lib/insights';
+
 type DashboardRepo = {
   id: number;
   owner: string;
@@ -12,6 +14,7 @@ type DashboardRepo = {
   default_branch: string;
   added_at: string | Date;
   installation_status: string;
+  healthMetrics?: HealthMetrics | null;
 };
 
 export default async function Dashboard() {
@@ -29,6 +32,15 @@ export default async function Dashboard() {
       WHERE i.linked_user_id = ${session.user.id} AND r.is_active = true
       ORDER BY r.added_at DESC
     `) as DashboardRepo[];
+    
+    // Fetch insights in parallel for all repos
+    await Promise.all(repos.map(async (repo) => {
+      try {
+        repo.healthMetrics = await getRepoInsights(repo.id);
+      } catch (err) {
+        console.error(`Failed to fetch insights for repo ${repo.id}`, err);
+      }
+    }));
   } catch (error) {
     console.error('Failed to fetch repos:', error);
   }
@@ -86,6 +98,12 @@ export default async function Dashboard() {
                     <h3 className="text-lg font-bold truncate">{repo.owner} / {repo.name}</h3>
                     <p className="text-xs text-zinc-500 truncate">Default branch: {repo.default_branch}</p>
                   </div>
+                  {repo.healthMetrics && (
+                    <div className="text-right">
+                      <div className="text-xl font-black text-indigo-400">{repo.healthMetrics.overallScore}</div>
+                      <div className="text-[10px] uppercase text-zinc-500 tracking-wider">Health</div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
@@ -93,7 +111,7 @@ export default async function Dashboard() {
                     Added {new Date(repo.added_at).toLocaleDateString()}
                   </span>
                   <div className="flex items-center gap-1 text-indigo-400 text-sm font-medium group-hover:translate-x-1 transition-transform">
-                    Analyze <ArrowRight className="w-4 h-4" />
+                    View Insights <ArrowRight className="w-4 h-4" />
                   </div>
                 </div>
               </Link>

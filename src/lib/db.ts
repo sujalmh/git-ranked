@@ -96,11 +96,38 @@ export async function initSchema() {
         id SERIAL PRIMARY KEY,
         repo_id INTEGER REFERENCES repositories(id),
         contributor_id INTEGER REFERENCES github_contributors(id),
+        summary_type VARCHAR(50) DEFAULT 'weekly',
         date_from DATE NOT NULL,
         date_to DATE NOT NULL,
         summary_text TEXT NOT NULL,
         model_used VARCHAR(255),
         generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+
+  // Migrate existing ai_summaries table if it has old columns
+  await sql`
+    ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS summary_type VARCHAR(50) DEFAULT 'weekly';
+  `.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS insight_caches (
+        id SERIAL PRIMARY KEY,
+        repo_id INTEGER REFERENCES repositories(id),
+        insight_type VARCHAR(50) NOT NULL,
+        payload JSONB NOT NULL,
+        generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (repo_id, insight_type)
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS daily_aggregates (
+        id SERIAL PRIMARY KEY,
+        repo_id INTEGER REFERENCES repositories(id),
+        date DATE NOT NULL,
+        metrics JSONB NOT NULL,
+        UNIQUE (repo_id, date)
     );
   `;
 

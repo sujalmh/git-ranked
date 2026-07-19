@@ -61,7 +61,8 @@ export async function POST(req: Request) {
       }
     }
 
-    const summary = await generateSummary(parsedRepoId, dateFrom, dateTo, parsedContributorId);
+    const summaryType = body.summaryType || 'weekly';
+    const summary = await generateSummary(parsedRepoId, summaryType, dateFrom, dateTo, parsedContributorId);
     
     return NextResponse.json({ summary });
   } catch (error) {

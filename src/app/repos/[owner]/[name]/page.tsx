@@ -6,17 +6,23 @@ import Image from 'next/image';
 import {
   ArrowRight,
   Brain,
-  CalendarDays,
   GitBranch,
   Layers3,
   Sparkles,
   Trophy,
-  WandSparkles,
   Zap,
+  Activity,
+  BarChart,
+  Users
 } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { computeContributionScore, RawEvent } from '@/lib/scoring';
 import { backfillRepoActivity } from '@/lib/github-backfill';
+import { ExplainableScore } from '@/components/ExplainableScore';
+import { ActivityFeed, ActivityItem } from '@/components/ActivityFeed';
+import { HealthRadar } from '@/components/HealthRadar';
+import { getRepoInsights } from '@/lib/insights';
+import { generateSummary } from '@/lib/ai';
 
 type RepoEventRow = {
   type: string;
@@ -37,7 +43,7 @@ type ContributorInsight = {
   id: number;
   username: string;
   avatarUrl: string | null;
-  score: number;
+  score: ReturnType<typeof computeContributionScore>;
   impactScore: number;
   commits: number;
   prsOpened: number;
@@ -59,13 +65,6 @@ type Highlight = {
   date: Date;
   username: string;
   text: string;
-};
-
-type TimelineDay = {
-  key: string;
-  label: string;
-  date: Date;
-  items: string[];
 };
 
 const FEATURE_WORDS = ['add', 'added', 'build', 'built', 'implement', 'implemented', 'create', 'created', 'feature', 'dashboard', 'page', 'ui', 'api'];
@@ -100,20 +99,12 @@ function eventDate(value: Date | string) {
   return value instanceof Date ? value : new Date(value);
 }
 
-function dayKey(date: Date) {
-  return date.toISOString().split('T')[0];
-}
-
 function formatRelativeDate(date: Date | null) {
   if (!date) return 'No activity yet';
   const days = Math.max(0, Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24)));
   if (days === 0) return 'Today';
   if (days === 1) return 'Yesterday';
   return `${days} days ago`;
-}
-
-function formatTimelineLabel(date: Date) {
-  return new Intl.DateTimeFormat('en', { weekday: 'long', month: 'short', day: 'numeric' }).format(date);
 }
 
 function cleanTopic(text: string) {
@@ -232,45 +223,11 @@ function contributorSummary(contributor: ContributorInsight) {
   return bullets.slice(0, 5);
 }
 
-function buildTimeline(rows: RepoEventRow[]): TimelineDay[] {
-  const days = new Map<string, { date: Date; items: string[]; merged: number; reviews: number; fixes: number }>();
-
-  for (const row of rows) {
-    const date = eventDate(row.created_at);
-    const key = dayKey(date);
-    const payload = asPayload(row.payload);
-    const day = days.get(key) ?? { date, items: [], merged: 0, reviews: 0, fixes: 0 };
-
-    if (row.type === 'pr_merged') day.merged += 1;
-    if (row.type === 'review_submitted') day.reviews += 1;
-    if (isFix(row.type, payload)) day.fixes += 1;
-
-    const item = describeEvent(row.type, payload);
-    if (!day.items.includes(item) && day.items.length < 4) day.items.push(item);
-    days.set(key, day);
-  }
-
-  return Array.from(days.entries())
-    .map(([key, day]) => {
-      const rollups = [];
-      if (day.merged > 1) rollups.push(`${day.merged} PRs merged`);
-      if (day.reviews > 1) rollups.push(`${day.reviews} reviews`);
-      if (day.fixes > 1) rollups.push(`${day.fixes} fixes landed`);
-      return {
-        key,
-        date: day.date,
-        label: formatTimelineLabel(day.date),
-        items: [...day.items, ...rollups].slice(0, 6),
-      };
-    })
-    .sort((a, b) => b.date.getTime() - a.date.getTime())
-    .slice(0, 7);
-}
-
 function buildContributorInsights(rows: RepoEventRow[]) {
   const contributors = new Map<number, ContributorInsight>();
   const categoryCountsByContributor = new Map<number, Map<string, number>>();
   const highlights: Highlight[] = [];
+  const activityItems: ActivityItem[] = [];
 
   for (const row of rows) {
     const payload = asPayload(row.payload);
@@ -280,7 +237,7 @@ function buildContributorInsights(rows: RepoEventRow[]) {
       id: row.contributor_id,
       username: row.username,
       avatarUrl: row.avatar_url,
-      score: 0,
+      score: { total: 0, breakdown: { featureDelivery: 0, codeQuality: 0, reviews: 0, collaboration: 0, consistency: 0 } },
       impactScore: 0,
       commits: 0,
       prsOpened: 0,
@@ -317,23 +274,35 @@ function buildContributorInsights(rows: RepoEventRow[]) {
     if (!contributor.lastActive || createdAt > contributor.lastActive) contributor.lastActive = createdAt;
     contributor.events.push({ type: row.type, payload, created_at: createdAt.toISOString() });
 
-    const highlight = describeEvent(row.type, payload);
-    contributor.highlights.push(highlight);
-    highlights.push({ date: createdAt, username: row.username, text: highlight });
+    const highlightText = describeEvent(row.type, payload);
+    contributor.highlights.push(highlightText);
+    highlights.push({ date: createdAt, username: row.username, text: highlightText });
+    
+    // Only add meaningful events to activity feed
+    if (row.type !== 'push') {
+      activityItems.push({
+        id: `${row.type}-${createdAt.getTime()}-${row.username}`,
+        type: row.type,
+        actor: row.username,
+        avatarUrl: row.avatar_url,
+        message: highlightText,
+        date: createdAt
+      });
+    }
 
     contributors.set(row.contributor_id, contributor);
   }
 
   const scored = Array.from(contributors.values()).map(contributor => ({
     ...contributor,
-    score: computeContributionScore(contributor.events).total,
+    score: computeContributionScore(contributor.events),
   }));
-  const topScore = Math.max(...scored.map(contributor => contributor.score), 1);
+  const topScore = Math.max(...scored.map(contributor => contributor.score.total), 1);
 
   const ranked = scored.map(contributor => {
     const nextContributor = {
       ...contributor,
-      impactScore: Math.max(1, Math.round((contributor.score / topScore) * 100)),
+      impactScore: Math.max(1, Math.round((contributor.score.total / topScore) * 100)),
     };
     return {
       ...nextContributor,
@@ -347,7 +316,7 @@ function buildContributorInsights(rows: RepoEventRow[]) {
   return {
     contributors: ranked,
     highlights: highlights.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 8),
-    timeline: buildTimeline(rows),
+    activityFeed: activityItems.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 20),
   };
 }
 
@@ -358,20 +327,6 @@ function topBy(contributors: ContributorInsight[], getValue: (contributor: Contr
 function ContributorAvatar({ src, username, size = 40 }: { src: string | null; username: string; size?: number }) {
   if (!src) return <div className="rounded-full bg-white/10 border border-white/10" style={{ width: size, height: size }} />;
   return <Image src={src} alt={`${username} avatar`} className="rounded-full border border-white/10" width={size} height={size} />;
-}
-
-function ImpactScore({ score }: { score: number }) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="relative h-16 w-16 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-[2px]">
-        <div className="h-full w-full rounded-full bg-zinc-950 flex items-center justify-center font-black text-xl">{score}</div>
-      </div>
-      <div>
-        <div className="text-sm font-semibold text-white">AI Impact Score</div>
-        <div className="text-xs text-zinc-500">Weighted by shipping, review, fixes, and collaboration</div>
-      </div>
-    </div>
-  );
 }
 
 export default async function RepoAnalysisBoard(
@@ -418,10 +373,26 @@ export default async function RepoAnalysisBoard(
     `) as RepoEventRow[];
   }
 
-  const { contributors, highlights, timeline } = buildContributorInsights(eventsQuery);
+  const { contributors, highlights, activityFeed } = buildContributorInsights(eventsQuery);
   const topContributor = contributors[0];
   const topReviewer = topBy(contributors, contributor => contributor.reviews);
   const topFixer = topBy(contributors, contributor => contributor.fixes);
+  
+  // Fetch AI Summaries and Health Metrics
+  const dateTo = new Date().toISOString().split('T')[0];
+  // eslint-disable-next-line react-hooks/purity
+  const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  
+  let aiSummary = "AI Summary not generated yet.";
+  let teamInsights = "Team Insights not generated yet.";
+  try {
+    aiSummary = await generateSummary(repoId, 'weekly', dateFrom, dateTo);
+    teamInsights = await generateSummary(repoId, 'team_insights', dateFrom, dateTo);
+  } catch (err) {
+    console.error("AI Generation failed", err);
+  }
+
+  const healthMetrics = await getRepoInsights(repoId);
 
   return (
     <div className="flex flex-col min-h-screen relative">
@@ -439,11 +410,16 @@ export default async function RepoAnalysisBoard(
               {owner} / {name}
             </h1>
             <p className="text-zinc-400 max-w-2xl">
-              Spotify Wrapped meets Strava for engineering teams: who contributed what, where they helped, and what actually moved.
+              AI Engineering Intelligence: Understand what shipped, where bottlenecks are, and how your team collaborates.
             </p>
           </div>
-          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300 w-fit">
-            Default branch: <span className="font-semibold text-white">{repoQuery[0].default_branch ?? 'main'}</span>
+          <div className="flex items-center gap-3">
+            <Link href={`/repos/${owner}/${name}/releases`} className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-4 py-2 text-sm text-white font-medium">
+              Release Notes
+            </Link>
+            <Link href={`/repos/${owner}/${name}/compare`} className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-4 py-2 text-sm text-white font-medium">
+              Compare Team
+            </Link>
           </div>
         </div>
 
@@ -460,102 +436,41 @@ export default async function RepoAnalysisBoard(
           </div>
         ) : (
           <>
+            {/* 1 & 2. AI Summary and Repo Health */}
             <section className="grid grid-cols-1 lg:grid-cols-[1.35fr_0.65fr] gap-6 mb-10">
               <div className="glass-card p-8 overflow-hidden relative">
                 <div className="absolute right-0 top-0 h-48 w-48 bg-indigo-500/20 blur-3xl" />
                 <div className="relative">
                   <div className="flex items-center gap-2 text-purple-300 mb-4">
                     <Brain className="w-5 h-5" />
-                    <span className="text-sm font-semibold uppercase tracking-wide">AI Contribution Summary</span>
+                    <span className="text-sm font-semibold uppercase tracking-wide">AI Repository Summary</span>
                   </div>
-                  <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-                    <div className="flex items-start gap-4">
-                      <ContributorAvatar src={topContributor.avatarUrl} username={topContributor.username} size={64} />
-                      <div>
-                        <h2 className="text-3xl font-black mb-1">{topContributor.username}</h2>
-                        <p className="text-zinc-400 mb-4">{topContributor.role} · most visible impact in this repo window</p>
-                        <ul className="space-y-2 text-zinc-200">
-                          {topContributor.summary.map(item => (
-                            <li key={item} className="flex gap-2">
-                              <WandSparkles className="w-4 h-4 text-indigo-300 mt-1 shrink-0" />
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                    <ImpactScore score={topContributor.impactScore} />
+                  <div className="prose prose-invert prose-indigo">
+                    <div dangerouslySetInnerHTML={{ __html: aiSummary.replace(/\n/g, '<br/>') }} />
                   </div>
                 </div>
               </div>
 
               <div className="glass-card p-6">
-                <div className="flex items-center gap-2 text-pink-300 mb-5">
-                  <Trophy className="w-5 h-5" />
-                  <h2 className="text-xl font-bold text-white">Team standouts</h2>
+                <div className="flex items-center gap-2 text-green-300 mb-5">
+                  <Activity className="w-5 h-5" />
+                  <h2 className="text-xl font-bold text-white">Repository Health</h2>
                 </div>
-                <div className="space-y-4">
-                  <Standout label="Highest impact" contributor={topContributor} detail={topContributor.role} />
-                  {topReviewer && <Standout label="Review anchor" contributor={topReviewer} detail="Helped unblock teammates" />}
-                  {topFixer && <Standout label="Stability work" contributor={topFixer} detail="Most fixes / hardening signals" />}
-                </div>
+                {healthMetrics ? (
+                  <HealthRadar metrics={healthMetrics} />
+                ) : (
+                  <div className="text-zinc-500">Generating health metrics...</div>
+                )}
               </div>
             </section>
 
-            <section className="grid grid-cols-1 xl:grid-cols-[1.4fr_0.6fr] gap-6 mb-10">
-              <div className="glass-card p-6">
-                <div className="flex items-center gap-2 mb-6">
-                  <Layers3 className="w-5 h-5 text-indigo-300" />
-                  <div>
-                    <h2 className="text-xl font-bold">Contribution categories</h2>
-                    <p className="text-sm text-zinc-400">Not just volume — each teammate&apos;s contribution lane.</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {contributors.map(contributor => (
-                    <Link href={`/repos/${owner}/${name}/${contributor.username}`} key={contributor.id} className="rounded-2xl border border-white/5 bg-white/5 hover:bg-white/10 transition-colors p-5">
-                      <div className="flex items-start justify-between gap-4 mb-4">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <ContributorAvatar src={contributor.avatarUrl} username={contributor.username} size={44} />
-                          <div className="min-w-0">
-                            <h3 className="font-bold truncate">{contributor.username}</h3>
-                            <p className="text-xs text-zinc-500">{contributor.role} · {formatRelativeDate(contributor.lastActive)}</p>
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="text-2xl font-black text-white">{contributor.impactScore}</div>
-                          <div className="text-[10px] uppercase tracking-wide text-zinc-500">Impact</div>
-                        </div>
-                      </div>
-
-                      <ul className="space-y-2 mb-4">
-                        {contributor.summary.slice(0, 3).map(item => (
-                          <li key={item} className="text-sm text-zinc-300 flex gap-2">
-                            <Sparkles className="w-3.5 h-3.5 text-purple-300 mt-1 shrink-0" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-
-                      <div className="flex flex-wrap gap-2">
-                        {contributor.categories.map(category => (
-                          <span key={category.label} className="rounded-full bg-black/25 border border-white/10 px-3 py-1 text-xs text-zinc-300" title={category.detail}>
-                            {category.label}
-                          </span>
-                        ))}
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-
+            {/* 3 & 4. Highlights and Spotlights */}
+            <section className="grid grid-cols-1 xl:grid-cols-[0.6fr_1.4fr] gap-6 mb-10">
               <div className="glass-card p-6">
                 <div className="flex items-center gap-2 mb-6">
                   <Zap className="w-5 h-5 text-yellow-300" />
                   <div>
-                    <h2 className="text-xl font-bold">Highlights</h2>
-                    <p className="text-sm text-zinc-400">Specific work worth mentioning.</p>
+                    <h2 className="text-xl font-bold">Weekly Highlights</h2>
                   </div>
                 </div>
                 <div className="flex flex-col gap-4">
@@ -568,29 +483,82 @@ export default async function RepoAnalysisBoard(
                   ))}
                 </div>
               </div>
+
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-2 text-pink-300 mb-5">
+                  <Trophy className="w-5 h-5" />
+                  <h2 className="text-xl font-bold text-white">Contributor Spotlight</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Standout label="Highest impact" contributor={topContributor} detail={topContributor.role} />
+                  {topReviewer && <Standout label="Review anchor" contributor={topReviewer} detail="Helped unblock teammates" />}
+                  {topFixer && <Standout label="Stability work" contributor={topFixer} detail="Most fixes / hardening signals" />}
+                </div>
+              </div>
             </section>
 
+            {/* 5 & 6. Activity Feed and Team Insights */}
+            <section className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-6 mb-10">
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-2 mb-6">
+                  <Layers3 className="w-5 h-5 text-indigo-300" />
+                  <div>
+                    <h2 className="text-xl font-bold">Activity Feed</h2>
+                    <p className="text-sm text-zinc-400">Meaningful events, filtered for noise.</p>
+                  </div>
+                </div>
+                <ActivityFeed items={activityFeed} />
+              </div>
+
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-2 text-orange-300 mb-5">
+                  <Users className="w-5 h-5" />
+                  <h2 className="text-xl font-bold text-white">Team Insights</h2>
+                </div>
+                <div className="prose prose-invert prose-orange text-sm">
+                  <div dangerouslySetInnerHTML={{ __html: teamInsights.replace(/\n/g, '<br/>') }} />
+                </div>
+              </div>
+            </section>
+
+            {/* 7. Contributors */}
             <section className="glass-card p-6 mb-10">
-              <div className="flex items-center gap-2 mb-8">
-                <CalendarDays className="w-5 h-5 text-pink-300" />
+              <div className="flex items-center gap-2 mb-6">
+                <BarChart className="w-5 h-5 text-indigo-300" />
                 <div>
-                  <h2 className="text-xl font-bold">Repository activity timeline</h2>
-                  <p className="text-sm text-zinc-400">Grouped as actual work moments, not commit spam.</p>
+                  <h2 className="text-xl font-bold">Contributors</h2>
+                  <p className="text-sm text-zinc-400">Ranked by AI Impact Score.</p>
                 </div>
               </div>
 
-              <div className="space-y-7">
-                {timeline.map(day => (
-                  <div key={day.key} className="grid grid-cols-1 md:grid-cols-[160px_1fr] gap-4">
-                    <div>
-                      <div className="font-bold text-white">{day.label}</div>
-                      <div className="text-xs text-zinc-500">──────</div>
-                    </div>
-                    <div className="space-y-2">
-                      {day.items.map(item => (
-                        <div key={item} className="rounded-xl bg-white/5 border border-white/5 px-4 py-3 text-sm text-zinc-200">
-                          {item}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {contributors.map(contributor => (
+                  <div key={contributor.id} className="rounded-2xl border border-white/5 bg-white/5 p-5">
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <ContributorAvatar src={contributor.avatarUrl} username={contributor.username} size={44} />
+                        <div className="min-w-0">
+                          <h3 className="font-bold truncate">{contributor.username}</h3>
+                          <p className="text-xs text-zinc-500">{contributor.role} · {formatRelativeDate(contributor.lastActive)}</p>
                         </div>
+                      </div>
+                      <ExplainableScore total={contributor.impactScore} breakdown={contributor.score.breakdown} />
+                    </div>
+
+                    <ul className="space-y-2 mb-4">
+                      {contributor.summary.slice(0, 3).map(item => (
+                        <li key={item} className="text-sm text-zinc-300 flex gap-2">
+                          <Sparkles className="w-3.5 h-3.5 text-purple-300 mt-1 shrink-0" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <div className="flex flex-wrap gap-2">
+                      {contributor.categories.map(category => (
+                        <span key={category.label} className="rounded-full bg-black/25 border border-white/10 px-3 py-1 text-xs text-zinc-300" title={category.detail}>
+                          {category.label}
+                        </span>
                       ))}
                     </div>
                   </div>
@@ -606,17 +574,19 @@ export default async function RepoAnalysisBoard(
 
 function Standout({ label, contributor, detail }: { label: string; contributor: ContributorInsight; detail: string }) {
   return (
-    <div className="rounded-2xl bg-white/5 border border-white/5 p-4">
-      <div className="text-xs uppercase tracking-wide text-zinc-500 mb-2">{label}</div>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className="rounded-2xl bg-white/5 border border-white/5 p-4 flex flex-col justify-between h-full">
+      <div>
+        <div className="text-xs uppercase tracking-wide text-zinc-500 mb-4">{label}</div>
+        <div className="flex items-center gap-3 mb-2">
           <ContributorAvatar src={contributor.avatarUrl} username={contributor.username} size={36} />
           <div className="min-w-0">
             <div className="font-bold truncate">{contributor.username}</div>
-            <div className="text-xs text-zinc-500 truncate">{detail}</div>
+            <div className="text-xs text-zinc-400 truncate">{detail}</div>
           </div>
         </div>
-        <div className="text-lg font-black">{contributor.impactScore}</div>
+      </div>
+      <div className="mt-4 flex justify-end">
+        <div className="text-2xl font-black text-indigo-400">{contributor.impactScore} <span className="text-xs font-normal text-zinc-500 uppercase">Impact</span></div>
       </div>
     </div>
   );
