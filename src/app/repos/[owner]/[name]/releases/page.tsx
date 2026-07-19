@@ -57,7 +57,7 @@ export default async function ReleasesPage(
           </p>
         </div>
 
-        <div className="glass-card p-6">
+        <div className="stark-panel p-6">
           {releaseNotesResult ? (
             <ReleaseNotesCard result={releaseNotesResult} />
           ) : (

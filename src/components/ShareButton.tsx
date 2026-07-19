@@ -94,7 +94,7 @@ export function ShareButton({
       </button>
 
       {showMenu && (
-        <div className="absolute right-0 top-12 z-40 w-80 glass-card p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div className="absolute right-0 top-12 z-40 w-80 stark-panel p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
           {enabled && displayUrl ? (
             <>
               <div className="text-xs uppercase tracking-wide text-zinc-500">Public read-only link</div>

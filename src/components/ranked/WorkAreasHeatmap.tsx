@@ -13,12 +13,12 @@ export type HeatmapContributor = {
 const MAX_AREAS_LARGE = 5;
 const MAX_CONTRIBUTORS_LARGE = 6;
 
-function intensityClass(intensity: number): string {
-  if (intensity <= 0) return 'bg-white/[0.04]';
-  if (intensity < 0.25) return 'bg-indigo-500/20';
-  if (intensity < 0.5) return 'bg-indigo-500/40';
-  if (intensity < 0.75) return 'bg-indigo-500/65';
-  return 'bg-indigo-500/90';
+function intensityClass(intensity: number): { bg: string, text: string } {
+  if (intensity <= 0) return { bg: 'bg-white/[0.04]', text: 'text-zinc-600' };
+  if (intensity < 0.25) return { bg: 'bg-[#ccff00]/20', text: 'text-white' };
+  if (intensity < 0.5) return { bg: 'bg-[#ccff00]/40', text: 'text-white' };
+  if (intensity < 0.75) return { bg: 'bg-[#ccff00]/70', text: 'text-black' };
+  return { bg: 'bg-[#ccff00]', text: 'text-black font-bold' };
 }
 
 function Avatar({ src, name, size = 22 }: { src: string | null; name: string; size?: number }) {
@@ -49,7 +49,7 @@ export function WorkAreasHeatmap({
 
   if (contributors.length === 0 || areaLabels.length === 0) {
     return (
-      <div className="glass-card p-5 text-sm text-zinc-500">No work-area data yet.</div>
+      <div className="stark-panel p-5 text-sm text-zinc-500">No work-area data yet.</div>
     );
   }
 
@@ -72,7 +72,7 @@ export function WorkAreasHeatmap({
   };
 
   return (
-    <div className="glass-card p-5">
+    <div className="stark-panel p-5">
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-base font-semibold">Work Areas Heatmap</h2>
         {hiddenAreas > 0 && (
@@ -103,13 +103,14 @@ export function WorkAreasHeatmap({
                 {visibleAreas.map((label) => {
                   const intensity = intensityFor(c.id, label);
                   const value = valueFor(c.id, label);
+                  const style = intensityClass(intensity);
                   return (
                     <div
                       key={label}
-                      className={`flex items-center justify-center py-1 rounded ${intensityClass(intensity)}`}
+                      className={`flex items-center justify-center py-1 rounded ${style.bg}`}
                       title={value > 0 ? `${c.username} · ${label}: ${value}` : `${c.username} · ${label}: none`}
                     >
-                      <span className={`text-[10px] font-medium ${intensity > 0.4 ? 'text-white' : 'text-zinc-600'}`}>
+                      <span className={`text-[10px] ${style.text}`}>
                         {value > 0 ? value : ''}
                       </span>
                     </div>

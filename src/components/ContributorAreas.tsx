@@ -52,7 +52,7 @@ export function ContributorAreas({ contributors }: { contributors: AreaContribut
   };
 
   return (
-    <div className="glass-card p-5">
+    <div className="stark-panel p-5">
       <div className="flex items-center gap-2 mb-1">
         <h2 className="text-base font-semibold">Contributors × Areas</h2>
       </div>

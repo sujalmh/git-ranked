@@ -124,7 +124,7 @@ export default async function ContributorDetail(
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
           {/* AI Contributor Profile */}
-          <div className="glass-card p-5">
+          <div className="stark-panel p-5">
             <h2 className="text-base font-semibold mb-3">AI Contributor Profile</h2>
             {profileResult ? (
               <ContributorProfileCard result={profileResult} />
@@ -142,7 +142,7 @@ export default async function ContributorDetail(
           </div>
 
           {/* AI Impact Analysis */}
-          <div className="glass-card p-5">
+          <div className="stark-panel p-5">
             <h2 className="text-base font-semibold mb-3">Impact Analysis</h2>
             <ImpactExplanation
               result={impactResult}
@@ -153,7 +153,7 @@ export default async function ContributorDetail(
         </div>
 
         {/* Recent Events */}
-        <div className="glass-card p-5">
+        <div className="stark-panel p-5">
           <h2 className="text-base font-semibold mb-3">Recent Events</h2>
           {eventRows.length === 0 ? (
             <p className="text-sm text-zinc-400">No recent activity found.</p>

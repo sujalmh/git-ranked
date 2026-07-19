@@ -34,7 +34,7 @@ export default async function RepoAnalysisBoard(
       <div className="flex flex-col min-h-screen relative">
         <Navbar />
         <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
-          <div className="glass-card p-8 text-center max-w-2xl mx-auto mt-12">
+          <div className="stark-panel p-8 text-center max-w-2xl mx-auto mt-12">
             <h2 className="text-xl font-bold mb-2">Installation Removed</h2>
             <p className="text-sm text-zinc-400 mb-5">
               The GitHub App was uninstalled from this account. Reinstall it to track activity.
@@ -120,7 +120,7 @@ export default async function RepoAnalysisBoard(
         </div>
 
         {!data.isAnalysed && data.contributors.length > 0 ? (
-          <div className="glass-card p-8 text-center max-w-2xl mx-auto mt-12 flex flex-col items-center">
+          <div className="stark-panel p-8 text-center max-w-2xl mx-auto mt-12 flex flex-col items-center">
             <Brain className="w-10 h-10 text-indigo-400 mb-3" />
             <h2 className="text-xl font-bold mb-2">Repository Insights Not Generated</h2>
             <p className="text-sm text-zinc-400 leading-relaxed mb-5 max-w-lg">

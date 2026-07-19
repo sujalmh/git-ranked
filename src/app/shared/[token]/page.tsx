@@ -16,7 +16,7 @@ export default async function SharedRepoAnalysis(
       <div className="flex flex-col min-h-screen">
         <Navbar />
         <main className="flex-1 max-w-3xl mx-auto w-full px-6 mt-12 text-center">
-          <div className="glass-card p-8">
+          <div className="stark-panel p-8">
             <h1 className="text-xl font-bold mb-2">Link invalid or sharing disabled</h1>
             <p className="text-sm text-zinc-400 mb-5 max-w-md mx-auto">
               This share link is no longer valid. The repository owner may have revoked it.

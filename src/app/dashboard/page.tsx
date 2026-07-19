@@ -73,7 +73,7 @@ export default async function Dashboard() {
         </div>
 
         {repos.length === 0 ? (
-          <div className="glass-card p-8 text-center flex flex-col items-center max-w-xl mx-auto mt-12">
+          <div className="stark-panel p-8 text-center flex flex-col items-center max-w-xl mx-auto mt-12">
             <div className="w-14 h-14 rounded-full bg-indigo-500/10 flex items-center justify-center mb-4 border border-indigo-500/20">
               <GitBranch className="w-7 h-7 text-indigo-400" />
             </div>
@@ -94,7 +94,7 @@ export default async function Dashboard() {
               <Link 
                 href={`/repos/${repo.owner}/${repo.name}`} 
                 key={repo.id}
-                className="glass-card p-5 flex flex-col gap-3 group cursor-pointer"
+                className="stark-panel p-5 flex flex-col gap-3 group cursor-pointer"
               >
                 <div className="flex items-center gap-3">
                   <div className="p-1.5 rounded-lg bg-zinc-800/50 border border-white/5">

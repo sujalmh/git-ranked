@@ -59,7 +59,7 @@ export function RepoAnalysisView({
 
   if (contributors.length === 0) {
     return (
-      <div className="glass-card p-8 text-center max-w-2xl mx-auto mt-12">
+      <div className="stark-panel p-8 text-center max-w-2xl mx-auto mt-12">
         <Sparkles className="w-9 h-9 text-indigo-300 mx-auto mb-3" />
         <h2 className="text-xl font-bold mb-2">No contribution story yet</h2>
         <p className="text-sm text-zinc-400 leading-relaxed mb-5 max-w-lg mx-auto">
@@ -77,7 +77,7 @@ export function RepoAnalysisView({
   if (!isAnalysed) {
     if (readOnly) {
       return (
-        <div className="glass-card p-8 text-center max-w-2xl mx-auto mt-12 flex flex-col items-center">
+        <div className="stark-panel p-8 text-center max-w-2xl mx-auto mt-12 flex flex-col items-center">
           <Brain className="w-10 h-10 text-indigo-400 mb-3" />
           <h2 className="text-xl font-bold mb-2">Collaborator Insights Not Generated</h2>
           <p className="text-sm text-zinc-400 leading-relaxed mb-5 max-w-lg">
@@ -125,7 +125,7 @@ export function RepoAnalysisView({
 
       {/* 2. Hero row: Leaderboard (60) + Health (40) */}
       <section className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5 mb-6">
-        <div className="glass-card p-5">
+        <div className="stark-panel p-5">
           <div className="flex items-center gap-2 mb-1">
             <Crown className="w-5 h-5 text-amber-400" />
             <h2 className="text-lg font-bold text-white">Leaderboard</h2>
@@ -149,7 +149,7 @@ export function RepoAnalysisView({
           />
         </div>
 
-        <div className="glass-card p-5">
+        <div className="stark-panel p-5">
           <div className="flex items-center gap-2 mb-4">
             <Activity className="w-4 h-4 text-emerald-300" />
             <h2 className="text-base font-semibold text-white">Team Health</h2>
@@ -189,7 +189,7 @@ export function RepoAnalysisView({
       </section>
 
       {/* 5. Activity feed */}
-      <section className="glass-card p-5 mb-6">
+      <section className="stark-panel p-5 mb-6">
         <div className="flex items-center gap-2 mb-4">
           <Layers3 className="w-4 h-4 text-indigo-300" />
           <h2 className="text-base font-semibold text-white">Activity Feed</h2>

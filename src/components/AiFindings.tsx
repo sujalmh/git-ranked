@@ -84,7 +84,7 @@ export function AiFindings({
 
   if (findings.length === 0) {
     return (
-      <div className="glass-card p-5">
+      <div className="stark-panel p-5">
         <div className="flex items-center gap-2 mb-3">
           <Sparkles className="w-4 h-4 text-indigo-300" />
           <h2 className="text-base font-semibold">AI Findings</h2>
@@ -95,7 +95,7 @@ export function AiFindings({
   }
 
   return (
-    <div className="glass-card p-5">
+    <div className="stark-panel p-5">
       <div className="flex items-center gap-2 mb-4">
         <Sparkles className="w-4 h-4 text-indigo-300" />
         <h2 className="text-base font-semibold">AI Findings</h2>

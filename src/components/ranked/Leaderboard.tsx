@@ -150,15 +150,15 @@ function SmallTeamRow({
   return (
     <Link
       href={`/repos/${repoOwner}/${repoName}/${contributor.username}`}
-      className="block rounded-xl border border-white/5 bg-white/[0.03] hover:bg-white/[0.06] px-3 py-2.5 transition-all duration-500 ease-out"
+      className="block border-2 border-white/20 hover:border-white bg-black hover:bg-white/5 hover:-translate-y-1 hover:shadow-[4px_4px_0_0_#ccff00] px-4 py-3 transition-all duration-200 ease-out"
       style={{
         opacity: animate ? 1 : 0,
         transform: animate ? 'translateY(0)' : 'translateY(6px)',
         transitionDelay: `${Math.min(rank, 6) * 40}ms`,
       }}
     >
-      <div className="flex items-center gap-3">
-        <span className="w-6 text-center text-sm font-black text-zinc-500 shrink-0">{rank}</span>
+      <div className="flex items-center gap-4">
+        <span className="w-8 text-center text-2xl font-black text-zinc-600 shrink-0">{rank}</span>
         <Avatar src={contributor.avatarUrl} name={contributor.username} size={36} ring={identity.ring} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -200,13 +200,12 @@ function PodiumCard({
   return (
     <Link
       href={`/repos/${repoOwner}/${repoName}/${contributor.username}`}
-      className={`relative rounded-2xl border ${style?.border ?? 'border-white/5'} bg-white/[0.04] p-4 flex flex-col items-center text-center hover:bg-white/[0.08] transition-colors ${isGold ? 'order-first' : ''}`}
+      className={`relative border-2 ${style?.border ?? 'border-white/20'} bg-black p-4 flex flex-col items-center text-center hover:bg-white/5 hover:-translate-y-1 transition-all duration-200 ${isGold ? 'order-first' : ''} ${style ? style.glow : ''}`}
     >
-      {style && <div className={`absolute inset-0 rounded-2xl ${style.glow} pointer-events-none`} />}
-      <div className="relative flex flex-col items-center gap-2">
+      <div className="relative flex flex-col items-center gap-3">
         <div className="flex items-center gap-1">
-          {isGold && <Crown className="w-4 h-4 text-amber-300" />}
-          <span className={`text-xs font-black uppercase tracking-wide ${style?.text ?? 'text-zinc-400'}`}>
+          {isGold && <Crown className="w-5 h-5 text-[#ccff00]" />}
+          <span className={`text-sm font-black uppercase tracking-wide ${style?.text ?? 'text-zinc-400'}`}>
             #{rank} {style ? style.tier : ''}
           </span>
         </div>
@@ -249,9 +248,9 @@ function CompactRow({
   return (
     <Link
       href={`/repos/${repoOwner}/${repoName}/${contributor.username}`}
-      className="flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.06] px-3 py-2 transition-colors"
+      className="flex items-center gap-3 border-2 border-white/10 hover:border-white bg-black hover:bg-white/5 hover:-translate-y-0.5 hover:shadow-[2px_2px_0_0_#ccff00] px-3 py-2 transition-all duration-200"
     >
-      <span className="w-6 text-center text-xs font-bold text-zinc-500 shrink-0">{rank}</span>
+      <span className="w-8 text-center text-lg font-black text-zinc-500 shrink-0">{rank}</span>
       <Avatar src={contributor.avatarUrl} name={contributor.username} size={28} />
       <div className="min-w-0 flex-1">
         <span className="text-sm font-medium text-white truncate">{contributor.username}</span>

@@ -62,15 +62,15 @@ function StatTile({
   if (tile.value === 0 && !highlight) return null;
   return (
     <div
-      className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 ${
+      className={`flex items-center gap-1.5 border-2 px-2 py-1 ${
         highlight
-          ? 'border-red-500/50 bg-red-500/10'
-          : 'border-white/5 bg-white/5'
+          ? 'border-[#ff00ff] bg-[#ff00ff] text-black'
+          : 'border-white/20 bg-black text-white'
       }`}
       title={`${tile.value} ${tile.label}`}
     >
-      <span className={highlight ? 'text-red-300' : ''}>{tile.icon}</span>
-      <span className={`text-xs font-semibold ${highlight ? 'text-red-200' : 'text-zinc-200'}`}>{tile.value}</span>
+      <span className={highlight ? 'text-black' : ''}>{tile.icon}</span>
+      <span className={`text-xs font-black ${highlight ? 'text-black' : 'text-zinc-200'}`}>{tile.value}</span>
     </div>
   );
 }
@@ -124,7 +124,7 @@ export function ContributorProfileCard({
   };
 
   return (
-    <div className={`rounded-xl border bg-white/[0.03] p-4 hover:bg-white/[0.06] transition-colors ${borderClass}`}>
+    <div className={`border-2 bg-black p-4 hover:bg-white/5 hover:-translate-y-1 hover:shadow-[4px_4px_0_0_#ccff00] transition-all duration-200 ${borderClass}`}>
       <Link href={`/repos/${repoOwner}/${repoName}/${contributor.username}`} className="block">
         <div className="flex items-start gap-3 mb-3">
           {contributor.avatarUrl ? (
@@ -133,10 +133,10 @@ export function ContributorProfileCard({
               alt={contributor.username}
               width={44}
               height={44}
-              className="rounded-full border border-white/10"
+              className="rounded-none border-2 border-white"
             />
           ) : (
-            <div className="rounded-full border border-white/10 bg-white/10" style={{ width: 44, height: 44 }} />
+            <div className="rounded-none border-2 border-white bg-white/10" style={{ width: 44, height: 44 }} />
           )}
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-semibold text-white truncate hover:text-indigo-300 transition-colors">
@@ -183,7 +183,7 @@ export function ContributorProfileCard({
       {focusAreas.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           {focusAreas.slice(0, 4).map((area, i) => (
-            <span key={i} className="rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] text-zinc-300">
+            <span key={i} className="bg-black border border-white/20 px-2 py-0.5 text-[10px] text-zinc-300 font-bold uppercase tracking-wide">
               {area}
             </span>
           ))}

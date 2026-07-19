@@ -66,13 +66,13 @@ export function ActivityFeed({ items, identityColors }: { items: ActivityItem[];
           >
             <div className="flex flex-col items-center">
               <div
-                className="w-7 h-7 rounded-full bg-zinc-800 border flex items-center justify-center shrink-0"
-                style={accent ? { borderColor: accent } : undefined}
+                className="w-7 h-7 rounded-none bg-black border-2 flex items-center justify-center shrink-0"
+                style={accent ? { borderColor: accent } : { borderColor: 'white' }}
               >
                 {iconMap[item.type] || <Play className="w-3.5 h-3.5 text-zinc-400" />}
               </div>
               {index !== items.length - 1 && (
-                <div className="w-px flex-1 bg-white/5 my-1" />
+                <div className="w-0.5 flex-1 bg-white my-1" />
               )}
             </div>
             <div className="pt-1 pb-2 flex-1">

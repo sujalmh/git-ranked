@@ -21,30 +21,30 @@ export type PodiumStyle = {
 export const PODIUM: Record<PodiumTier, PodiumStyle> = {
   gold: {
     tier: 'gold',
-    text: 'text-amber-300',
-    chip: 'bg-amber-500/15 border-amber-500/30 text-amber-300',
-    ring: 'ring-2 ring-amber-500/50',
-    border: 'border-amber-500/40',
-    glow: 'bg-amber-500/10',
-    dot: 'bg-amber-400',
+    text: 'text-[#ccff00]',
+    chip: 'bg-[#ccff00] border-[#ccff00] text-black font-bold',
+    ring: 'ring-4 ring-[#ccff00]',
+    border: 'border-[#ccff00]',
+    glow: 'shadow-[8px_8px_0_0_#ccff00]',
+    dot: 'bg-[#ccff00]',
   },
   silver: {
     tier: 'silver',
-    text: 'text-zinc-200',
-    chip: 'bg-zinc-400/15 border-zinc-400/30 text-zinc-200',
-    ring: 'ring-2 ring-zinc-400/40',
-    border: 'border-zinc-400/30',
-    glow: 'bg-zinc-400/10',
-    dot: 'bg-zinc-300',
+    text: 'text-white',
+    chip: 'bg-white border-white text-black font-bold',
+    ring: 'ring-4 ring-white',
+    border: 'border-white',
+    glow: 'shadow-[8px_8px_0_0_#ffffff]',
+    dot: 'bg-white',
   },
   bronze: {
     tier: 'bronze',
-    text: 'text-orange-400',
-    chip: 'bg-orange-600/15 border-orange-600/30 text-orange-400',
-    ring: 'ring-2 ring-orange-600/40',
-    border: 'border-orange-600/30',
-    glow: 'bg-orange-600/10',
-    dot: 'bg-orange-500',
+    text: 'text-zinc-400',
+    chip: 'bg-zinc-800 border-zinc-600 text-white font-bold',
+    ring: 'ring-4 ring-zinc-500',
+    border: 'border-zinc-500',
+    glow: 'shadow-[8px_8px_0_0_#71717a]',
+    dot: 'bg-zinc-500',
   },
 };
 
@@ -94,11 +94,11 @@ export const SEVERITY: Record<Severity, SeverityStyle> = {
 };
 
 const IDENTITY_PALETTE = [
-  { ring: 'ring-indigo-400/70', border: 'border-indigo-400/50', dot: 'bg-indigo-400', hex: '#818cf8' },
-  { ring: 'ring-sky-400/70', border: 'border-sky-400/50', dot: 'bg-sky-400', hex: '#38bdf8' },
-  { ring: 'ring-violet-400/70', border: 'border-violet-400/50', dot: 'bg-violet-400', hex: '#a78bfa' },
-  { ring: 'ring-cyan-400/70', border: 'border-cyan-400/50', dot: 'bg-cyan-400', hex: '#22d3ee' },
-  { ring: 'ring-fuchsia-400/70', border: 'border-fuchsia-400/50', dot: 'bg-fuchsia-400', hex: '#e879f9' },
+  { ring: 'ring-[#ccff00]', border: 'border-[#ccff00]', dot: 'bg-[#ccff00]', hex: '#ccff00' },
+  { ring: 'ring-[#00ffff]', border: 'border-[#00ffff]', dot: 'bg-[#00ffff]', hex: '#00ffff' },
+  { ring: 'ring-[#ff00ff]', border: 'border-[#ff00ff]', dot: 'bg-[#ff00ff]', hex: '#ff00ff' },
+  { ring: 'ring-[#ff5500]', border: 'border-[#ff5500]', dot: 'bg-[#ff5500]', hex: '#ff5500' },
+  { ring: 'ring-[#00ff66]', border: 'border-[#00ff66]', dot: 'bg-[#00ff66]', hex: '#00ff66' },
 ];
 
 export type IdentityColor = {
@@ -109,10 +109,10 @@ export type IdentityColor = {
 };
 
 export const NEUTRAL_IDENTITY: IdentityColor = {
-  ring: 'ring-white/15',
-  border: 'border-white/10',
-  dot: 'bg-zinc-500',
-  hex: '#71717a',
+  ring: 'ring-white',
+  border: 'border-white',
+  dot: 'bg-white',
+  hex: '#ffffff',
 };
 
 export type IdentityAssignment = {
@@ -152,11 +152,11 @@ export type BreakdownSegment = {
 };
 
 const BREAKDOWN_SEGMENTS: Array<Omit<BreakdownSegment, 'value'>> = [
-  { key: 'featureDelivery', label: 'Shipping', className: 'bg-indigo-500' },
-  { key: 'codeQuality', label: 'Quality', className: 'bg-violet-500' },
-  { key: 'reviews', label: 'Reviews', className: 'bg-sky-500' },
-  { key: 'collaboration', label: 'Collab', className: 'bg-cyan-500' },
-  { key: 'consistency', label: 'Consistency', className: 'bg-slate-500' },
+  { key: 'featureDelivery', label: 'Shipping', className: 'bg-[#ccff00]' },
+  { key: 'codeQuality', label: 'Quality', className: 'bg-[#00ffff]' },
+  { key: 'reviews', label: 'Reviews', className: 'bg-[#ff00ff]' },
+  { key: 'collaboration', label: 'Collab', className: 'bg-[#ff5500]' },
+  { key: 'consistency', label: 'Consistency', className: 'bg-[#00ff66]' },
 ];
 
 export function breakdownSegments(contributor: ContributorInsight): BreakdownSegment[] {
@@ -169,15 +169,15 @@ export function breakdownSegments(contributor: ContributorInsight): BreakdownSeg
 }
 
 const TOPIC_COLORS: Record<string, string> = {
-  'Feature Work': 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
-  'Code Review': 'text-sky-300 bg-sky-500/10 border-sky-500/20',
-  'Reliability': 'text-teal-300 bg-teal-500/10 border-teal-500/20',
-  'Releases': 'text-cyan-300 bg-cyan-500/10 border-cyan-500/20',
-  'Planning': 'text-fuchsia-300 bg-fuchsia-500/10 border-fuchsia-500/20',
-  'Maintenance': 'text-zinc-300 bg-zinc-500/10 border-zinc-500/20',
+  'Feature Work': 'text-black bg-[#ccff00] border-[#ccff00]',
+  'Code Review': 'text-black bg-[#00ffff] border-[#00ffff]',
+  'Reliability': 'text-black bg-[#00ff66] border-[#00ff66]',
+  'Releases': 'text-white bg-[#ff5500] border-[#ff5500]',
+  'Planning': 'text-black bg-[#ff00ff] border-[#ff00ff]',
+  'Maintenance': 'text-black bg-white border-white',
 };
 
-export const TOPIC_NEUTRAL = 'text-zinc-300 bg-white/5 border-white/10';
+export const TOPIC_NEUTRAL = 'text-white bg-zinc-800 border-zinc-700';
 
 export function topicChipClass(label: string): string {
   return TOPIC_COLORS[label] ?? TOPIC_NEUTRAL;
