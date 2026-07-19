@@ -11,7 +11,7 @@ export async function initSchema() {
   await sql`
     CREATE TABLE IF NOT EXISTS app_users (
         id SERIAL PRIMARY KEY,
-        github_id BIGINT UNIQUE,
+        github_id BIGINT UNIQUE NOT NULL,
         username VARCHAR(255),
         email VARCHAR(255),
         avatar_url VARCHAR(255),
@@ -31,15 +31,40 @@ export async function initSchema() {
     );
   `;
 
+  // installations: source of truth is GitHub webhooks.
+  // status: 'pending' -> 'active' -> 'deleted'
+  // pending: webhook received but no app_user linked yet
+  // active: linked to an app_user
   await sql`
     CREATE TABLE IF NOT EXISTS installations (
         id SERIAL PRIMARY KEY,
         github_installation_id BIGINT UNIQUE NOT NULL,
-        app_user_id INTEGER REFERENCES app_users(id),
-        status VARCHAR(50) DEFAULT 'active',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        github_account_id BIGINT NOT NULL,
+        owner_login VARCHAR(255) NOT NULL,
+        owner_type VARCHAR(50) NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        linked_user_id INTEGER REFERENCES app_users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `;
+
+  // Migrate existing installations table if it has old columns
+  await sql`
+    ALTER TABLE installations ADD COLUMN IF NOT EXISTS github_account_id BIGINT;
+  `.catch(() => {});
+  await sql`
+    ALTER TABLE installations ADD COLUMN IF NOT EXISTS owner_login VARCHAR(255);
+  `.catch(() => {});
+  await sql`
+    ALTER TABLE installations ADD COLUMN IF NOT EXISTS owner_type VARCHAR(50);
+  `.catch(() => {});
+  await sql`
+    ALTER TABLE installations ADD COLUMN IF NOT EXISTS linked_user_id INTEGER REFERENCES app_users(id);
+  `.catch(() => {});
+  await sql`
+    ALTER TABLE installations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+  `.catch(() => {});
 
   await sql`
     CREATE TABLE IF NOT EXISTS repositories (
