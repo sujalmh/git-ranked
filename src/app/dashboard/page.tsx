@@ -38,7 +38,7 @@ export default async function Dashboard() {
             <p className="text-zinc-400">Track activity, compute scores, and generate AI insights.</p>
           </div>
           <a 
-            href={`https://github.com/apps/git-ranked-dev/installations/new`}
+            href="/api/auth/signin?callbackUrl=/install"
             className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 font-medium transition-colors border border-white/5 flex items-center gap-2 text-sm"
           >
             <Settings className="w-4 h-4" /> Manage Installations
@@ -55,7 +55,7 @@ export default async function Dashboard() {
               Install the GitRanked GitHub App on your repositories to start tracking commits, PRs, and reviews.
             </p>
             <a 
-              href={`https://github.com/apps/git-ranked-dev/installations/new`}
+              href="/api/auth/signin?callbackUrl=/install"
               className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-all shadow-lg shadow-indigo-500/20"
             >
               Install GitHub App

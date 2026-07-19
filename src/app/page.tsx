@@ -16,7 +16,7 @@ export default function Home() {
         <nav className="flex gap-6 items-center">
           <Link href="/dashboard" className="text-zinc-400 hover:text-white transition-colors">Dashboard</Link>
           <a 
-            href={`https://github.com/apps/git-ranked-dev/installations/new`} 
+            href="/api/auth/signin?callbackUrl=/install" 
             className="px-5 py-2 rounded-full bg-white text-black font-medium hover:bg-zinc-200 transition-colors"
           >
             Install App
@@ -46,7 +46,7 @@ export default function Home() {
             Go to Dashboard
           </Link>
           <a 
-            href={`https://github.com/apps/git-ranked-dev/installations/new`}
+            href="/api/auth/signin?callbackUrl=/install"
             className="px-8 py-4 rounded-xl glass hover:bg-white/10 font-semibold text-lg transition-all flex items-center gap-2 justify-center"
           >
             <GitBranch className="w-5 h-5" /> Add to GitHub
