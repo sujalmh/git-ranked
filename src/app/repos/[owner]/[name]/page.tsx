@@ -3,6 +3,7 @@ import { sql } from '@/lib/db';
 import { Navbar } from '@/components/Navbar';
 import { getRepoInsights } from '@/lib/insights';
 import Link from 'next/link';
+import Image from 'next/image';
 import { GitBranch, Activity, GitPullRequest, Users, ArrowRight } from 'lucide-react';
 import { redirect } from 'next/navigation';
 
@@ -21,7 +22,7 @@ export default async function RepoAnalysisBoard(
     SELECT r.id, r.github_repo_id 
     FROM repositories r
     JOIN installations i ON r.installation_id = i.id
-    WHERE r.owner = ${owner} AND r.name = ${name} AND i.app_user_id = ${session.user.id}
+    WHERE r.owner = ${owner} AND r.name = ${name} AND i.linked_user_id = ${session.user.id}
   `;
 
   if (repoQuery.length === 0) {
@@ -30,16 +31,6 @@ export default async function RepoAnalysisBoard(
 
   const repoId = repoQuery[0].id;
   const insights = await getRepoInsights(repoId);
-
-  // Fetch Scores
-  const host = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-  let scores = [];
-  try {
-    const res = await fetch(`${host}/api/repos/${owner}/${name}/scores`, {
-      headers: { cookie: `authjs.session-token=mock` } // Note: Server-to-server fetch doesn't inherit cookies automatically unless passed. Best to call function directly.
-    });
-    // For server components, it's better to fetch directly from DB than API route to avoid auth cookie issues.
-  } catch(e) {}
 
   // Since it's a server component, I will query DB for scores directly to avoid auth proxy issues.
   const eventsQuery = await sql`
@@ -106,10 +97,21 @@ export default async function RepoAnalysisBoard(
            <div className="mt-4 flex flex-col gap-4">
              {Array.from(new Set(eventsQuery.map(e => e.username))).map(username => {
                const cEvents = eventsQuery.filter(e => e.username === username);
+               const avatarUrl = cEvents[0]?.avatar_url;
                return (
                  <Link href={`/repos/${owner}/${name}/${username}`} key={username} className="p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-between group">
                     <div className="flex items-center gap-4">
-                      <img src={cEvents[0].avatar_url} className="w-10 h-10 rounded-full" alt="avatar" />
+                      {typeof avatarUrl === 'string' && avatarUrl ? (
+                        <Image
+                          src={avatarUrl}
+                          className="w-10 h-10 rounded-full"
+                          alt={`${username} avatar`}
+                          width={40}
+                          height={40}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-white/10" />
+                      )}
                       <span className="font-bold">{username}</span>
                       <span className="text-zinc-500 text-sm">{cEvents.length} events</span>
                     </div>

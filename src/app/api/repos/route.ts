@@ -13,7 +13,7 @@ export async function GET() {
       SELECT r.id, r.owner, r.name, r.default_branch, r.github_repo_id 
       FROM repositories r
       JOIN installations i ON r.installation_id = i.id
-      WHERE i.app_user_id = ${session.user.id} AND r.is_active = true
+      WHERE i.linked_user_id = ${session.user.id} AND r.is_active = true
       ORDER BY r.added_at DESC
     `;
     return NextResponse.json({ repos });

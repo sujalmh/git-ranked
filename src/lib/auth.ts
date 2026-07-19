@@ -134,8 +134,8 @@ export async function upsertGitHubUserAndLinkInstallation(profile: GitHubProfile
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     GitHub({
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      clientId: process.env.GITHUB_CLIENT_ID?.trim(),
+      clientSecret: process.env.GITHUB_CLIENT_SECRET?.trim(),
     }),
     Credentials({
       id: 'github-installation',

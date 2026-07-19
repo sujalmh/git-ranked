@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
-import { auth, createGitHubInstallSessionCredentials, signIn } from '@/lib/auth';
+import { auth, upsertGitHubUserAndLinkInstallation } from '@/lib/auth';
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import { encode } from 'next-auth/jwt';
+import { sql } from '@/lib/db';
 
 type GitHubAccessTokenResponse = {
   access_token?: string;
@@ -29,6 +31,16 @@ type GitHubInstallationsResponse = {
   installations: GitHubInstallation[];
 };
 
+type GitHubRepository = {
+  id: number;
+  full_name: string;
+  default_branch?: string | null;
+};
+
+type GitHubRepositoriesResponse = {
+  repositories: GitHubRepository[];
+};
+
 type GitHubOAuthState = {
   installationId: number;
   nonce: string;
@@ -38,13 +50,16 @@ type GitHubOAuthState = {
 const OAUTH_STATE_COOKIE = 'gitranked.github-oauth-state';
 
 function requireGitHubOAuthConfig() {
-  if (!process.env.GITHUB_CLIENT_ID || !process.env.GITHUB_CLIENT_SECRET) {
+  const clientId = process.env.GITHUB_CLIENT_ID?.trim();
+  const clientSecret = process.env.GITHUB_CLIENT_SECRET?.trim();
+
+  if (!clientId || !clientSecret) {
     throw new Error('GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be configured');
   }
 
   return {
-    clientId: process.env.GITHUB_CLIENT_ID,
-    clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    clientId,
+    clientSecret,
   };
 }
 
@@ -55,6 +70,19 @@ function getOAuthStateSecret() {
   }
 
   return secret;
+}
+
+function getAuthSecret() {
+  const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+  if (!secret) {
+    throw new Error('AUTH_SECRET or NEXTAUTH_SECRET must be configured');
+  }
+
+  return secret;
+}
+
+function getSessionCookieName(url: URL) {
+  return `${url.protocol === 'https:' ? '__Secure-' : ''}authjs.session-token`;
 }
 
 function signStatePayload(payload: string) {
@@ -202,6 +230,64 @@ async function findAuthorizedInstallation(accessToken: string, installationId: n
   throw new Error(`GitHub user token is not authorized for installation ${installationId}`);
 }
 
+async function syncInstallationRepositories(accessToken: string, installationId: number) {
+  const dbInstall = await sql`
+    SELECT id FROM installations WHERE github_installation_id = ${installationId}
+  `;
+
+  if (dbInstall.length === 0) {
+    throw new Error(`Installation ${installationId} was not found after linking`);
+  }
+
+  const internalInstallId = dbInstall[0].id;
+
+  for (let page = 1; page <= 10; page += 1) {
+    const data = await githubApi<GitHubRepositoriesResponse>(
+      `/user/installations/${installationId}/repositories?per_page=100&page=${page}`,
+      accessToken
+    );
+
+    for (const repo of data.repositories) {
+      const [owner, name] = repo.full_name.split('/');
+      await sql`
+        INSERT INTO repositories (installation_id, github_repo_id, owner, name, default_branch, is_active)
+        VALUES (${internalInstallId}, ${repo.id}, ${owner}, ${name}, ${repo.default_branch ?? 'main'}, true)
+        ON CONFLICT (github_repo_id) DO UPDATE
+        SET installation_id = ${internalInstallId},
+            owner = ${owner},
+            name = ${name},
+            default_branch = ${repo.default_branch ?? 'main'},
+            is_active = true
+      `;
+    }
+
+    if (data.repositories.length < 100) {
+      break;
+    }
+  }
+}
+
+async function createSessionCookieValue(params: {
+  url: URL;
+  githubId: number;
+  username: string;
+  email: string | null;
+  avatarUrl: string | null;
+}) {
+  const cookieName = getSessionCookieName(params.url);
+
+  return encode({
+    secret: getAuthSecret(),
+    salt: cookieName,
+    token: {
+      name: params.username,
+      email: params.email,
+      picture: params.avatarUrl,
+      sub: params.githubId.toString(),
+    },
+  });
+}
+
 // This route is the GitHub App "Callback URL" (User authorization callback URL).
 // GitHub redirects here after installation + OAuth with:
 //   ?code=...&installation_id=...&setup_action=install
@@ -271,21 +357,33 @@ export async function GET(req: Request) {
     }
 
     const installation = installationId ? await findAuthorizedInstallation(accessToken, installationId) : null;
-    const credentials = createGitHubInstallSessionCredentials({
+    await upsertGitHubUserAndLinkInstallation({
       githubId: user.id,
       username: user.login,
       email: user.email,
       avatarUrl: user.avatar_url,
       installation,
     });
+    if (installationId) {
+      await syncInstallationRepositories(accessToken, installationId);
+    }
 
-    await signIn('github-installation', {
-      ...credentials,
-      redirect: false,
-      redirectTo: '/setup',
+    const sessionCookieValue = await createSessionCookieValue({
+      url,
+      githubId: user.id,
+      username: user.login,
+      email: user.email,
+      avatarUrl: user.avatar_url,
     });
 
     const response = NextResponse.redirect(new URL('/setup', req.url));
+    response.cookies.set(getSessionCookieName(url), sessionCookieValue, {
+      httpOnly: true,
+      maxAge: 30 * 24 * 60 * 60,
+      path: '/',
+      sameSite: 'lax',
+      secure: url.protocol === 'https:',
+    });
     response.cookies.set(OAUTH_STATE_COOKIE, '', {
       httpOnly: true,
       maxAge: 0,

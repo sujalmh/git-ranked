@@ -1,6 +1,6 @@
 export interface RawEvent {
   type: string;
-  payload: any;
+  payload: Record<string, unknown>;
   created_at: string;
 }
 
@@ -25,7 +25,7 @@ const BASE_POINTS: Record<string, number> = {
 };
 
 export function computeContributionScore(events: RawEvent[]): ScoreDetails {
-  let score: ScoreDetails = {
+  const score: ScoreDetails = {
     total: 0,
     pushScore: 0,
     prScore: 0,
@@ -51,7 +51,9 @@ export function computeContributionScore(events: RawEvent[]): ScoreDetails {
 
     // Apply Impact Multipliers
     if (type === 'pr_merged') {
-      const changed = (event.payload.additions || 0) + (event.payload.deletions || 0);
+      const additions = typeof event.payload.additions === 'number' ? event.payload.additions : 0;
+      const deletions = typeof event.payload.deletions === 'number' ? event.payload.deletions : 0;
+      const changed = additions + deletions;
       if (changed >= 100) multiplier = 2.5;
       else if (changed >= 30) multiplier = 2.0;
       else if (changed >= 10) multiplier = 1.5;
@@ -59,14 +61,23 @@ export function computeContributionScore(events: RawEvent[]): ScoreDetails {
       if (event.payload.state === 'approved' || event.payload.state === 'changes_requested') {
         multiplier = 1.5;
       } else if (event.payload.state === 'commented') {
-        if ((event.payload.word_count || 0) < 20) multiplier = 0.5;
+        const wordCount = typeof event.payload.word_count === 'number' ? event.payload.word_count : 0;
+        if (wordCount < 20) multiplier = 0.5;
       }
-      if ((event.payload.word_count || 0) > 50) {
+      const wordCount = typeof event.payload.word_count === 'number' ? event.payload.word_count : 0;
+      if (wordCount > 50) {
         multiplier += 0.5;
       }
     } else if (type === 'push') {
-      const msgs = event.payload.commits?.map((c: any) => c.message).join(' ') || '';
-      if (msgs.length / (event.payload.commit_count || 1) > 50) {
+      const commits = Array.isArray(event.payload.commits) ? event.payload.commits : [];
+      const msgs = commits
+        .map(commit => {
+          if (typeof commit !== 'object' || commit === null || !('message' in commit)) return '';
+          return typeof commit.message === 'string' ? commit.message : '';
+        })
+        .join(' ');
+      const commitCount = typeof event.payload.commit_count === 'number' ? event.payload.commit_count : 1;
+      if (msgs.length / commitCount > 50) {
         multiplier = 1.5;
       }
     }

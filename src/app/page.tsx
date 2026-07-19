@@ -35,7 +35,7 @@ export default function Home() {
         </h1>
         
         <p className="text-xl text-zinc-400 mb-12 max-w-2xl leading-relaxed">
-          GitRanked tracks every push, PR, and review. We use quality-biased scoring and AI to give you a crystal-clear analysis board of your repository's health and contributor impact.
+          GitRanked tracks every push, PR, and review. We use quality-biased scoring and AI to give you a crystal-clear analysis board of your repository&apos;s health and contributor impact.
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 mb-24">

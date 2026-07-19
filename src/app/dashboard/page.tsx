@@ -5,21 +5,30 @@ import Link from 'next/link';
 import { GitBranch, ArrowRight, LayoutDashboard, Settings } from 'lucide-react';
 import { redirect } from 'next/navigation';
 
+type DashboardRepo = {
+  id: number;
+  owner: string;
+  name: string;
+  default_branch: string;
+  added_at: string | Date;
+  installation_status: string;
+};
+
 export default async function Dashboard() {
   const session = await auth();
   if (!session?.user?.id) {
     redirect('/');
   }
 
-  let repos: any[] = [];
+  let repos: DashboardRepo[] = [];
   try {
-    repos = await sql`
+    repos = (await sql`
       SELECT r.id, r.owner, r.name, r.default_branch, r.added_at, i.status as installation_status
       FROM repositories r
       JOIN installations i ON r.installation_id = i.id
       WHERE i.linked_user_id = ${session.user.id} AND r.is_active = true
       ORDER BY r.added_at DESC
-    `;
+    `) as DashboardRepo[];
   } catch (error) {
     console.error('Failed to fetch repos:', error);
   }

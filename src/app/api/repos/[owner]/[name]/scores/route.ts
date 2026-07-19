@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { computeContributionScore, RawEvent } from '@/lib/scoring';
 
+type ContributorSummary = {
+  id: number;
+  username: string;
+  avatar_url: string | null;
+};
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ owner: string; name: string }> }
@@ -24,7 +30,7 @@ export async function GET(
 
     // 3. Group by contributor and compute scores
     const contributorEvents: Record<number, { 
-      contributor: any, 
+      contributor: ContributorSummary,
       events: RawEvent[] 
     }> = {};
 

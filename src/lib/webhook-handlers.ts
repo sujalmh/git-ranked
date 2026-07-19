@@ -1,6 +1,115 @@
 import { sql } from './db';
 
-export async function handleWebhookEvent(eventName: string, payload: any, eventId: string) {
+type GitHubAccountPayload = {
+  id: number;
+  login: string;
+  type?: string | null;
+};
+
+type GitHubInstallationPayload = {
+  id: number;
+  account: GitHubAccountPayload;
+  target_type?: string | null;
+};
+
+type GitHubRepositoryPayload = {
+  id: number;
+  full_name: string;
+};
+
+type GitHubSenderPayload = {
+  id: number;
+  login: string;
+  avatar_url?: string | null;
+  type?: string | null;
+};
+
+type GitHubCommitPayload = {
+  id: string;
+  message: string;
+  url: string;
+};
+
+type GitHubPullRequestPayload = {
+  number: number;
+  title: string;
+  html_url: string;
+  additions?: number;
+  deletions?: number;
+  changed_files?: number;
+  body?: string | null;
+  merged?: boolean;
+};
+
+type GitHubReviewPayload = {
+  state: string;
+  body?: string | null;
+};
+
+type GitHubIssuePayload = {
+  number: number;
+  title: string;
+  body?: string | null;
+  labels: { name: string }[];
+};
+
+type GitHubReleasePayload = {
+  tag_name: string;
+  name?: string | null;
+  body?: string | null;
+  html_url: string;
+};
+
+type GitHubWebhookPayload = {
+  action?: string;
+  installation?: GitHubInstallationPayload;
+  repositories_added?: GitHubRepositoryPayload[];
+  repositories_removed?: Pick<GitHubRepositoryPayload, 'id'>[];
+  repository?: GitHubRepositoryPayload;
+  sender?: GitHubSenderPayload | null;
+  commits?: GitHubCommitPayload[];
+  ref?: string;
+  pull_request?: GitHubPullRequestPayload;
+  review?: GitHubReviewPayload;
+  issue?: GitHubIssuePayload;
+  release?: GitHubReleasePayload;
+};
+
+async function upsertInstallationFromPayload(installation: GitHubInstallationPayload) {
+  const account = installation.account;
+  const existingUser = await sql`
+    SELECT id FROM app_users WHERE github_id = ${account.id}
+  `;
+  const linkedUserId = existingUser.length > 0 ? existingUser[0].id : null;
+  const status = linkedUserId ? 'active' : 'pending';
+  const ownerType = installation.target_type || account.type || 'User';
+
+  const dbInstall = await sql`
+    INSERT INTO installations (
+      github_installation_id, github_account_id, owner_login, owner_type,
+      status, linked_user_id, updated_at
+    )
+    VALUES (
+      ${installation.id}, ${account.id}, ${account.login}, ${ownerType},
+      ${status}, ${linkedUserId}, NOW()
+    )
+    ON CONFLICT (github_installation_id) DO UPDATE
+    SET status = CASE
+          WHEN ${linkedUserId}::integer IS NOT NULL THEN 'active'
+          ELSE installations.status
+        END,
+        linked_user_id = COALESCE(installations.linked_user_id, ${linkedUserId}),
+        owner_login = ${account.login},
+        owner_type = ${ownerType},
+        github_account_id = ${account.id},
+        updated_at = NOW()
+    RETURNING id
+  `;
+
+  return dbInstall[0].id;
+}
+
+export async function handleWebhookEvent(eventName: string, payload: GitHubWebhookPayload, eventId: string) {
   // Deduplicate using github_event_id (not applicable to installation events, skip check for them)
   const isInstallEvent = eventName === 'installation' || eventName === 'installation_repositories';
   if (!isInstallEvent) {
@@ -13,39 +122,13 @@ export async function handleWebhookEvent(eventName: string, payload: any, eventI
 
   // 1. Installation created — webhook is the source of truth
   // Store with status='pending'. If an app_user with this github_id already exists, link immediately.
-  if (eventName === 'installation' && payload.action === 'created') {
-    const installId = payload.installation.id;
-    const account = payload.installation.account;
-
-    // Check if this GitHub account already has an app_user (install-after-login scenario)
-    const existingUser = await sql`
-      SELECT id FROM app_users WHERE github_id = ${account.id}
-    `;
-    const linkedUserId = existingUser.length > 0 ? existingUser[0].id : null;
-    const status = linkedUserId ? 'active' : 'pending';
-
-    await sql`
-      INSERT INTO installations (
-        github_installation_id, github_account_id, owner_login, owner_type,
-        status, linked_user_id, updated_at
-      )
-      VALUES (
-        ${installId}, ${account.id}, ${account.login}, ${account.type},
-        ${status}, ${linkedUserId}, NOW()
-      )
-      ON CONFLICT (github_installation_id) DO UPDATE
-      SET status = ${status},
-          linked_user_id = COALESCE(installations.linked_user_id, ${linkedUserId}),
-          owner_login = ${account.login},
-          owner_type = ${account.type},
-          github_account_id = ${account.id},
-          updated_at = NOW()
-    `;
+  if (eventName === 'installation' && payload.action === 'created' && payload.installation) {
+    await upsertInstallationFromPayload(payload.installation);
     return;
   }
 
   // 2. Installation deleted
-  if (eventName === 'installation' && payload.action === 'deleted') {
+  if (eventName === 'installation' && payload.action === 'deleted' && payload.installation) {
     const installId = payload.installation.id;
     await sql`
       UPDATE installations
@@ -56,18 +139,19 @@ export async function handleWebhookEvent(eventName: string, payload: any, eventI
   }
 
   // 3. Installation Repositories added
-  if (eventName === 'installation_repositories' && payload.action === 'added') {
-    const installId = payload.installation.id;
-    const dbInstall = await sql`SELECT id FROM installations WHERE github_installation_id = ${installId}`;
-    if (dbInstall.length === 0) return;
-    const internalInstallId = dbInstall[0].id;
+  if (eventName === 'installation_repositories' && payload.action === 'added' && payload.installation) {
+    const internalInstallId = await upsertInstallationFromPayload(payload.installation);
 
-    for (const repo of payload.repositories_added) {
+    for (const repo of payload.repositories_added ?? []) {
       const [owner, name] = repo.full_name.split('/');
       await sql`
         INSERT INTO repositories (installation_id, github_repo_id, owner, name)
         VALUES (${internalInstallId}, ${repo.id}, ${owner}, ${name})
-        ON CONFLICT (github_repo_id) DO UPDATE SET is_active = true
+        ON CONFLICT (github_repo_id) DO UPDATE
+        SET installation_id = ${internalInstallId},
+            owner = ${owner},
+            name = ${name},
+            is_active = true
       `;
     }
     return;
@@ -75,7 +159,7 @@ export async function handleWebhookEvent(eventName: string, payload: any, eventI
 
   // 4. Installation Repositories removed
   if (eventName === 'installation_repositories' && payload.action === 'removed') {
-    for (const repo of payload.repositories_removed) {
+    for (const repo of payload.repositories_removed ?? []) {
       await sql`
         UPDATE repositories SET is_active = false WHERE github_repo_id = ${repo.id}
       `;
@@ -109,7 +193,7 @@ export async function handleWebhookEvent(eventName: string, payload: any, eventI
   }
 
   // Helper to upsert contributor
-  async function upsertContributor(sender: any): Promise<number | null> {
+  async function upsertContributor(sender: GitHubSenderPayload | null | undefined): Promise<number | null> {
     if (!sender) return null;
     if (sender.type === 'Bot') return null;
 
@@ -128,16 +212,20 @@ export async function handleWebhookEvent(eventName: string, payload: any, eventI
   if (!contributorId) return;
 
   let mappedEventType: string | null = null;
-  let extractPayload: any = {};
+  let extractPayload: Record<string, unknown> = {};
 
   if (eventName === 'push') {
     mappedEventType = 'push';
     extractPayload = {
-      commits: payload.commits.map((c: any) => ({ sha: c.id, message: c.message, url: c.url })),
+      commits: (payload.commits ?? []).map(commit => ({
+        sha: commit.id,
+        message: commit.message,
+        url: commit.url,
+      })),
       branch: payload.ref,
-      commit_count: payload.commits.length,
+      commit_count: payload.commits?.length ?? 0,
     };
-  } else if (eventName === 'pull_request') {
+  } else if (eventName === 'pull_request' && payload.pull_request) {
     if (payload.action === 'opened') mappedEventType = 'pr_opened';
     else if (payload.action === 'closed' && payload.pull_request.merged) mappedEventType = 'pr_merged';
     else if (payload.action === 'closed' && !payload.pull_request.merged) mappedEventType = 'pr_closed';
@@ -153,7 +241,12 @@ export async function handleWebhookEvent(eventName: string, payload: any, eventI
       };
       if (mappedEventType === 'pr_opened') extractPayload.body = payload.pull_request.body;
     }
-  } else if (eventName === 'pull_request_review' && payload.action === 'submitted') {
+  } else if (
+    eventName === 'pull_request_review' &&
+    payload.action === 'submitted' &&
+    payload.pull_request &&
+    payload.review
+  ) {
     mappedEventType = 'review_submitted';
     extractPayload = {
       pr_number: payload.pull_request.number,
@@ -161,7 +254,7 @@ export async function handleWebhookEvent(eventName: string, payload: any, eventI
       body: payload.review.body,
       word_count: payload.review.body ? payload.review.body.split(/\s+/).length : 0,
     };
-  } else if (eventName === 'issues') {
+  } else if (eventName === 'issues' && payload.issue) {
     if (payload.action === 'opened') mappedEventType = 'issue_opened';
     else if (payload.action === 'closed') mappedEventType = 'issue_closed';
 
@@ -169,11 +262,11 @@ export async function handleWebhookEvent(eventName: string, payload: any, eventI
       extractPayload = {
         issue_number: payload.issue.number,
         title: payload.issue.title,
-        labels: payload.issue.labels.map((l: any) => l.name),
+        labels: payload.issue.labels.map(label => label.name),
       };
       if (mappedEventType === 'issue_opened') extractPayload.body = payload.issue.body;
     }
-  } else if (eventName === 'release' && payload.action === 'published') {
+  } else if (eventName === 'release' && payload.action === 'published' && payload.release) {
     mappedEventType = 'release';
     extractPayload = {
       tag_name: payload.release.tag_name,

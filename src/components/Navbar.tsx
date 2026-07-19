@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { GitBranch } from 'lucide-react';
 import { auth, signIn, signOut } from '@/lib/auth';
 
@@ -20,11 +21,17 @@ export async function Navbar() {
               </Link>
               <div className="h-6 w-px bg-white/10" />
               <div className="flex items-center gap-2">
-                <img 
-                  src={session.user?.image || ''} 
-                  alt="Avatar" 
-                  className="w-8 h-8 rounded-full border border-white/10"
-                />
+                {session.user?.image ? (
+                  <Image
+                    src={session.user.image}
+                    alt="Avatar"
+                    className="w-8 h-8 rounded-full border border-white/10"
+                    width={32}
+                    height={32}
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full border border-white/10 bg-white/10" />
+                )}
                 <form action={async () => {
                   "use server"
                   await signOut()
