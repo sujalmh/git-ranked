@@ -2,10 +2,16 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { generateRepoInsights } from '@/lib/insights';
-import { generateSummary } from '@/lib/ai';
+import {
+  buildTaskContext,
+  classifyEvents,
+  getOrGenerateTask,
+  getRepoContext,
+  tasks,
+} from '@/lib/ai';
 
 export async function POST(
-  req: Request,
+  _req: Request,
   props: { params: Promise<{ owner: string; name: string }> }
 ) {
   const session = await auth();
@@ -28,18 +34,57 @@ export async function POST(
     }
 
     const repoId = repoQuery[0].id;
-
-    // Trigger analysis
-    await generateRepoInsights(repoId);
+    const repoInfo = await getRepoContext(repoId);
+    if (!repoInfo) {
+      return NextResponse.json({ error: 'Repository metadata not found' }, { status: 404 });
+    }
 
     const dateTo = new Date().toISOString().split('T')[0];
     const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    // Force generate summaries (weekly and team_insights)
-    await generateSummary(repoId, 'weekly', dateFrom, dateTo, undefined, true);
-    await generateSummary(repoId, 'team_insights', dateFrom, dateTo, undefined, true);
+    // 1. Classify unclassified events from the last 90 days (lazy, batched)
+    const classificationResult = await classifyEvents(repoId, repoInfo.owner, repoInfo.name);
 
-    return NextResponse.json({ success: true });
+    // 2. Refresh deterministic health metrics
+    await generateRepoInsights(repoId);
+
+    // 3. Generate repo-scoped summaries (forced)
+    const repoCtx = await buildTaskContext(repoId, repoInfo.owner, repoInfo.name, dateFrom, dateTo);
+    await getOrGenerateTask(tasks.repositorySummary, repoCtx, true);
+    await getOrGenerateTask(tasks.teamInsights, repoCtx, true);
+
+    // 4. Generate contributor profiles + impact analysis for top contributors
+    const topContributors = await sql`
+      SELECT c.id, c.username
+      FROM github_contributors c
+      JOIN github_events e ON e.contributor_id = c.id
+      WHERE e.repo_id = ${repoId}
+        AND e.created_at >= ${dateFrom}::date
+        AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
+      GROUP BY c.id, c.username
+      ORDER BY COUNT(e.id) DESC
+      LIMIT 5
+    `;
+
+    for (const contributor of topContributors) {
+      const contributorCtx = await buildTaskContext(
+        repoId,
+        repoInfo.owner,
+        repoInfo.name,
+        dateFrom,
+        dateTo,
+        contributor.id,
+        contributor.username
+      );
+      await getOrGenerateTask(tasks.contributorProfile, contributorCtx, true);
+      await getOrGenerateTask(tasks.impactAnalysis, contributorCtx, true);
+    }
+
+    return NextResponse.json({
+      success: true,
+      classification: classificationResult,
+      contributorsProcessed: topContributors.length,
+    });
   } catch (err) {
     console.error('Analyse Error:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

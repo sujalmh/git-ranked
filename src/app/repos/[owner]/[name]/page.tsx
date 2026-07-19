@@ -16,219 +16,55 @@ import {
   Users
 } from 'lucide-react';
 import { redirect } from 'next/navigation';
-import { computeContributionScore, RawEvent } from '@/lib/scoring';
+import { computeContributionScore, type ClassificationMap } from '@/lib/scoring';
 import { backfillRepoActivity } from '@/lib/github-backfill';
-import { ExplainableScore } from '@/components/ExplainableScore';
 import { ActivityFeed, ActivityItem } from '@/components/ActivityFeed';
 import { HealthRadar } from '@/components/HealthRadar';
 import { getRepoInsights } from '@/lib/insights';
-import { generateSummary } from '@/lib/ai';
+import { runTaskById, getCachedContributorResults } from '@/lib/ai';
+import type { AiResult, ContributorProfile, ImpactAnalysis, RepositorySummary, TeamInsights } from '@/lib/ai/types';
 import { AnalyseButton } from '@/components/AnalyseButton';
+import { StructuredSummary, TeamInsightsCard, ContributorProfileCard, ImpactExplanation } from '@/components/ai';
+import {
+  asNumber,
+  asPayload,
+  buildContributionCategories,
+  contributorRole,
+  contributorSummary,
+  describeEvent,
+  eventCategory,
+  eventDate,
+  formatRelativeDate,
+  isFix,
+  topBy,
+  type ContributorInsight,
+  type Highlight,
+} from '@/lib/contributor-insights';
+import type { ClassificationItem } from '@/lib/ai/types';
 
 type RepoEventRow = {
+  id: number;
   type: string;
   payload: Record<string, unknown> | string | null;
   created_at: Date | string;
   contributor_id: number;
   username: string;
   avatar_url: string | null;
+  classification?: unknown;
 };
-
-type ContributionCategory = {
-  label: string;
-  detail: string;
-  value: number;
-};
-
-type ContributorInsight = {
-  id: number;
-  username: string;
-  avatarUrl: string | null;
-  score: ReturnType<typeof computeContributionScore>;
-  impactScore: number;
-  commits: number;
-  prsOpened: number;
-  prsMerged: number;
-  reviews: number;
-  issues: number;
-  releases: number;
-  fixes: number;
-  changedLines: number;
-  lastActive: Date | null;
-  role: string;
-  summary: string[];
-  categories: ContributionCategory[];
-  highlights: string[];
-  events: RawEvent[];
-};
-
-type Highlight = {
-  date: Date;
-  username: string;
-  text: string;
-};
-
-const FEATURE_WORDS = ['add', 'added', 'build', 'built', 'implement', 'implemented', 'create', 'created', 'feature', 'dashboard', 'page', 'ui', 'api'];
-const RELIABILITY_WORDS = ['fix', 'fixed', 'bug', 'error', 'edge', 'refactor', 'harden', 'improve', 'improved', 'auth', 'oauth', 'database', 'db'];
-
-function asPayload(payload: RepoEventRow['payload']): Record<string, unknown> {
-  if (!payload) return {};
-  if (typeof payload === 'string') {
-    try {
-      const parsed = JSON.parse(payload);
-      return typeof parsed === 'object' && parsed !== null ? parsed as Record<string, unknown> : {};
-    } catch {
-      return {};
-    }
-  }
-  return payload;
-}
-
-function asNumber(value: unknown) {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-}
-
-function asString(value: unknown) {
-  return typeof value === 'string' ? value : '';
-}
-
-function pluralize(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
-function eventDate(value: Date | string) {
-  return value instanceof Date ? value : new Date(value);
-}
-
-function formatRelativeDate(date: Date | null) {
-  if (!date) return 'No activity yet';
-  const days = Math.max(0, Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24)));
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  return `${days} days ago`;
-}
-
-function cleanTopic(text: string) {
-  return text
-    .replace(/^(feat|fix|chore|refactor|docs|style|test|perf)(\(.+\))?:\s*/i, '')
-    .replace(/^merge pull request.+$/i, 'pull request work')
-    .replace(/[-_]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function truncate(text: string, max = 78) {
-  if (text.length <= max) return text;
-  return `${text.slice(0, max - 1).trim()}…`;
-}
-
-function titleFromPayload(type: string, payload: Record<string, unknown>) {
-  if (type === 'push') {
-    const commits = Array.isArray(payload.commits) ? payload.commits : [];
-    const firstCommit = commits.find(commit => typeof commit === 'object' && commit !== null && 'message' in commit);
-    if (firstCommit && typeof firstCommit === 'object' && 'message' in firstCommit && typeof firstCommit.message === 'string') {
-      return cleanTopic(firstCommit.message.split('\n')[0]);
-    }
-  }
-
-  return cleanTopic(
-    asString(payload.title) ||
-    asString(payload.name) ||
-    asString(payload.tag_name) ||
-    asString(payload.body) ||
-    'repository work'
-  );
-}
-
-function containsAny(text: string, words: string[]) {
-  const lower = text.toLowerCase();
-  return words.some(word => lower.includes(word));
-}
-
-function eventCategory(type: string, payload: Record<string, unknown>) {
-  const title = titleFromPayload(type, payload);
-  if (type === 'review_submitted') return 'Code Review';
-  if (type.startsWith('issue_')) return 'Planning';
-  if (type === 'release') return 'Releases';
-  if (containsAny(title, RELIABILITY_WORDS)) return 'Reliability';
-  if (containsAny(title, FEATURE_WORDS) || type.startsWith('pr_') || type === 'push') return 'Feature Work';
-  return 'Maintenance';
-}
-
-function isFix(type: string, payload: Record<string, unknown>) {
-  const title = titleFromPayload(type, payload).toLowerCase();
-  return type !== 'review_submitted' && ['fix', 'bug', 'error', 'edge case', 'broken', 'issue'].some(word => title.includes(word));
-}
-
-function describeEvent(type: string, payload: Record<string, unknown>) {
-  const topic = truncate(titleFromPayload(type, payload));
-
-  if (type === 'pr_merged') return `Completed ${topic}`;
-  if (type === 'pr_opened') return `Proposed ${topic}`;
-  if (type === 'review_submitted') {
-    const state = asString(payload.state).replace('_', ' ') || 'submitted';
-    const number = asNumber(payload.pr_number);
-    return `Reviewed PR #${number}${state ? ` with ${state}` : ''}`;
-  }
-  if (type === 'push') return `Advanced ${topic}`;
-  if (type === 'issue_opened') return `Defined ${topic}`;
-  if (type === 'issue_closed') return `Resolved ${topic}`;
-  if (type === 'release') return `Released ${topic}`;
-  return `Contributed to ${topic}`;
-}
-
-function contributorRole(contributor: ContributorInsight) {
-  const categories = [
-    { label: 'Builder', value: contributor.commits + contributor.prsMerged * 3 + contributor.changedLines / 100 },
-    { label: 'Reviewer', value: contributor.reviews * 2.5 },
-    { label: 'Stabilizer', value: contributor.fixes * 3 + contributor.changedLines / 250 },
-    { label: 'Planner', value: contributor.issues + contributor.prsOpened },
-    { label: 'Release Driver', value: contributor.releases * 4 },
-  ];
-  return categories.sort((a, b) => b.value - a.value)[0]?.label ?? 'Contributor';
-}
-
-function buildContributionCategories(contributor: ContributorInsight, categoryCounts: Map<string, number>) {
-  const categories = Array.from(categoryCounts.entries())
-    .map(([label, value]) => ({
-      label,
-      value,
-      detail: categoryDetail(label, contributor, value),
-    }))
-    .sort((a, b) => b.value - a.value);
-
-  return categories.slice(0, 3);
-}
-
-function categoryDetail(label: string, contributor: ContributorInsight, value: number) {
-  if (label === 'Code Review') return `${pluralize(contributor.reviews, 'review')} that helped unblock teammates`;
-  if (label === 'Reliability') return `${pluralize(contributor.fixes, 'fix')} or hardening change detected`;
-  if (label === 'Feature Work') return `${pluralize(contributor.prsMerged + contributor.prsOpened + contributor.commits, 'shipping signal')} captured`;
-  if (label === 'Planning') return `${pluralize(value, 'planning touchpoint')} through issues or PR setup`;
-  if (label === 'Releases') return `${pluralize(contributor.releases, 'release')} published`;
-  return `${pluralize(value, 'contribution')} in this lane`;
-}
-
-function contributorSummary(contributor: ContributorInsight) {
-  const bullets: string[] = [];
-  const topHighlights = contributor.highlights.slice(0, 3).map(highlight => highlight.replace(/^(Completed|Proposed|Advanced|Defined|Resolved|Released)\s+/i, ''));
-  const uniqueTopics = Array.from(new Set(topHighlights)).filter(Boolean);
-
-  if (uniqueTopics[0]) bullets.push(`${contributor.prsMerged ? 'Shipped' : 'Worked on'} ${uniqueTopics[0]}`);
-  if (uniqueTopics[1]) bullets.push(`Contributed to ${uniqueTopics[1]}`);
-  if (contributor.reviews) bullets.push(`Reviewed ${pluralize(contributor.reviews, 'pull request')}`);
-  if (contributor.fixes) bullets.push(`Fixed ${pluralize(contributor.fixes, 'stability issue')}`);
-  if (contributor.changedLines) bullets.push(`Moved ${contributor.changedLines} lines of product/code change`);
-  if (!bullets.length && contributor.commits) bullets.push(`Kept the repository moving with ${pluralize(contributor.commits, 'code update')}`);
-
-  return bullets.slice(0, 5);
-}
 
 function buildContributorInsights(rows: RepoEventRow[]) {
   const contributors = new Map<number, ContributorInsight>();
   const categoryCountsByContributor = new Map<number, Map<string, number>>();
   const highlights: Highlight[] = [];
   const activityItems: ActivityItem[] = [];
+  const classifications: ClassificationMap = new Map();
+
+  for (const row of rows) {
+    if (row.classification && typeof row.classification === 'object') {
+      classifications.set(row.id, row.classification as ClassificationItem);
+    }
+  }
 
   for (const row of rows) {
     const payload = asPayload(row.payload);
@@ -273,7 +109,7 @@ function buildContributorInsights(rows: RepoEventRow[]) {
     categoryCountsByContributor.set(row.contributor_id, categoryCounts);
 
     if (!contributor.lastActive || createdAt > contributor.lastActive) contributor.lastActive = createdAt;
-    contributor.events.push({ type: row.type, payload, created_at: createdAt.toISOString() });
+    contributor.events.push({ id: row.id, type: row.type, payload, created_at: createdAt.toISOString() });
 
     const highlightText = describeEvent(row.type, payload);
     contributor.highlights.push(highlightText);
@@ -296,7 +132,7 @@ function buildContributorInsights(rows: RepoEventRow[]) {
 
   const scored = Array.from(contributors.values()).map(contributor => ({
     ...contributor,
-    score: computeContributionScore(contributor.events),
+    score: computeContributionScore(contributor.events, { classifications }),
   }));
   const topScore = Math.max(...scored.map(contributor => contributor.score.total), 1);
 
@@ -321,14 +157,15 @@ function buildContributorInsights(rows: RepoEventRow[]) {
   };
 }
 
-function topBy(contributors: ContributorInsight[], getValue: (contributor: ContributorInsight) => number) {
-  return contributors.filter(contributor => getValue(contributor) > 0).sort((a, b) => getValue(b) - getValue(a))[0];
-}
-
 function ContributorAvatar({ src, username, size = 40 }: { src: string | null; username: string; size?: number }) {
   if (!src) return <div className="rounded-full bg-white/10 border border-white/10" style={{ width: size, height: size }} />;
   return <Image src={src} alt={`${username} avatar`} className="rounded-full border border-white/10" width={size} height={size} />;
 }
+
+type ContributorAiData = {
+  profile: AiResult<ContributorProfile> | null;
+  impact: AiResult<ImpactAnalysis> | null;
+};
 
 export default async function RepoAnalysisBoard(
   props: { params: Promise<{ owner: string; name: string }> }
@@ -350,7 +187,8 @@ export default async function RepoAnalysisBoard(
 
   const repoId = repoQuery[0].id;
   let eventsQuery = (await sql`
-    SELECT e.event_type as type, e.payload, e.created_at, c.id as contributor_id, c.username, c.avatar_url
+    SELECT e.id, e.event_type as type, e.payload, e.created_at, e.classification,
+           c.id as contributor_id, c.username, c.avatar_url
     FROM github_events e
     JOIN github_contributors c ON e.contributor_id = c.id
     WHERE e.repo_id = ${repoId}
@@ -366,7 +204,8 @@ export default async function RepoAnalysisBoard(
     });
 
     eventsQuery = (await sql`
-      SELECT e.event_type as type, e.payload, e.created_at, c.id as contributor_id, c.username, c.avatar_url
+      SELECT e.id, e.event_type as type, e.payload, e.created_at, e.classification,
+             c.id as contributor_id, c.username, c.avatar_url
       FROM github_events e
       JOIN github_contributors c ON e.contributor_id = c.id
       WHERE e.repo_id = ${repoId}
@@ -384,17 +223,28 @@ export default async function RepoAnalysisBoard(
   // eslint-disable-next-line react-hooks/purity
   const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   
-  let aiSummary = null;
-  let teamInsights = null;
+  let repoSummaryResult: AiResult<RepositorySummary> | null = null;
+  let teamInsightsResult: AiResult<TeamInsights> | null = null;
   try {
-    aiSummary = await generateSummary(repoId, 'weekly', dateFrom, dateTo, undefined, false);
-    teamInsights = await generateSummary(repoId, 'team_insights', dateFrom, dateTo, undefined, false);
+    repoSummaryResult = await runTaskById('repository_summary', repoId, dateFrom, dateTo) as AiResult<RepositorySummary> | null;
+    teamInsightsResult = await runTaskById('team_insights', repoId, dateFrom, dateTo) as AiResult<TeamInsights> | null;
   } catch (err) {
     console.error("AI Generation failed", err);
   }
 
   const healthMetrics = await getRepoInsights(repoId, false);
-  const isAnalysed = aiSummary !== null && teamInsights !== null && healthMetrics !== null;
+  const isAnalysed = repoSummaryResult !== null && teamInsightsResult !== null && healthMetrics !== null;
+
+  // Fetch cached AI results for all contributors
+  const contributorIds = contributors.map(c => c.id);
+  const contributorAiData = await getCachedContributorResults(repoId, contributorIds);
+  const contributorAiMap = new Map<number, ContributorAiData>();
+  for (const [id, data] of contributorAiData) {
+    contributorAiMap.set(id, {
+      profile: data.profile as AiResult<ContributorProfile> | null,
+      impact: data.impact as AiResult<ImpactAnalysis> | null,
+    });
+  }
 
   return (
     <div className="flex flex-col min-h-screen relative">
@@ -457,9 +307,11 @@ export default async function RepoAnalysisBoard(
                     <Brain className="w-5 h-5" />
                     <span className="text-sm font-semibold uppercase tracking-wide">AI Repository Summary</span>
                   </div>
-                  <div className="prose prose-invert prose-indigo">
-                    <div dangerouslySetInnerHTML={{ __html: aiSummary?.replace(/\n/g, '<br/>') || '' }} />
-                  </div>
+                  {repoSummaryResult ? (
+                    <StructuredSummary result={repoSummaryResult} />
+                  ) : (
+                    <p className="text-zinc-500 text-sm">No summary available.</p>
+                  )}
                 </div>
               </div>
 
@@ -527,9 +379,11 @@ export default async function RepoAnalysisBoard(
                   <Users className="w-5 h-5" />
                   <h2 className="text-xl font-bold text-white">Team Insights</h2>
                 </div>
-                <div className="prose prose-invert prose-orange text-sm">
-                  <div dangerouslySetInnerHTML={{ __html: teamInsights?.replace(/\n/g, '<br/>') || '' }} />
-                </div>
+                {teamInsightsResult ? (
+                  <TeamInsightsCard result={teamInsightsResult} />
+                ) : (
+                  <p className="text-zinc-500 text-sm">No team insights available.</p>
+                )}
               </div>
             </section>
 
@@ -544,37 +398,50 @@ export default async function RepoAnalysisBoard(
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {contributors.map(contributor => (
-                  <div key={contributor.id} className="rounded-2xl border border-white/5 bg-white/5 p-5">
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <ContributorAvatar src={contributor.avatarUrl} username={contributor.username} size={44} />
-                        <div className="min-w-0">
-                          <h3 className="font-bold truncate">{contributor.username}</h3>
-                          <p className="text-xs text-zinc-500">{contributor.role} · {formatRelativeDate(contributor.lastActive)}</p>
+                {contributors.map(contributor => {
+                  const aiData = contributorAiMap.get(contributor.id);
+                  return (
+                    <div key={contributor.id} className="rounded-2xl border border-white/5 bg-white/5 p-5">
+                      <div className="flex items-start justify-between gap-4 mb-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <ContributorAvatar src={contributor.avatarUrl} username={contributor.username} size={44} />
+                          <div className="min-w-0">
+                            <h3 className="font-bold truncate">{contributor.username}</h3>
+                            <p className="text-xs text-zinc-500">{contributor.role} · {formatRelativeDate(contributor.lastActive)}</p>
+                          </div>
                         </div>
+                        <ImpactExplanation
+                          result={aiData?.impact ?? null}
+                          breakdown={contributor.score.breakdown}
+                          total={contributor.impactScore}
+                        />
                       </div>
-                      <ExplainableScore total={contributor.impactScore} breakdown={contributor.score.breakdown} />
-                    </div>
 
-                    <ul className="space-y-2 mb-4">
-                      {contributor.summary.slice(0, 3).map(item => (
-                        <li key={item} className="text-sm text-zinc-300 flex gap-2">
-                          <Sparkles className="w-3.5 h-3.5 text-purple-300 mt-1 shrink-0" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
+                      {aiData?.profile ? (
+                        <ContributorProfileCard result={aiData.profile} />
+                      ) : (
+                        <>
+                          <ul className="space-y-2 mb-4">
+                            {contributor.summary.slice(0, 3).map(item => (
+                              <li key={item} className="text-sm text-zinc-300 flex gap-2">
+                                <Sparkles className="w-3.5 h-3.5 text-purple-300 mt-1 shrink-0" />
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
 
-                    <div className="flex flex-wrap gap-2">
-                      {contributor.categories.map(category => (
-                        <span key={category.label} className="rounded-full bg-black/25 border border-white/10 px-3 py-1 text-xs text-zinc-300" title={category.detail}>
-                          {category.label}
-                        </span>
-                      ))}
+                          <div className="flex flex-wrap gap-2">
+                            {contributor.categories.map(category => (
+                              <span key={category.label} className="rounded-full bg-black/25 border border-white/10 px-3 py-1 text-xs text-zinc-300" title={category.detail}>
+                                {category.label}
+                              </span>
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           </>

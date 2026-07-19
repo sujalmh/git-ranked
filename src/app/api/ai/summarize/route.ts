@@ -1,7 +1,17 @@
 import { NextResponse } from 'next/server';
-import { generateSummary } from '../../../../lib/ai';
 import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
+import { runTaskById } from '@/lib/ai';
+
+const VALID_TASKS = [
+  'contributor_profile',
+  'repository_summary',
+  'release_notes',
+  'impact_analysis',
+  'team_insights',
+  'weekly_report',
+  'monthly_report',
+] as const;
 
 function isValidDate(value: unknown) {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -16,6 +26,9 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { repoId, dateFrom, dateTo, contributorId } = body;
+    const task = body.task || body.summaryType || 'repository_summary';
+    const generate = body.generate !== false;
+
     const parsedRepoId = Number(repoId);
     const parsedContributorId = contributorId ? Number(contributorId) : undefined;
     const dateFromTime = Date.parse(dateFrom);
@@ -31,6 +44,10 @@ export async function POST(req: Request) {
 
     if (parsedContributorId !== undefined && (!Number.isInteger(parsedContributorId) || parsedContributorId <= 0)) {
       return NextResponse.json({ error: 'Invalid contributorId' }, { status: 400 });
+    }
+
+    if (!VALID_TASKS.includes(task)) {
+      return NextResponse.json({ error: `Invalid task. Valid tasks: ${VALID_TASKS.join(', ')}` }, { status: 400 });
     }
 
     const repoAccess = await sql`
@@ -61,10 +78,20 @@ export async function POST(req: Request) {
       }
     }
 
-    const summaryType = body.summaryType || 'weekly';
-    const summary = await generateSummary(parsedRepoId, summaryType, dateFrom, dateTo, parsedContributorId);
-    
-    return NextResponse.json({ summary });
+    const result = await runTaskById(
+      task,
+      parsedRepoId,
+      dateFrom,
+      dateTo,
+      parsedContributorId,
+      generate
+    );
+
+    if (!result) {
+      return NextResponse.json({ result: null });
+    }
+
+    return NextResponse.json({ result });
   } catch (error) {
     console.error('Summarize API Error:', error);
     return NextResponse.json({ error: 'Failed to generate summary' }, { status: 500 });

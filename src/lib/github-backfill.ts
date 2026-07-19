@@ -1,105 +1,20 @@
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import githubAppJwt from 'universal-github-app-jwt';
 import { sql } from './db';
+import {
+  getInstallationAccessToken,
+  githubInstallationApi,
+  upsertContributor,
+  type GitHubCommit,
+  type GitHubPullRequest,
+  type GitHubReview,
+  type GitHubUser,
+  type InstallationRepo,
+} from './github-api';
 
-type GitHubUser = {
-  id: number;
-  login: string;
-  avatar_url?: string | null;
-};
+export type { GitHubUser, GitHubCommit, GitHubPullRequest, GitHubReview, InstallationRepo };
 
-type GitHubCommit = {
-  sha: string;
-  html_url?: string;
-  commit: {
-    message: string;
-  };
-  author?: GitHubUser | null;
-};
-
-type GitHubPullRequest = {
-  id: number;
-  number: number;
-  title: string;
-  html_url: string;
-  body?: string | null;
-  user?: GitHubUser | null;
-  merged_at?: string | null;
-  additions?: number;
-  deletions?: number;
-  changed_files?: number;
-};
-
-type GitHubReview = {
-  id: number;
-  state: string;
-  body?: string | null;
-  user?: GitHubUser | null;
-  submitted_at?: string | null;
-};
-
-type BackfillRepo = {
-  id: number;
-  github_installation_id: number | string;
-  owner: string;
-  name: string;
-};
-
-type InstallationTokenResponse = {
-  token: string;
-};
-
-const BACKFILL_REQUEST_TIMEOUT_MS = 10_000;
 const BACKFILL_COMMIT_LIMIT = 50;
 const BACKFILL_PULL_REQUEST_LIMIT = 10;
 const BACKFILL_REVIEW_LIMIT = 20;
-
-function normalizePrivateKey(privateKey: string) {
-  return privateKey.replace(/\\n/g, '\n').trim();
-}
-
-function getGitHubAppPrivateKey() {
-  const envPrivateKey = process.env.GITHUB_PRIVATE_KEY || process.env.GITHUB_APP_PRIVATE_KEY;
-  if (envPrivateKey) return normalizePrivateKey(envPrivateKey);
-
-  const envPrivateKeyPath = process.env.GITHUB_PRIVATE_KEY_PATH;
-  if (envPrivateKeyPath && existsSync(envPrivateKeyPath)) {
-    return readFileSync(envPrivateKeyPath, 'utf8').trim();
-  }
-
-  const localKeyPath = join(process.cwd(), 'git-ranked-dev.2026-07-18.private-key.pem');
-  if (existsSync(localKeyPath)) {
-    return readFileSync(localKeyPath, 'utf8').trim();
-  }
-
-  return null;
-}
-
-function getGitHubAppConfig() {
-  const appId = process.env.GITHUB_APP_ID?.replaceAll('"', '').trim();
-  const privateKey = getGitHubAppPrivateKey();
-  if (!appId || !privateKey) return null;
-
-  return {
-    appId,
-    privateKey,
-  };
-}
-
-async function upsertContributor(user: GitHubUser | null | undefined) {
-  if (!user) return null;
-
-  const rows = await sql`
-    INSERT INTO github_contributors (github_id, username, avatar_url, last_seen_at)
-    VALUES (${user.id}, ${user.login}, ${user.avatar_url ?? null}, NOW())
-    ON CONFLICT (github_id) DO UPDATE
-    SET username = ${user.login}, avatar_url = ${user.avatar_url ?? null}, last_seen_at = NOW()
-    RETURNING id
-  `;
-
-  return rows[0].id as number;
-}
 
 async function insertBackfilledEvent(params: {
   repoId: number;
@@ -117,56 +32,12 @@ async function insertBackfilledEvent(params: {
   `;
 }
 
-async function getInstallationAccessToken(installationId: number | string) {
-  const config = getGitHubAppConfig();
-  if (!config) return null;
-
-  const { token } = await githubAppJwt({
-    id: config.appId,
-    privateKey: config.privateKey,
-  });
-
-  const response = await fetch(`https://api.github.com/app/installations/${installationId}/access_tokens`, {
-    method: 'POST',
-    signal: AbortSignal.timeout(BACKFILL_REQUEST_TIMEOUT_MS),
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to create installation token: ${response.status}`);
-  }
-
-  const data = (await response.json()) as InstallationTokenResponse;
-  return data.token;
-}
-
-async function githubInstallationApi<T>(path: string, token: string) {
-  const response = await fetch(`https://api.github.com${path}`, {
-    signal: AbortSignal.timeout(BACKFILL_REQUEST_TIMEOUT_MS),
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`GitHub backfill request failed for ${path}: ${response.status}`);
-  }
-
-  return (await response.json()) as T;
-}
-
 function reviewWordCount(body: string | null | undefined) {
   if (!body) return 0;
   return body.trim().split(/\s+/).filter(Boolean).length;
 }
 
-export async function backfillRepoActivity(repo: BackfillRepo) {
+export async function backfillRepoActivity(repo: InstallationRepo) {
   const installationToken = await getInstallationAccessToken(repo.github_installation_id);
   if (!installationToken) {
     console.warn('Skipping GitHub backfill: GITHUB_APP_ID and private key are not configured');

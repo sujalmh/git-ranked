@@ -131,5 +131,58 @@ export async function initSchema() {
     );
   `;
 
+  // --- Structured AI architecture migrations ---
+  // github_events: per-event classification + cached diff facts
+  await sql`ALTER TABLE github_events ADD COLUMN IF NOT EXISTS classification JSONB`.catch(() => {});
+  await sql`ALTER TABLE github_events ADD COLUMN IF NOT EXISTS classified_at TIMESTAMP`.catch(() => {});
+  await sql`ALTER TABLE github_events ADD COLUMN IF NOT EXISTS diff_facts JSONB`.catch(() => {});
+
+  // ai_summaries: structured payload + versioning + confidence + source
+  await sql`ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS payload JSONB`.catch(() => {});
+  await sql`ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS schema_version VARCHAR(50)`.catch(() => {});
+  await sql`ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(50)`.catch(() => {});
+  await sql`ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS confidence REAL`.catch(() => {});
+  await sql`ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'ai'`.catch(() => {});
+  // Mark any legacy rows (pre-rewrite) so structured readers ignore them
+  await sql`UPDATE ai_summaries SET schema_version = 'legacy' WHERE schema_version IS NULL`.catch(() => {});
+
+  // insight_caches: support per-contributor profiles/impact + versioning
+  await sql`ALTER TABLE insight_caches ADD COLUMN IF NOT EXISTS contributor_id INTEGER REFERENCES github_contributors(id)`.catch(() => {});
+  await sql`ALTER TABLE insight_caches ADD COLUMN IF NOT EXISTS schema_version VARCHAR(50)`.catch(() => {});
+  await sql`ALTER TABLE insight_caches ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(50)`.catch(() => {});
+  await sql`ALTER TABLE insight_caches ADD COLUMN IF NOT EXISTS confidence REAL`.catch(() => {});
+  await sql`ALTER TABLE insight_caches ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'deterministic'`.catch(() => {});
+
+  // Swap the unique constraint on insight_caches to allow per-contributor rows.
+  // The original schema declares UNIQUE (repo_id, insight_type). Replace with
+  // UNIQUE (repo_id, contributor_id, insight_type). Contributor-scoped rows
+  // (contributor_id IS NULL) remain repo-scoped.
+  await swapInsightCachesConstraint();
+
   console.log('Database schema initialized.');
+}
+
+async function swapInsightCachesConstraint() {
+  // Only the original constraint name used by this app's CREATE TABLE.
+  const LEGACY_CONSTRAINT_NAME = 'insight_caches_repo_id_insight_type_key';
+  const NEW_CONSTRAINT_NAME = 'insight_caches_repo_contributor_type_key';
+
+  const constraintExists = await sql`
+    SELECT 1 FROM pg_constraint WHERE conname = ${LEGACY_CONSTRAINT_NAME}
+  `;
+  if (constraintExists.length === 0) return;
+
+  // Dedupe rows that would collide under the new key, keeping the latest.
+  await sql`
+    DELETE FROM insight_caches a
+    USING insight_caches b
+    WHERE a.id < b.id
+      AND a.repo_id IS NOT DISTINCT FROM b.repo_id
+      AND a.contributor_id IS NOT DISTINCT FROM b.contributor_id
+      AND a.insight_type = b.insight_type
+  `.catch(() => {});
+
+  // Constraint names are trusted constants, safe to inject as identifiers.
+  await sql`ALTER TABLE insight_caches DROP CONSTRAINT ${sql.unsafe(LEGACY_CONSTRAINT_NAME)}`.catch(() => {});
+  await sql`ALTER TABLE insight_caches ADD CONSTRAINT ${sql.unsafe(NEW_CONSTRAINT_NAME)} UNIQUE (repo_id, contributor_id, insight_type)`.catch(() => {});
 }

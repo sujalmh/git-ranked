@@ -2,11 +2,14 @@ import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
-import { GitBranch, ArrowLeft, Users, Zap, Code, MessageSquare, Plus } from 'lucide-react';
+import { ArrowLeft, Users, Zap, Code, MessageSquare } from 'lucide-react';
 import { redirect } from 'next/navigation';
-import { computeContributionScore, RawEvent } from '@/lib/scoring';
-import { ExplainableScore } from '@/components/ExplainableScore';
-import { generateSummary } from '@/lib/ai';
+import Image from 'next/image';
+import { computeContributionScore, type ClassificationMap, type RawEvent } from '@/lib/scoring';
+import { getCachedContributorResults } from '@/lib/ai';
+import type { AiResult, ContributorProfile, ImpactAnalysis } from '@/lib/ai/types';
+import { ImpactExplanation } from '@/components/ai';
+import type { ClassificationItem } from '@/lib/ai/types';
 
 type CompareContributor = {
   id: number;
@@ -14,7 +17,8 @@ type CompareContributor = {
   avatarUrl: string | null;
   score: ReturnType<typeof computeContributionScore>;
   impactScore: number;
-  areasOfContribution: string;
+  profile: AiResult<ContributorProfile> | null;
+  impact: AiResult<ImpactAnalysis> | null;
 };
 
 export default async function ComparePage(
@@ -38,11 +42,19 @@ export default async function ComparePage(
   const repoId = repoQuery[0].id;
   
   const events = await sql`
-    SELECT e.event_type, e.payload, e.created_at, c.id as contributor_id, c.username, c.avatar_url
+    SELECT e.id, e.event_type, e.payload, e.created_at, e.classification,
+           c.id as contributor_id, c.username, c.avatar_url
     FROM github_events e
     JOIN github_contributors c ON e.contributor_id = c.id
     WHERE e.repo_id = ${repoId} AND e.created_at > NOW() - INTERVAL '30 days'
   `;
+
+  const classifications: ClassificationMap = new Map();
+  for (const row of events) {
+    if (row.classification && typeof row.classification === 'object') {
+      classifications.set(row.id, row.classification as ClassificationItem);
+    }
+  }
 
   // Process events for contributors
   const contributorMap = new Map<number, {
@@ -58,31 +70,27 @@ export default async function ComparePage(
       avatarUrl: row.avatar_url,
       events: [] as RawEvent[]
     };
-    existing.events.push({ type: row.event_type, payload: (row.payload as Record<string, unknown>) || {}, created_at: row.created_at });
+    existing.events.push({
+      id: row.id,
+      type: row.event_type,
+      payload: (row.payload as Record<string, unknown>) || {},
+      created_at: row.created_at
+    });
     contributorMap.set(row.contributor_id, existing);
   }
 
-  const dateTo = new Date().toISOString().split('T')[0];
-  // eslint-disable-next-line react-hooks/purity
-  const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
   const contributors: CompareContributor[] = [];
   for (const c of Array.from(contributorMap.values())) {
-    const score = computeContributionScore(c.events);
-    
-    // Generate AI areas of contribution
-    let areas = "Unknown";
-    try {
-      areas = (await generateSummary(repoId, 'areas_of_contribution', dateFrom, dateTo, c.id)) || "Unknown";
-    } catch (e) {}
+    const score = computeContributionScore(c.events, { classifications });
 
     contributors.push({
       id: c.id,
       username: c.username,
       avatarUrl: c.avatarUrl,
       score,
-      impactScore: score.total, // Will normalize below
-      areasOfContribution: areas
+      impactScore: score.total,
+      profile: null,
+      impact: null,
     });
   }
   
@@ -90,7 +98,18 @@ export default async function ComparePage(
   const ranked = contributors.map(c => ({
     ...c,
     impactScore: Math.max(1, Math.round((c.impactScore / topScore) * 100))
-  })).sort((a, b) => b.impactScore - a.impactScore).slice(0, 4); // Compare top 4
+  })).sort((a, b) => b.impactScore - a.impactScore).slice(0, 4);
+
+  // Fetch cached AI results for the top 4 contributors
+  const topIds = ranked.map(c => c.id);
+  const aiResults = await getCachedContributorResults(repoId, topIds);
+  for (const c of ranked) {
+    const data = aiResults.get(c.id);
+    if (data) {
+      c.profile = data.profile as AiResult<ContributorProfile> | null;
+      c.impact = data.impact as AiResult<ImpactAnalysis> | null;
+    }
+  }
 
   return (
     <div className="flex flex-col min-h-screen relative">
@@ -110,41 +129,60 @@ export default async function ComparePage(
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {ranked.map(c => (
-            <div key={c.id} className="glass-card p-6 flex flex-col gap-6">
-              <div className="flex flex-col items-center text-center">
-                <img src={c.avatarUrl || ''} className="w-20 h-20 rounded-full mb-4 border border-white/10" alt="" />
-                <h2 className="text-xl font-bold">{c.username}</h2>
-                <div className="text-xs text-zinc-400 mt-2 flex flex-wrap justify-center gap-1">
-                  {c.areasOfContribution.split(',').map((area, i) => (
-                    <span key={i} className="px-2 py-1 bg-white/5 rounded-md">{area.trim()}</span>
-                  ))}
+          {ranked.map(c => {
+            const focusAreas = c.profile?.payload.focus_areas ?? [];
+            return (
+              <div key={c.id} className="glass-card p-6 flex flex-col gap-6">
+                <div className="flex flex-col items-center text-center">
+                  <Image
+                    src={c.avatarUrl || ''}
+                    className="rounded-full mb-4 border border-white/10"
+                    alt={c.username}
+                    width={80}
+                    height={80}
+                  />
+                  <h2 className="text-xl font-bold">{c.username}</h2>
+                  <div className="text-xs text-zinc-400 mt-2 flex flex-wrap justify-center gap-1">
+                    {focusAreas.length > 0 ? (
+                      focusAreas.map((area, i) => (
+                        <span key={i} className="px-2 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-md text-indigo-300">
+                          {area}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="px-2 py-1 bg-white/5 rounded-md text-zinc-500">No focus areas</span>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="pt-4 border-t border-white/10">
+                  <ImpactExplanation
+                    result={c.impact}
+                    breakdown={c.score.breakdown}
+                    total={c.impactScore}
+                  />
+                </div>
+                
+                <div className="pt-4 border-t border-white/10 space-y-4 text-sm">
+                  <div className="flex items-center gap-3">
+                    <Zap className="w-4 h-4 text-yellow-400" />
+                    <span className="text-zinc-300">Feature Delivery</span>
+                    <span className="ml-auto font-bold">{c.score.breakdown.featureDelivery}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Code className="w-4 h-4 text-blue-400" />
+                    <span className="text-zinc-300">Code Quality</span>
+                    <span className="ml-auto font-bold">{c.score.breakdown.codeQuality}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="w-4 h-4 text-purple-400" />
+                    <span className="text-zinc-300">Reviews & Collab</span>
+                    <span className="ml-auto font-bold">{c.score.breakdown.reviews + c.score.breakdown.collaboration}</span>
+                  </div>
                 </div>
               </div>
-              
-              <div className="pt-4 border-t border-white/10">
-                <ExplainableScore total={c.impactScore} breakdown={c.score.breakdown} />
-              </div>
-              
-              <div className="pt-4 border-t border-white/10 space-y-4 text-sm">
-                <div className="flex items-center gap-3">
-                  <Zap className="w-4 h-4 text-yellow-400" />
-                  <span className="text-zinc-300">Feature Delivery</span>
-                  <span className="ml-auto font-bold">{c.score.breakdown.featureDelivery}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Code className="w-4 h-4 text-blue-400" />
-                  <span className="text-zinc-300">Code Quality</span>
-                  <span className="ml-auto font-bold">{c.score.breakdown.codeQuality}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <MessageSquare className="w-4 h-4 text-purple-400" />
-                  <span className="text-zinc-300">Reviews & Collab</span>
-                  <span className="ml-auto font-bold">{c.score.breakdown.reviews + c.score.breakdown.collaboration}</span>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           
           {ranked.length === 0 && (
             <div className="col-span-full text-center py-20 text-zinc-500">

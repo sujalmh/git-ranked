@@ -1,7 +1,10 @@
+import type { ClassificationItem, WorkType } from './ai/types';
+
 export interface RawEvent {
   type: string;
   payload: Record<string, unknown>;
   created_at: string;
+  id?: number;
 }
 
 export interface ScoreDetails {
@@ -28,6 +31,22 @@ const BASE_POINTS: Record<string, number> = {
   comment: 1,
 };
 
+export const WORK_TYPE_MULTIPLIER: Record<WorkType, number> = {
+  Feature: 1.0,
+  'Bug Fix': 0.9,
+  Performance: 1.2,
+  Security: 1.3,
+  Refactor: 1.0,
+  Infrastructure: 1.0,
+  Documentation: 0.7,
+  Testing: 1.1,
+  Database: 1.0,
+  API: 1.0,
+  Frontend: 1.0,
+  Backend: 1.0,
+  Other: 1.0,
+};
+
 function isFixOrRefactor(payload: Record<string, unknown>, type: string): boolean {
   if (type !== 'pr_merged' && type !== 'push') return false;
   const title = (
@@ -45,7 +64,17 @@ function isFixOrRefactor(payload: Record<string, unknown>, type: string): boolea
   return ['fix', 'bug', 'error', 'refactor', 'perf', 'test'].some(w => title.includes(w));
 }
 
-export function computeContributionScore(events: RawEvent[]): ScoreDetails {
+export type ClassificationMap = Map<number, ClassificationItem>;
+
+export interface ScoringOptions {
+  classifications?: ClassificationMap;
+}
+
+export function computeContributionScore(
+  events: RawEvent[],
+  options: ScoringOptions = {}
+): ScoreDetails {
+  const { classifications } = options;
   const breakdown = {
     featureDelivery: 0,
     codeQuality: 0,
@@ -65,6 +94,15 @@ export function computeContributionScore(events: RawEvent[]): ScoreDetails {
     const payload = event.payload || {};
 
     let points = base;
+
+    // Apply work-type multiplier when classification is available
+    if (classifications && event.id) {
+      const classification = classifications.get(event.id);
+      if (classification?.work_type) {
+        const multiplier = WORK_TYPE_MULTIPLIER[classification.work_type as WorkType] ?? 1.0;
+        points *= multiplier;
+      }
+    }
 
     if (type === 'pr_merged') {
       const changed = (typeof payload.additions === 'number' ? payload.additions : 0) + 

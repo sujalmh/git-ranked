@@ -18,7 +18,8 @@ export async function GET(
     let events;
     if (contributorId) {
       events = await sql`
-        SELECT e.id, e.event_type, e.payload, e.created_at, c.username, c.avatar_url
+        SELECT e.id, e.event_type, e.payload, e.created_at, e.classification, e.classified_at, e.diff_facts,
+               c.username, c.avatar_url
         FROM github_events e
         JOIN github_contributors c ON e.contributor_id = c.id
         WHERE e.repo_id = ${repoId} AND e.contributor_id = ${contributorId}
@@ -27,7 +28,8 @@ export async function GET(
       `;
     } else {
       events = await sql`
-        SELECT e.id, e.event_type, e.payload, e.created_at, c.username, c.avatar_url
+        SELECT e.id, e.event_type, e.payload, e.created_at, e.classification, e.classified_at, e.diff_facts,
+               c.username, c.avatar_url
         FROM github_events e
         JOIN github_contributors c ON e.contributor_id = c.id
         WHERE e.repo_id = ${repoId}

@@ -2,9 +2,11 @@ import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
-import { GitBranch, ArrowLeft, Layers3 } from 'lucide-react';
+import { ArrowLeft, Layers3 } from 'lucide-react';
 import { redirect } from 'next/navigation';
-import { generateSummary } from '@/lib/ai';
+import { runTaskById } from '@/lib/ai';
+import type { AiResult, ReleaseNotes } from '@/lib/ai/types';
+import { ReleaseNotesCard } from '@/components/ai';
 
 export default async function ReleasesPage(
   props: { params: Promise<{ owner: string; name: string }> }
@@ -31,9 +33,9 @@ export default async function ReleasesPage(
   // eslint-disable-next-line react-hooks/purity
   const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   
-  let releaseNotes = "No release notes could be generated.";
+  let releaseNotesResult: AiResult<ReleaseNotes> | null = null;
   try {
-    releaseNotes = (await generateSummary(repoId, 'release_notes', dateFrom, dateTo)) || "No release notes could be generated.";
+    releaseNotesResult = await runTaskById('release_notes', repoId, dateFrom, dateTo) as AiResult<ReleaseNotes> | null;
   } catch (err) {
     console.error("AI Generation failed", err);
   }
@@ -55,8 +57,20 @@ export default async function ReleasesPage(
           </p>
         </div>
 
-        <div className="glass-card p-10 prose prose-invert prose-indigo max-w-none">
-          <div dangerouslySetInnerHTML={{ __html: releaseNotes.replace(/\n/g, '<br/>') }} />
+        <div className="glass-card p-10">
+          {releaseNotesResult ? (
+            <ReleaseNotesCard result={releaseNotesResult} />
+          ) : (
+            <div className="text-center py-10">
+              <p className="text-zinc-400 mb-4">No release notes have been generated yet.</p>
+              <Link
+                href={`/repos/${owner}/${name}`}
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 transition-colors font-semibold text-sm"
+              >
+                Back to repository to analyse
+              </Link>
+            </div>
+          )}
         </div>
       </main>
     </div>

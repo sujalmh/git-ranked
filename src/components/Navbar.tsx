@@ -9,9 +9,9 @@ export async function Navbar() {
   return (
     <header className="sticky top-0 z-50 glass border-b-0 rounded-none w-full">
       <div className="flex items-center justify-between p-4 max-w-7xl mx-auto w-full">
-        <Link href="/" className="flex items-center gap-2">
-          <GitBranch className="w-6 h-6 text-indigo-400" />
-          <span className="text-xl font-bold tracking-tight">GitRanked</span>
+        <Link href="/" className="flex items-center gap-3">
+          <Image src="/logo.png" alt="GitRanked Logo" width={28} height={28} className="rounded-full shadow-md" />
+          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-amber-500 bg-clip-text text-transparent">GitRanked</span>
         </Link>
         <div className="flex items-center gap-4">
           {session ? (

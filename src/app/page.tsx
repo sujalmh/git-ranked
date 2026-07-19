@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { GitBranch, Activity, Brain, Shield } from 'lucide-react';
 
 export default function Home() {
@@ -9,9 +10,9 @@ export default function Home() {
       <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-600/20 blur-[120px] pointer-events-none" />
 
       <header className="flex items-center justify-between p-6 max-w-7xl mx-auto w-full z-10">
-        <div className="flex items-center gap-2">
-          <GitBranch className="w-8 h-8 text-indigo-400" />
-          <span className="text-2xl font-bold tracking-tight">GitRanked</span>
+        <div className="flex items-center gap-3">
+          <Image src="/logo.png" alt="GitRanked Logo" width={32} height={32} className="rounded-full shadow-md" />
+          <span className="text-2xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-amber-500 bg-clip-text text-transparent">GitRanked</span>
         </div>
         <nav className="flex gap-6 items-center">
           <Link href="/dashboard" className="text-zinc-400 hover:text-white transition-colors">Dashboard</Link>
