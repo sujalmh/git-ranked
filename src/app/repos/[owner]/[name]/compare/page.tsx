@@ -73,7 +73,7 @@ export default async function ComparePage(
     // Generate AI areas of contribution
     let areas = "Unknown";
     try {
-      areas = await generateSummary(repoId, 'areas_of_contribution', dateFrom, dateTo, c.id);
+      areas = (await generateSummary(repoId, 'areas_of_contribution', dateFrom, dateTo, c.id)) || "Unknown";
     } catch (e) {}
 
     contributors.push({

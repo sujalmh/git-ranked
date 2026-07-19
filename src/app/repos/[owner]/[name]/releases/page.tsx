@@ -33,7 +33,7 @@ export default async function ReleasesPage(
   
   let releaseNotes = "No release notes could be generated.";
   try {
-    releaseNotes = await generateSummary(repoId, 'release_notes', dateFrom, dateTo);
+    releaseNotes = (await generateSummary(repoId, 'release_notes', dateFrom, dateTo)) || "No release notes could be generated.";
   } catch (err) {
     console.error("AI Generation failed", err);
   }

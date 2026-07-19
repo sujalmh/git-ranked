@@ -16,9 +16,9 @@ export interface ScoreDetails {
 }
 
 const BASE_POINTS: Record<string, number> = {
-  push: 2,
-  pr_opened: 5,
-  pr_merged: 15,
+  push: 10,
+  pr_opened: 2,
+  pr_merged: 10,
   pr_closed: 1,
   review_submitted: 10,
   issue_opened: 4,

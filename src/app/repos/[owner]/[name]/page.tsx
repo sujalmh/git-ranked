@@ -23,6 +23,7 @@ import { ActivityFeed, ActivityItem } from '@/components/ActivityFeed';
 import { HealthRadar } from '@/components/HealthRadar';
 import { getRepoInsights } from '@/lib/insights';
 import { generateSummary } from '@/lib/ai';
+import { AnalyseButton } from '@/components/AnalyseButton';
 
 type RepoEventRow = {
   type: string;
@@ -383,16 +384,17 @@ export default async function RepoAnalysisBoard(
   // eslint-disable-next-line react-hooks/purity
   const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   
-  let aiSummary = "AI Summary not generated yet.";
-  let teamInsights = "Team Insights not generated yet.";
+  let aiSummary = null;
+  let teamInsights = null;
   try {
-    aiSummary = await generateSummary(repoId, 'weekly', dateFrom, dateTo);
-    teamInsights = await generateSummary(repoId, 'team_insights', dateFrom, dateTo);
+    aiSummary = await generateSummary(repoId, 'weekly', dateFrom, dateTo, undefined, false);
+    teamInsights = await generateSummary(repoId, 'team_insights', dateFrom, dateTo, undefined, false);
   } catch (err) {
     console.error("AI Generation failed", err);
   }
 
-  const healthMetrics = await getRepoInsights(repoId);
+  const healthMetrics = await getRepoInsights(repoId, false);
+  const isAnalysed = aiSummary !== null && teamInsights !== null && healthMetrics !== null;
 
   return (
     <div className="flex flex-col min-h-screen relative">
@@ -414,6 +416,7 @@ export default async function RepoAnalysisBoard(
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <AnalyseButton owner={owner} name={name} isReanalyse={isAnalysed} />
             <Link href={`/repos/${owner}/${name}/releases`} className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-4 py-2 text-sm text-white font-medium">
               Release Notes
             </Link>
@@ -434,6 +437,15 @@ export default async function RepoAnalysisBoard(
               Back to repositories <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
+        ) : !isAnalysed ? (
+          <div className="glass-card p-10 text-center max-w-3xl mx-auto mt-20 flex flex-col items-center">
+            <Brain className="w-12 h-12 text-indigo-400 mb-4" />
+            <h2 className="text-2xl font-bold mb-3">Repository Insights Not Generated</h2>
+            <p className="text-zinc-400 leading-relaxed mb-6">
+              This repository has contribution data, but the AI insights have not been generated yet. Click below to crunch the data and generate comprehensive health metrics, team summaries, and AI impact scores.
+            </p>
+            <AnalyseButton owner={owner} name={name} />
+          </div>
         ) : (
           <>
             {/* 1 & 2. AI Summary and Repo Health */}
@@ -446,7 +458,7 @@ export default async function RepoAnalysisBoard(
                     <span className="text-sm font-semibold uppercase tracking-wide">AI Repository Summary</span>
                   </div>
                   <div className="prose prose-invert prose-indigo">
-                    <div dangerouslySetInnerHTML={{ __html: aiSummary.replace(/\n/g, '<br/>') }} />
+                    <div dangerouslySetInnerHTML={{ __html: aiSummary?.replace(/\n/g, '<br/>') || '' }} />
                   </div>
                 </div>
               </div>
@@ -516,7 +528,7 @@ export default async function RepoAnalysisBoard(
                   <h2 className="text-xl font-bold text-white">Team Insights</h2>
                 </div>
                 <div className="prose prose-invert prose-orange text-sm">
-                  <div dangerouslySetInnerHTML={{ __html: teamInsights.replace(/\n/g, '<br/>') }} />
+                  <div dangerouslySetInnerHTML={{ __html: teamInsights?.replace(/\n/g, '<br/>') || '' }} />
                 </div>
               </div>
             </section>

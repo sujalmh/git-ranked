@@ -23,8 +23,9 @@ export async function generateSummary(
   summaryType: string,
   dateFrom: string,
   dateTo: string,
-  contributorId?: number
-): Promise<string> {
+  contributorId?: number,
+  generateIfMissing: boolean = false
+): Promise<string | null> {
   if (!OPENROUTER_API_KEY) {
     throw new Error('OPENROUTER_API_KEY is not configured');
   }
@@ -54,6 +55,10 @@ export async function generateSummary(
       
   if (cacheQuery.length > 0) {
     return cacheQuery[0].summary_text;
+  }
+
+  if (!generateIfMissing) {
+    return null;
   }
 
   // 2. Fetch events

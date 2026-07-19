@@ -112,7 +112,7 @@ export async function generateRepoInsights(repoId: number) {
   return metrics;
 }
 
-export async function getRepoInsights(repoId: number): Promise<HealthMetrics | null> {
+export async function getRepoInsights(repoId: number, generateIfMissing: boolean = false): Promise<HealthMetrics | null> {
   const cache = await sql`
     SELECT payload, generated_at
     FROM insight_caches
@@ -121,13 +121,17 @@ export async function getRepoInsights(repoId: number): Promise<HealthMetrics | n
 
   if (cache.length > 0) {
     const isStale = new Date(cache[0].generated_at).getTime() < Date.now() - 24 * 60 * 60 * 1000;
-    if (isStale) {
+    if (isStale && generateIfMissing) {
       // Fire and forget background regeneration
       generateRepoInsights(repoId).catch(console.error);
     }
     return cache[0].payload as HealthMetrics;
   }
 
-  // Generate synchronously if not found
+  if (!generateIfMissing) {
+    return null;
+  }
+
+  // Generate synchronously if not found and allowed to generate
   return await generateRepoInsights(repoId);
 }

@@ -36,7 +36,7 @@ export default async function Dashboard() {
     // Fetch insights in parallel for all repos
     await Promise.all(repos.map(async (repo) => {
       try {
-        repo.healthMetrics = await getRepoInsights(repo.id);
+        repo.healthMetrics = await getRepoInsights(repo.id, false);
       } catch (err) {
         console.error(`Failed to fetch insights for repo ${repo.id}`, err);
       }
