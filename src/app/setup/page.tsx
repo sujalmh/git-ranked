@@ -1,10 +1,18 @@
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
-import { CheckCircle, GitBranch } from 'lucide-react';
-import { auth, signIn } from '@/lib/auth';
+import { AlertCircle, CheckCircle, GitBranch } from 'lucide-react';
+import { auth } from '@/lib/auth';
 
-export default async function SetupPage() {
+type SetupPageProps = {
+  searchParams: Promise<{
+    error?: string;
+  }>;
+};
+
+export default async function SetupPage({ searchParams }: SetupPageProps) {
   const session = await auth();
+  const { error } = await searchParams;
+  const installUrl = `https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`;
 
   return (
     <div className="flex flex-col min-h-screen relative">
@@ -34,34 +42,32 @@ export default async function SetupPage() {
             </Link>
           </>
         ) : (
-          // Not authenticated: show sign-in to complete the link
           <>
-            <div className="w-20 h-20 rounded-full bg-indigo-500/10 flex items-center justify-center mb-8 border border-indigo-500/20">
-              <GitBranch className="w-10 h-10 text-indigo-400" />
+            <div className="w-20 h-20 rounded-full bg-amber-500/10 flex items-center justify-center mb-8 border border-amber-500/20">
+              {error ? (
+                <AlertCircle className="w-10 h-10 text-amber-400" />
+              ) : (
+                <GitBranch className="w-10 h-10 text-amber-400" />
+              )}
             </div>
 
             <h1 className="text-4xl font-extrabold tracking-tight mb-4">
-              One more step
+              {error ? 'Setup could not be completed' : 'Complete setup from GitHub'}
             </h1>
 
             <p className="text-xl text-zinc-400 mb-12 leading-relaxed">
-              Sign in with GitHub to link your installation and start tracking your repositories.
+              {error
+                ? 'GitHub did not complete the installation authorization. Start the GitRanked install flow again so GitHub can install the app and authorize your account in one pass.'
+                : 'After installing GitRanked, GitHub should authorize your account and return you here automatically. If you landed here directly, start from the GitHub App install flow.'}
             </p>
 
-            <form
-              action={async () => {
-                'use server';
-                await signIn('github', { redirectTo: '/setup' });
-              }}
+            <a
+              href={installUrl}
+              className="px-8 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-3"
             >
-              <button
-                type="submit"
-                className="px-8 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-3"
-              >
-                <GitBranch className="w-5 h-5" />
-                Continue with GitHub
-              </button>
-            </form>
+              <GitBranch className="w-5 h-5" />
+              Install GitRanked
+            </a>
           </>
         )}
       </main>
