@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createGitHubInstallSessionCredentials, signIn } from '@/lib/auth';
+import { auth, createGitHubInstallSessionCredentials, signIn } from '@/lib/auth';
 
 type GitHubAccessTokenResponse = {
   access_token?: string;
@@ -117,6 +117,18 @@ export async function GET(req: Request) {
   const installationIdParam = url.searchParams.get('installation_id');
 
   if (!code) {
+    const session = await auth();
+    if (session) {
+      return NextResponse.redirect(new URL('/setup', req.url));
+    }
+
+    console.error('GitHub App callback was invoked without OAuth code', {
+      hasInstallationId: url.searchParams.has('installation_id'),
+      hasSetupAction: url.searchParams.has('setup_action'),
+      setupAction: url.searchParams.get('setup_action'),
+      queryKeys: Array.from(url.searchParams.keys()),
+    });
+
     return NextResponse.redirect(new URL('/setup?error=missing_github_oauth_code', req.url));
   }
 
