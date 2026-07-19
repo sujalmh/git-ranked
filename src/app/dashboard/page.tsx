@@ -14,6 +14,7 @@ type DashboardRepo = {
   default_branch: string;
   added_at: string | Date;
   installation_status: string;
+  event_count: number;
   healthMetrics?: HealthMetrics | null;
 };
 
@@ -26,15 +27,20 @@ export default async function Dashboard() {
   let repos: DashboardRepo[] = [];
   try {
     repos = (await sql`
-      SELECT r.id, r.owner, r.name, r.default_branch, r.added_at, i.status as installation_status
+      SELECT r.id, r.owner, r.name, r.default_branch, r.added_at,
+             i.status as installation_status,
+             (SELECT COUNT(*) FROM github_events WHERE repo_id = r.id) as event_count
       FROM repositories r
       JOIN installations i ON r.installation_id = i.id
-      WHERE i.linked_user_id = ${session.user.id} AND r.is_active = true
+      WHERE i.linked_user_id = ${session.user.id}
+        AND r.is_active = true
+        AND i.status != 'deleted'
       ORDER BY r.added_at DESC
     `) as DashboardRepo[];
     
-    // Fetch insights in parallel for all repos
+    // Fetch insights in parallel for repos that have activity
     await Promise.all(repos.map(async (repo) => {
+      if (repo.event_count === 0) return;
       try {
         repo.healthMetrics = await getRepoInsights(repo.id, false);
       } catch (err) {
@@ -98,20 +104,28 @@ export default async function Dashboard() {
                     <h3 className="text-base font-semibold truncate">{repo.owner} / {repo.name}</h3>
                     <p className="text-xs text-zinc-500 truncate">Default branch: {repo.default_branch}</p>
                   </div>
-                  {repo.healthMetrics && (
+                  {repo.healthMetrics && repo.event_count > 0 ? (
                     <div className="text-right shrink-0">
                       <div className="text-lg font-black text-indigo-400 leading-none">{repo.healthMetrics.overallScore}</div>
                       <div className="text-[10px] uppercase text-zinc-500 tracking-wider">Health</div>
                     </div>
-                  )}
+                  ) : repo.event_count === 0 ? (
+                    <div className="text-right shrink-0">
+                      <div className="text-[10px] uppercase text-amber-400 tracking-wider font-medium border border-amber-500/30 bg-amber-500/10 rounded-md px-2 py-0.5">
+                        Initialize
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
                 
                 <div className="mt-auto pt-3 border-t border-white/5 flex items-center justify-between">
                   <span className="text-xs text-zinc-500">
-                    Added {new Date(repo.added_at).toLocaleDateString()}
+                    {repo.event_count > 0
+                      ? `${repo.event_count} events · Added ${new Date(repo.added_at).toLocaleDateString()}`
+                      : `Added ${new Date(repo.added_at).toLocaleDateString()}`}
                   </span>
                   <div className="flex items-center gap-1 text-indigo-400 text-sm font-medium group-hover:translate-x-1 transition-transform">
-                    View Insights <ArrowRight className="w-4 h-4" />
+                    {repo.event_count > 0 ? 'View Insights' : 'Set up'} <ArrowRight className="w-4 h-4" />
                   </div>
                 </div>
               </Link>

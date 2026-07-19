@@ -3,31 +3,43 @@
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
 }
 
 @layer utilities {
-  .glass {
-    @apply bg-white/5 backdrop-blur-md border border-white/10 shadow-xl;
+  .stark-panel {
+    @apply bg-black border-2 border-white transition-all duration-200;
   }
-  .glass-card {
-    @apply bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-2xl hover:bg-white/10 transition-colors duration-300;
+  .stark-panel-hover {
+    @apply hover:bg-white hover:text-black hover:-translate-y-1;
   }
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400;
+  .accent-panel {
+    @apply bg-[#ccff00] text-black border-2 border-[#ccff00] font-bold;
+  }
+  .text-accent {
+    @apply text-[#ccff00];
   }
 }
 
 :root {
-  --background: #09090b;
-  --foreground: #fafafa;
+  --background: #000000;
+  --foreground: #ffffff;
+  --accent: #ccff00;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  /* Adding a subtle premium grid pattern to the background */
-  background-image: 
-    linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
-  background-size: 40px 40px;
+  /* A very stark, widely spaced dot pattern instead of soft grids */
+  background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0);
+  background-size: 64px 64px;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Base heading reset for bolder look */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
 }
