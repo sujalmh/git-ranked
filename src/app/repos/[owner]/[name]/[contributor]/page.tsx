@@ -97,43 +97,43 @@ export default async function ContributorDetail(
     <div className="flex flex-col min-h-screen relative">
       <Navbar />
       
-      <main className="flex-1 max-w-7xl mx-auto w-full p-6 mt-8">
-        <Link href={`/repos/${owner}/${name}`} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-8 w-fit">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
+        <Link href={`/repos/${owner}/${name}`} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-5 w-fit text-sm">
           <ArrowLeft className="w-4 h-4" /> Back to Repo
         </Link>
 
-        <div className="flex items-center justify-between mb-12">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
             {avatarUrl && (
               <Image
                 src={avatarUrl}
                 className="rounded-full border border-white/10"
                 alt={contributor}
-                width={64}
-                height={64}
+                width={56}
+                height={56}
               />
             )}
             <div>
-              <h1 className="text-3xl font-bold flex items-center gap-3 mb-2">
+              <h1 className="text-2xl font-bold flex items-center gap-2.5 mb-0.5">
                 {contributor}
               </h1>
-              <p className="text-zinc-400">Deep dive into impact and code velocity.</p>
+              <p className="text-sm text-zinc-400">Deep dive into impact and code velocity.</p>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
           {/* AI Contributor Profile */}
-          <div className="glass-card p-6">
-            <h2 className="text-xl font-bold mb-4">AI Contributor Profile</h2>
+          <div className="glass-card p-5">
+            <h2 className="text-base font-semibold mb-3">AI Contributor Profile</h2>
             {profileResult ? (
               <ContributorProfileCard result={profileResult} />
             ) : (
-              <div className="text-center py-8">
-                <p className="text-zinc-400 mb-4">No AI profile generated yet.</p>
+              <div className="text-center py-6">
+                <p className="text-sm text-zinc-400 mb-3">No AI profile generated yet.</p>
                 <Link
                   href={`/repos/${owner}/${name}`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 transition-colors font-semibold text-sm"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 transition-colors font-semibold text-sm"
                 >
                   Analyse repository to generate
                 </Link>
@@ -142,8 +142,8 @@ export default async function ContributorDetail(
           </div>
 
           {/* AI Impact Analysis */}
-          <div className="glass-card p-6">
-            <h2 className="text-xl font-bold mb-4">Impact Analysis</h2>
+          <div className="glass-card p-5">
+            <h2 className="text-base font-semibold mb-3">Impact Analysis</h2>
             <ImpactExplanation
               result={impactResult}
               breakdown={score.breakdown}
@@ -153,12 +153,12 @@ export default async function ContributorDetail(
         </div>
 
         {/* Recent Events */}
-        <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-4">Recent Events</h2>
+        <div className="glass-card p-5">
+          <h2 className="text-base font-semibold mb-3">Recent Events</h2>
           {eventRows.length === 0 ? (
-            <p className="text-zinc-400">No recent activity found.</p>
+            <p className="text-sm text-zinc-400">No recent activity found.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {eventRows.map((row) => {
                 const payload = asPayload(row.payload);
                 const createdAt = eventDate(row.created_at);
@@ -166,7 +166,7 @@ export default async function ContributorDetail(
                 const classification = row.classification as ClassificationItem | undefined;
                 return (
                   <div key={row.id} className="flex items-start gap-3 py-2 border-b border-white/5 last:border-0">
-                    <div className="text-xs text-zinc-500 mt-1 w-24 shrink-0">
+                    <div className="text-xs text-zinc-500 mt-0.5 w-20 shrink-0">
                       {formatRelativeDate(createdAt)}
                     </div>
                     <div className="flex-1">

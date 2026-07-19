@@ -20,40 +20,40 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
     <div className="flex flex-col min-h-screen relative">
       <Navbar />
 
-      <main className="flex-1 flex flex-col items-center justify-center text-center px-4 max-w-2xl mx-auto mt-20 mb-32">
+      <main className="flex-1 flex flex-col items-center justify-center text-center px-4 max-w-xl mx-auto mt-10 mb-20">
         {session ? (
           // Authenticated: installation is already linked by signIn callback or webhook
           <>
-            <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mb-8 border border-green-500/20">
-              <CheckCircle className="w-10 h-10 text-green-400" />
+            <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-5 border border-green-500/20">
+              <CheckCircle className="w-8 h-8 text-green-400" />
             </div>
 
-            <h1 className="text-4xl font-extrabold tracking-tight mb-4">
+            <h1 className="text-3xl font-extrabold tracking-tight mb-3">
               Installation Complete!
             </h1>
 
-            <p className="text-xl text-zinc-400 mb-12 leading-relaxed">
+            <p className="text-base text-zinc-400 mb-8 leading-relaxed max-w-md">
               GitRanked is now installed on your repositories. We will start tracking commits, PRs, and reviews immediately.
             </p>
 
             <Link
               href="/dashboard"
-              className="px-8 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg transition-all shadow-lg shadow-indigo-500/20"
+              className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-500/20"
             >
               Go to Dashboard
             </Link>
           </>
         ) : (
           <>
-            <div className="w-20 h-20 rounded-full bg-amber-500/10 flex items-center justify-center mb-8 border border-amber-500/20">
+            <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mb-5 border border-amber-500/20">
               {error || isUpdateNotice ? (
-                <AlertCircle className="w-10 h-10 text-amber-400" />
+                <AlertCircle className="w-8 h-8 text-amber-400" />
               ) : (
-                <GitBranch className="w-10 h-10 text-amber-400" />
+                <GitBranch className="w-8 h-8 text-amber-400" />
               )}
             </div>
 
-            <h1 className="text-4xl font-extrabold tracking-tight mb-4">
+            <h1 className="text-3xl font-extrabold tracking-tight mb-3">
               {error
                 ? 'Setup could not be completed'
                 : isUpdateNotice
@@ -61,7 +61,7 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
                   : 'Complete setup from GitHub'}
             </h1>
 
-            <p className="text-xl text-zinc-400 mb-12 leading-relaxed">
+            <p className="text-base text-zinc-400 mb-8 leading-relaxed max-w-lg">
               {error
                 ? 'GitHub did not complete the installation authorization. Start the GitRanked install flow again so GitHub can install the app and authorize your account in one pass.'
                 : isUpdateNotice
@@ -71,9 +71,9 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
 
             <a
               href={installUrl}
-              className="px-8 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-3"
+              className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2"
             >
-              <GitBranch className="w-5 h-5" />
+              <GitBranch className="w-4 h-4" />
               Install GitRanked
             </a>
           </>

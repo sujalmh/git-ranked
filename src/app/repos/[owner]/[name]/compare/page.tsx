@@ -114,48 +114,48 @@ export default async function ComparePage(
   return (
     <div className="flex flex-col min-h-screen relative">
       <Navbar />
-      <main className="flex-1 max-w-7xl mx-auto w-full p-6 mt-8">
-        <div className="mb-10">
-          <Link href={`/repos/${owner}/${name}`} className="inline-flex items-center gap-2 text-zinc-400 hover:text-white mb-6 text-sm transition-colors">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
+        <div className="mb-8">
+          <Link href={`/repos/${owner}/${name}`} className="inline-flex items-center gap-2 text-zinc-400 hover:text-white mb-4 text-sm transition-colors">
             <ArrowLeft className="w-4 h-4" /> Back to dashboard
           </Link>
-          <h1 className="text-3xl font-bold flex items-center gap-3 mb-2">
-            <Users className="w-8 h-8 text-indigo-400" />
+          <h1 className="text-2xl font-bold flex items-center gap-2.5 mb-1">
+            <Users className="w-6 h-6 text-indigo-400" />
             Team Comparison
           </h1>
-          <p className="text-zinc-400">
+          <p className="text-sm text-zinc-400">
             Side-by-side analysis of contributor impact, specializations, and focus areas.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {ranked.map(c => {
             const focusAreas = c.profile?.payload.focus_areas ?? [];
             return (
-              <div key={c.id} className="glass-card p-6 flex flex-col gap-6">
+              <div key={c.id} className="glass-card p-5 flex flex-col gap-5">
                 <div className="flex flex-col items-center text-center">
                   <Image
                     src={c.avatarUrl || ''}
-                    className="rounded-full mb-4 border border-white/10"
+                    className="rounded-full mb-3 border border-white/10"
                     alt={c.username}
-                    width={80}
-                    height={80}
+                    width={64}
+                    height={64}
                   />
-                  <h2 className="text-xl font-bold">{c.username}</h2>
+                  <h2 className="text-base font-semibold">{c.username}</h2>
                   <div className="text-xs text-zinc-400 mt-2 flex flex-wrap justify-center gap-1">
                     {focusAreas.length > 0 ? (
                       focusAreas.map((area, i) => (
-                        <span key={i} className="px-2 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-md text-indigo-300">
+                        <span key={i} className="px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/30 rounded-md text-indigo-300">
                           {area}
                         </span>
                       ))
                     ) : (
-                      <span className="px-2 py-1 bg-white/5 rounded-md text-zinc-500">No focus areas</span>
+                      <span className="px-2 py-0.5 bg-white/5 rounded-md text-zinc-500">No focus areas</span>
                     )}
                   </div>
                 </div>
                 
-                <div className="pt-4 border-t border-white/10">
+                <div className="pt-3 border-t border-white/10">
                   <ImpactExplanation
                     result={c.impact}
                     breakdown={c.score.breakdown}
@@ -163,7 +163,7 @@ export default async function ComparePage(
                   />
                 </div>
                 
-                <div className="pt-4 border-t border-white/10 space-y-4 text-sm">
+                <div className="pt-3 border-t border-white/10 space-y-3 text-sm">
                   <div className="flex items-center gap-3">
                     <Zap className="w-4 h-4 text-yellow-400" />
                     <span className="text-zinc-300">Feature Delivery</span>
@@ -185,7 +185,7 @@ export default async function ComparePage(
           })}
           
           {ranked.length === 0 && (
-            <div className="col-span-full text-center py-20 text-zinc-500">
+            <div className="col-span-full text-center py-16 text-zinc-500 text-sm">
               No contributor data available for comparison yet.
             </div>
           )}

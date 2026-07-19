@@ -1,4 +1,6 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect, useRef, useState } from 'react';
 import { GitCommit, GitMerge, GitPullRequest, MessageSquare, Play, Tag, Bug, Star } from 'lucide-react';
 
 export type ActivityItem = {
@@ -8,18 +10,17 @@ export type ActivityItem = {
   avatarUrl: string | null;
   message: string;
   date: Date;
-  metadata?: Record<string, unknown>;
 };
 
 const iconMap: Record<string, React.ReactNode> = {
-  'pr_merged': <GitMerge className="w-4 h-4 text-purple-400" />,
-  'pr_opened': <GitPullRequest className="w-4 h-4 text-green-400" />,
-  'review_submitted': <MessageSquare className="w-4 h-4 text-blue-400" />,
-  'issue_opened': <Bug className="w-4 h-4 text-red-400" />,
-  'issue_closed': <Bug className="w-4 h-4 text-zinc-400" />,
-  'release': <Tag className="w-4 h-4 text-yellow-400" />,
-  'push': <GitCommit className="w-4 h-4 text-zinc-400" />,
-  'highlight': <Star className="w-4 h-4 text-yellow-400" />,
+  'pr_merged': <GitMerge className="w-3.5 h-3.5 text-purple-400" />,
+  'pr_opened': <GitPullRequest className="w-3.5 h-3.5 text-green-400" />,
+  'review_submitted': <MessageSquare className="w-3.5 h-3.5 text-blue-400" />,
+  'issue_opened': <Bug className="w-3.5 h-3.5 text-red-400" />,
+  'issue_closed': <Bug className="w-3.5 h-3.5 text-zinc-400" />,
+  'release': <Tag className="w-3.5 h-3.5 text-yellow-400" />,
+  'push': <GitCommit className="w-3.5 h-3.5 text-zinc-400" />,
+  'highlight': <Star className="w-3.5 h-3.5 text-yellow-400" />,
 };
 
 function formatRelativeDate(date: Date) {
@@ -30,6 +31,21 @@ function formatRelativeDate(date: Date) {
 }
 
 export function ActivityFeed({ items }: { items: ActivityItem[] }) {
+  const [revealed, setRevealed] = useState(0);
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (started.current || items.length === 0) return;
+    started.current = true;
+    let i = 0;
+    const id = window.setInterval(() => {
+      i += 1;
+      setRevealed(i);
+      if (i >= items.length) window.clearInterval(id);
+    }, 70);
+    return () => window.clearInterval(id);
+  }, [items.length]);
+
   if (items.length === 0) {
     return (
       <div className="text-center py-8 text-zinc-500 text-sm">
@@ -39,27 +55,33 @@ export function ActivityFeed({ items }: { items: ActivityItem[] }) {
   }
 
   return (
-    <div className="space-y-4">
-      {items.map((item, index) => (
-        <div key={item.id || index} className="flex gap-4">
-          <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center shrink-0">
-              {iconMap[item.type] || <Play className="w-4 h-4 text-zinc-400" />}
+    <div className="space-y-2">
+      {items.map((item, index) => {
+        const visible = index < revealed;
+        return (
+          <div
+            key={item.id || index}
+            className={`flex gap-3 transition-all duration-500 ease-out ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+          >
+            <div className="flex flex-col items-center">
+              <div className="w-7 h-7 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center shrink-0">
+                {iconMap[item.type] || <Play className="w-3.5 h-3.5 text-zinc-400" />}
+              </div>
+              {index !== items.length - 1 && (
+                <div className="w-px flex-1 bg-white/5 my-1" />
+              )}
             </div>
-            {index !== items.length - 1 && (
-              <div className="w-px h-full bg-white/5 my-1" />
-            )}
+            <div className="pt-1 pb-2 flex-1">
+              <div className="text-sm text-white leading-snug mb-0.5">
+                <span className="font-bold">{item.actor}</span> {item.message}
+              </div>
+              <div className="text-xs text-zinc-500">
+                {formatRelativeDate(item.date)}
+              </div>
+            </div>
           </div>
-          <div className="pt-1 pb-4 flex-1">
-            <div className="text-sm font-medium text-white mb-1">
-              <span className="font-bold">{item.actor}</span> {item.message}
-            </div>
-            <div className="text-xs text-zinc-500">
-              {formatRelativeDate(item.date)}
-            </div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

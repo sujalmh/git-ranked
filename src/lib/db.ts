@@ -159,6 +159,11 @@ export async function initSchema() {
   // (contributor_id IS NULL) remain repo-scoped.
   await swapInsightCachesConstraint();
 
+  // --- Share link migrations ---
+  // repositories: share_token for public read-only access, share_enabled toggle
+  await sql`ALTER TABLE repositories ADD COLUMN IF NOT EXISTS share_token VARCHAR(32) UNIQUE`.catch(() => {});
+  await sql`ALTER TABLE repositories ADD COLUMN IF NOT EXISTS share_enabled BOOLEAN DEFAULT false`.catch(() => {});
+
   console.log('Database schema initialized.');
 }
 
