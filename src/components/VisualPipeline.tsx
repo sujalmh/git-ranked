@@ -43,8 +43,8 @@ export function VisualPipeline() {
         {/* Step 2 */}
         <motion.div variants={itemVariants} className="flex-1 accent-panel p-8 text-center group hover:bg-white hover:border-white transition-colors">
           <div className="text-black text-5xl font-black mb-4 group-hover:text-black">02</div>
-          <h3 className="text-xl font-black uppercase tracking-tight mb-2">Analyze</h3>
-          <p className="text-sm font-medium">AI evaluates complexity, quality, and impact.</p>
+          <h3 className="text-xl font-black uppercase tracking-tight mb-2">Evaluate</h3>
+          <p className="text-sm font-medium">AI determines each contributor&apos;s true impact and role.</p>
         </motion.div>
 
         {/* Separator / Arrow */}
@@ -55,8 +55,8 @@ export function VisualPipeline() {
         {/* Step 3 */}
         <motion.div variants={itemVariants} className="flex-1 stark-panel p-8 text-center group stark-panel-hover">
           <div className="text-[#ccff00] text-5xl font-black mb-4 group-hover:text-black transition-colors">03</div>
-          <h3 className="text-xl font-black uppercase tracking-tight mb-2">Act</h3>
-          <p className="text-sm font-medium">Clear dashboards to identify bottlenecks.</p>
+          <h3 className="text-xl font-black uppercase tracking-tight mb-2">Rank</h3>
+          <p className="text-sm font-medium">Clear dashboards highlighting your true MVPs.</p>
         </motion.div>
       </motion.div>
     </div>

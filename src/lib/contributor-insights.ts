@@ -28,6 +28,15 @@ export type ContributorInsight = {
   categories: ContributionCategory[];
   highlights: string[];
   events: RawEvent[];
+  velocity: number[];
+  velocityLabels: string[];
+  currentStreak: number;
+  longestStreak: number;
+  collaborationScore: number;
+  workDistribution: Record<string, number>;
+  reviewedByCount: number;
+  reviewedOthersCount: number;
+  collaborators: string[];
 };
 
 export type Highlight = {

@@ -27,10 +27,10 @@ export function AnimatedCards() {
           Engineering Managers
         </div>
         <h3 className="text-3xl font-black mb-6 uppercase leading-tight">
-          Track velocity,<br/>not metrics.
+          Find your<br/>true MVPs.
         </h3>
         <p className="font-medium text-lg leading-relaxed mt-auto">
-          Identify knowledge silos and ensure code reviews are thorough without micromanaging your team.
+          Identify your silent reviewers and architectural heavy-lifters. See exactly who is carrying the project forward.
         </p>
       </motion.div>
       
@@ -46,10 +46,10 @@ export function AnimatedCards() {
           Developers & Maintainers
         </div>
         <h3 className="text-3xl font-black mb-6 uppercase leading-tight">
-          Get recognized<br/>for true impact.
+          Get recognized<br/>for your role.
         </h3>
         <p className="font-medium text-lg leading-relaxed mt-auto">
-          A fair assessment of your contributions. We reward high-impact PRs and quality code reviews, not sheer volume.
+          We separate the architects from the spammers. Your complex reviews and critical PRs finally get the rank they deserve.
         </p>
       </motion.div>
     </div>

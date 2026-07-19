@@ -1,12 +1,15 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { GitBranch } from 'lucide-react';
 import { AnimatedHeroContent } from '@/components/AnimatedHeroContent';
 import { AnimatedFeatures } from '@/components/AnimatedFeatures';
 import { VisualPipeline } from '@/components/VisualPipeline';
 import { AnimatedCards } from '@/components/AnimatedCards';
+import { auth } from '@/lib/auth';
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth();
+  const isSignedIn = !!session;
+
   return (
     <div className="flex flex-col min-h-screen relative overflow-hidden bg-black text-white">
       <header className="flex items-center justify-between px-6 py-6 max-w-7xl mx-auto w-full z-10 border-b-2 border-white/10">
@@ -15,18 +18,23 @@ export default function Home() {
           <span className="text-2xl font-black tracking-tighter uppercase">GitRanked</span>
         </div>
         <nav className="flex gap-6 items-center">
-          <Link href="/dashboard" className="text-sm font-bold uppercase hover:text-accent transition-colors">Dashboard</Link>
-          <a 
-            href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`} 
-            className="px-5 py-2 accent-panel text-sm transition-transform hover:-translate-y-1"
-          >
-            Install
-          </a>
+          {isSignedIn ? (
+            <Link href="/dashboard" className="px-5 py-2 accent-panel text-sm transition-transform hover:-translate-y-1">
+              DASHBOARD
+            </Link>
+          ) : (
+            <a 
+              href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`} 
+              className="px-5 py-2 accent-panel text-sm transition-transform hover:-translate-y-1"
+            >
+              CONNECT TO GITHUB
+            </a>
+          )}
         </nav>
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 z-10 mt-6 mb-16 relative">
-        <AnimatedHeroContent />
+        <AnimatedHeroContent isSignedIn={isSignedIn} />
 
         <AnimatedFeatures />
 

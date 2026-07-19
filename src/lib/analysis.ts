@@ -19,6 +19,7 @@ import {
   type Highlight,
 } from './contributor-insights';
 import type { ActivityItem } from '@/components/ActivityFeed';
+import { computeCollaborationAnalytics } from './collaboration-analytics';
 
 export type RepoEventRow = {
   id: number;
@@ -48,6 +49,7 @@ export type RepoAnalysisData = {
   healthMetrics: Awaited<ReturnType<typeof getRepoInsights>>;
   isAnalysed: boolean;
   contributorAiMap: Map<number, ContributorAiData>;
+  reviewGraph: Array<{ reviewerId: number; reviewer: string; authorId: number; author: string; count: number }>;
 };
 
 export function buildContributorInsights(rows: RepoEventRow[]) {
@@ -89,6 +91,15 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
       categories: [],
       highlights: [],
       events: [],
+      velocity: [],
+      velocityLabels: [],
+      currentStreak: 0,
+      longestStreak: 0,
+      collaborationScore: 0,
+      workDistribution: {},
+      reviewedByCount: 0,
+      reviewedOthersCount: 0,
+      collaborators: [],
     };
 
     if (row.type === 'push') contributor.commits += asNumber(payload.commit_count);
@@ -152,10 +163,40 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
     };
   }).sort((a, b) => b.impactScore - a.impactScore);
 
+  const collabStats = computeCollaborationAnalytics(
+    rows.map(r => ({
+      id: r.id,
+      event_type: r.type,
+      payload: asPayload(r.payload),
+      created_at: r.created_at,
+      contributor_id: r.contributor_id,
+      username: r.username,
+      classification: r.classification,
+    }))
+  );
+  const collabMap = new Map(collabStats.contributors.map(c => [c.contributorId, c]));
+  const merged = ranked.map(c => {
+    const cs = collabMap.get(c.id);
+    if (!cs) return c;
+    return {
+      ...c,
+      velocity: cs.velocity,
+      velocityLabels: cs.velocityLabels,
+      currentStreak: cs.currentStreak,
+      longestStreak: cs.longestStreak,
+      collaborationScore: cs.collaborationScore,
+      workDistribution: cs.workDistribution,
+      reviewedByCount: cs.reviewedByCount,
+      reviewedOthersCount: cs.reviewedOthersCount,
+      collaborators: cs.collaborators,
+    };
+  });
+
   return {
-    contributors: ranked,
+    contributors: merged,
     highlights: highlights.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 8),
     activityFeed: activityItems.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 20),
+    reviewGraph: collabStats.reviewGraph,
   };
 }
 
@@ -172,7 +213,7 @@ export async function fetchRepoEvents(repoId: number): Promise<RepoEventRow[]> {
 
 export async function getRepoAnalysisData(repoId: number): Promise<RepoAnalysisData> {
   const eventsQuery = await fetchRepoEvents(repoId);
-  const { contributors, highlights, activityFeed } = buildContributorInsights(eventsQuery);
+  const { contributors, highlights, activityFeed, reviewGraph } = buildContributorInsights(eventsQuery);
   const topContributor = contributors[0];
   const topReviewer = topBy(contributors, contributor => contributor.reviews);
   const topFixer = topBy(contributors, contributor => contributor.fixes);
@@ -214,6 +255,7 @@ export async function getRepoAnalysisData(repoId: number): Promise<RepoAnalysisD
     healthMetrics,
     isAnalysed,
     contributorAiMap,
+    reviewGraph,
   };
 }
 

@@ -129,7 +129,7 @@ export default async function RepoAnalysisBoard(
             <AnalyseButton owner={owner} name={name} />
           </div>
         ) : (
-          <RepoAnalysisView data={data} readOnly={false} />
+          <RepoAnalysisView data={data} readOnly={false} repoOwner={owner} repoName={name} />
         )}
       </main>
     </div>

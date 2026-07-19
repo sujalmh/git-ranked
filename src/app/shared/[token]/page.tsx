@@ -61,7 +61,7 @@ export default async function SharedRepoAnalysis(
           </div>
         </div>
 
-        <RepoAnalysisView data={data} readOnly />
+        <RepoAnalysisView data={data} readOnly repoOwner={repo.owner} repoName={repo.name} />
       </main>
     </div>
   );

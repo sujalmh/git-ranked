@@ -9,7 +9,7 @@ function FeatureCard({ title, description, delay }: { title: string, description
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
-      transition={{ type: "spring", stiffness: 300, damping: 25, delay }}
+      transition={{ type: "spring" as const, stiffness: 300, damping: 25, delay }}
       className="stark-panel stark-panel-hover p-8 flex flex-col group cursor-default"
     >
       <h3 className="text-2xl font-black uppercase tracking-tight mb-4 group-hover:text-[#ccff00] transition-colors">{title}</h3>
@@ -23,18 +23,18 @@ export function AnimatedFeatures() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full text-left mt-14">
       <FeatureCard
-        title="Quality > Quantity"
-        description="Scoring rewards high-impact PRs and thorough reviews, ignoring commit spam and meaningless metrics."
+        title="Role Detection"
+        description="Automatically identify who acts as a core architect, a critical reviewer, or a bug-fixer based on their actual PR activity."
         delay={0}
       />
       <FeatureCard
-        title="AI Engine"
-        description="Identified risks, bottlenecks, and team momentum. Every finding is backed by real PR analysis."
+        title="True Impact"
+        description="Scoring rewards deep code reviews and complex architectural contributions, ignoring meaningless commit spam."
         delay={0.1}
       />
       <FeatureCard
-        title="Health Radar"
-        description="A clear, geometric radar of delivery speed, code quality, review depth, and knowledge distribution."
+        title="Leaderboards"
+        description="Clear, undeniable, data-backed rankings of contributor value across your entire codebase."
         delay={0.2}
       />
     </div>
