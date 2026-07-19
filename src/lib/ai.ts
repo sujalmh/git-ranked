@@ -3,12 +3,31 @@ import { sql } from './db';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const MODEL = process.env.OPENROUTER_MODEL || 'tencent/hy3:free';
 
+type GitHubEventSummaryRow = {
+  event_type: string;
+  payload: unknown;
+  created_at: Date | string;
+  username: string;
+};
+
+type OpenRouterResponse = {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+};
+
 export async function generateSummary(
   repoId: number,
   dateFrom: string,
   dateTo: string,
   contributorId?: number
 ): Promise<string> {
+  if (!OPENROUTER_API_KEY) {
+    throw new Error('OPENROUTER_API_KEY is not configured');
+  }
+
   // 1. Check cache first
   const cacheQuery = contributorId 
     ? await sql`
@@ -61,8 +80,9 @@ export async function generateSummary(
   }
 
   // 3. Prepare prompt
-  const eventContext = events.map(e => 
-    `[${e.created_at.toISOString()}] ${e.username} - ${e.event_type}: ${JSON.stringify(e.payload)}`
+  const typedEvents = events as GitHubEventSummaryRow[];
+  const eventContext = typedEvents.slice(-120).map(event => 
+    `[${new Date(event.created_at).toISOString()}] ${event.username} - ${event.event_type}: ${JSON.stringify(event.payload)}`
   ).join('\n');
 
   const prompt = `
@@ -101,8 +121,11 @@ Format your response in clean Markdown. Use bullet points for key achievements.
     throw new Error('Failed to generate AI summary');
   }
 
-  const data = await response.json();
-  const summaryText = data.choices[0].message.content;
+  const data = (await response.json()) as OpenRouterResponse;
+  const summaryText = data.choices?.[0]?.message?.content?.trim();
+  if (!summaryText) {
+    throw new Error('OpenRouter returned an empty summary');
+  }
 
   // 5. Cache result
   if (contributorId) {
