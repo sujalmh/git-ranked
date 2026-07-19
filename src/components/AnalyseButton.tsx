@@ -98,9 +98,16 @@ export function AnalyseButton({
                     : s
                 )
               );
+              // Refresh the page data, then close the modal so the user
+              // sees the results. The refresh is triggered first, then we
+              // wait a bit for the server components to re-render before
+              // hiding the overlay.
+              router.refresh();
               setTimeout(() => {
                 router.refresh();
-              }, 800);
+                setShowProgress(false);
+                setLoading(false);
+              }, 1500);
               continue;
             }
 

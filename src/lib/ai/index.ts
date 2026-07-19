@@ -1,5 +1,5 @@
 import { sql } from '../db';
-import { runTask } from './runner';
+import { runTask, getCachedResult } from './runner';
 import { classifyEvents } from './tasks/work-classification';
 import { contributorProfileTask } from './tasks/contributor-profile';
 import { repositorySummaryTask } from './tasks/repository-summary';
@@ -92,6 +92,16 @@ export async function getOrGenerateTask<T>(
   return runTask(task, ctx, { generateIfMissing });
 }
 
+async function getCachedResultPublic(
+  task: AiTask<unknown>,
+  repoId: number,
+  dateFrom: string,
+  dateTo: string,
+  contributorId?: number
+): Promise<AiResult<unknown> | null> {
+  return getCachedResult(task, repoId, dateFrom, dateTo, contributorId);
+}
+
 export async function runTaskById(
   taskId: string,
   repoId: number,
@@ -105,6 +115,15 @@ export async function runTaskById(
     throw new Error(`Unknown AI task: ${taskId}`);
   }
 
+  // Check cache FIRST — avoids building context (which triggers GitHub API
+  // diff-fact fetches) when we only need a cached read.
+  const cached = await getCachedResultPublic(task, repoId, dateFrom, dateTo, contributorId);
+  if (cached) return cached;
+
+  if (!generateIfMissing) return null;
+
+  // Cache miss + generate requested: build the full context (fetches events,
+  // diff facts, etc.) and run the task.
   const repoInfo = await getRepoContext(repoId);
   if (!repoInfo) throw new Error(`Repository ${repoId} not found`);
 

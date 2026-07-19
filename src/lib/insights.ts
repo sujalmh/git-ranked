@@ -102,12 +102,23 @@ export async function generateRepoInsights(repoId: number) {
   };
 
   // Cache it
-  await sql`
-    INSERT INTO insight_caches (repo_id, insight_type, payload)
-    VALUES (${repoId}, 'health_metrics', ${JSON.stringify(metrics)})
-    ON CONFLICT (repo_id, insight_type) DO UPDATE
-    SET payload = ${JSON.stringify(metrics)}, generated_at = CURRENT_TIMESTAMP
-  `;
+  try {
+    await sql`
+      INSERT INTO insight_caches (repo_id, contributor_id, insight_type, payload, schema_version, prompt_version, confidence, source)
+      VALUES (${repoId}, NULL, 'health_metrics', ${JSON.stringify(metrics)}, 'deterministic', '1.0.0', 1.0, 'deterministic')
+      ON CONFLICT (repo_id, contributor_id, insight_type) DO UPDATE
+      SET payload = ${JSON.stringify(metrics)}, generated_at = CURRENT_TIMESTAMP,
+          schema_version = 'deterministic', prompt_version = '1.0.0',
+          confidence = 1.0, source = 'deterministic'
+    `;
+  } catch (upsertErr) {
+    console.warn('Health metrics ON CONFLICT upsert failed, falling back to DELETE + INSERT:', upsertErr instanceof Error ? upsertErr.message : upsertErr);
+    await sql`DELETE FROM insight_caches WHERE repo_id = ${repoId} AND contributor_id IS NULL AND insight_type = 'health_metrics'`;
+    await sql`
+      INSERT INTO insight_caches (repo_id, contributor_id, insight_type, payload, schema_version, prompt_version, confidence, source)
+      VALUES (${repoId}, NULL, 'health_metrics', ${JSON.stringify(metrics)}, 'deterministic', '1.0.0', 1.0, 'deterministic')
+    `;
+  }
 
   return metrics;
 }
@@ -116,7 +127,7 @@ export async function getRepoInsights(repoId: number, generateIfMissing: boolean
   const cache = await sql`
     SELECT payload, generated_at
     FROM insight_caches
-    WHERE repo_id = ${repoId} AND insight_type = 'health_metrics'
+    WHERE repo_id = ${repoId} AND contributor_id IS NULL AND insight_type = 'health_metrics'
   `;
 
   if (cache.length > 0) {
