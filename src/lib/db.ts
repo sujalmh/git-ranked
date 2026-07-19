@@ -163,14 +163,34 @@ export async function initSchema() {
 }
 
 async function swapInsightCachesConstraint() {
-  // Only the original constraint name used by this app's CREATE TABLE.
-  const LEGACY_CONSTRAINT_NAME = 'insight_caches_repo_id_insight_type_key';
   const NEW_CONSTRAINT_NAME = 'insight_caches_repo_contributor_type_key';
 
-  const constraintExists = await sql`
-    SELECT 1 FROM pg_constraint WHERE conname = ${LEGACY_CONSTRAINT_NAME}
+  // Check if the target constraint already exists by definition (not name),
+  // so we're resilient to auto-generated or previously-renamed names.
+  const existing = await sql`
+    SELECT conname FROM pg_constraint
+    WHERE conrelid = 'insight_caches'::regclass
+      AND contype = 'u'
+      AND pg_get_constraintdef(oid) LIKE '%repo_id, contributor_id, insight_type%'
   `;
-  if (constraintExists.length === 0) return;
+  if (existing.length > 0) {
+    // Already has the correct unique constraint.
+    return;
+  }
+
+  // Drop ALL existing unique constraints on insight_caches so the new one
+  // can be created cleanly regardless of what the old one was named.
+  const oldConstraints = await sql`
+    SELECT conname FROM pg_constraint
+    WHERE conrelid = 'insight_caches'::regclass AND contype = 'u'
+  `;
+  for (const row of oldConstraints) {
+    const name = row.conname as string;
+    console.log(`Dropping old unique constraint: ${name}`);
+    await sql`ALTER TABLE insight_caches DROP CONSTRAINT ${sql.unsafe(name)}`.catch((err: unknown) => {
+      console.error(`Failed to drop constraint ${name}:`, err instanceof Error ? err.message : err);
+    });
+  }
 
   // Dedupe rows that would collide under the new key, keeping the latest.
   await sql`
@@ -180,9 +200,16 @@ async function swapInsightCachesConstraint() {
       AND a.repo_id IS NOT DISTINCT FROM b.repo_id
       AND a.contributor_id IS NOT DISTINCT FROM b.contributor_id
       AND a.insight_type = b.insight_type
-  `.catch(() => {});
+  `.catch((err: unknown) => {
+    console.error('Failed to dedupe insight_caches:', err instanceof Error ? err.message : err);
+  });
 
-  // Constraint names are trusted constants, safe to inject as identifiers.
-  await sql`ALTER TABLE insight_caches DROP CONSTRAINT ${sql.unsafe(LEGACY_CONSTRAINT_NAME)}`.catch(() => {});
-  await sql`ALTER TABLE insight_caches ADD CONSTRAINT ${sql.unsafe(NEW_CONSTRAINT_NAME)} UNIQUE (repo_id, contributor_id, insight_type)`.catch(() => {});
+  // Create the new unique constraint.
+  await sql`
+    ALTER TABLE insight_caches
+    ADD CONSTRAINT ${sql.unsafe(NEW_CONSTRAINT_NAME)}
+    UNIQUE (repo_id, contributor_id, insight_type)
+  `.catch((err: unknown) => {
+    console.error('Failed to create new insight_caches constraint:', err instanceof Error ? err.message : err);
+  });
 }

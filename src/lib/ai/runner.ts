@@ -122,6 +122,20 @@ async function persistResult<T>(
   }
 
   if (contributorId) {
+    await persistInsightCache(repoId, contributorId, task, payloadJson, result);
+  } else {
+    await persistInsightCache(repoId, null, task, payloadJson, result);
+  }
+}
+
+async function persistInsightCache(
+  repoId: number,
+  contributorId: number | null,
+  task: AiTask<unknown>,
+  payloadJson: string,
+  result: AiResult<unknown>
+): Promise<void> {
+  try {
     await sql`
       INSERT INTO insight_caches (repo_id, contributor_id, insight_type, payload, schema_version, prompt_version, confidence, source)
       VALUES (${repoId}, ${contributorId}, ${task.id}, ${payloadJson}, ${task.schemaVersion}, ${task.promptVersion}, ${result.confidence}, ${result.source})
@@ -133,17 +147,17 @@ async function persistResult<T>(
           source = ${result.source},
           generated_at = CURRENT_TIMESTAMP
     `;
-  } else {
+  } catch (upsertErr) {
+    console.warn('ON CONFLICT upsert failed, falling back to DELETE + INSERT:', upsertErr instanceof Error ? upsertErr.message : upsertErr);
+    await sql`
+      DELETE FROM insight_caches
+      WHERE repo_id = ${repoId}
+        AND contributor_id IS NOT DISTINCT FROM ${contributorId}
+        AND insight_type = ${task.id}
+    `;
     await sql`
       INSERT INTO insight_caches (repo_id, contributor_id, insight_type, payload, schema_version, prompt_version, confidence, source)
-      VALUES (${repoId}, NULL, ${task.id}, ${payloadJson}, ${task.schemaVersion}, ${task.promptVersion}, ${result.confidence}, ${result.source})
-      ON CONFLICT (repo_id, contributor_id, insight_type) DO UPDATE
-      SET payload = ${payloadJson},
-          schema_version = ${task.schemaVersion},
-          prompt_version = ${task.promptVersion},
-          confidence = ${result.confidence},
-          source = ${result.source},
-          generated_at = CURRENT_TIMESTAMP
+      VALUES (${repoId}, ${contributorId}, ${task.id}, ${payloadJson}, ${task.schemaVersion}, ${task.promptVersion}, ${result.confidence}, ${result.source})
     `;
   }
 }
