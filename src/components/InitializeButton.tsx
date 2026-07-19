@@ -152,7 +152,7 @@ export function InitializeButton({ owner, name }: { owner: string; name: string 
 
 export function RepositoryNeedsInit({ owner, name }: { owner: string; name: string }) {
   return (
-    <div className="stark-panel p-8 text-center max-w-2xl mx-auto mt-12 flex flex-col items-center">
+    <div className="sleek-panel p-8 text-center max-w-2xl mx-auto mt-12 flex flex-col items-center">
       <div className="w-14 h-14 rounded-full bg-indigo-500/10 flex items-center justify-center mb-4 border border-indigo-500/20">
         <GitBranch className="w-7 h-7 text-indigo-400" />
       </div>

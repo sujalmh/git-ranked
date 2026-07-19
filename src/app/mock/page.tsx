@@ -1,0 +1,200 @@
+import { RepoAnalysisView } from '@/components/RepoAnalysisView';
+import type { RepoAnalysisData } from '@/lib/analysis';
+
+export default function MockPage() {
+  const sujalmh = {
+    id: 1,
+    username: 'sujalmh',
+    avatarUrl: 'https://avatars.githubusercontent.com/u/74038190?v=4',
+    impactScore: 100,
+    role: 'Builder',
+    summary: ["sujalmh's impact is dominated by Feature Delivery (320) and Code Quality (130), with minimal Reviews (20), Collaboration (6), and Consistency (2.5). All 40 commits..."],
+    score: {
+      total: 478.5,
+      breakdown: { featureDelivery: 320, codeQuality: 130, reviews: 20, collaboration: 6, consistency: 2.5 },
+    },
+    categories: [
+      { label: 'Feature Work', value: 9 },
+      { label: 'Reliability', value: 7 },
+      { label: 'Code Review', value: 6 },
+    ],
+    commits: 40,
+    prsOpened: 3,
+    prsMerged: 2,
+    reviews: 2,
+    issues: 0,
+    fixes: 2,
+    releases: 0,
+    changedLines: 1200,
+    additions: 1000,
+    deletions: 200,
+    lastActive: new Date(),
+    highlights: [
+      'BACKEND (9 OBSERVED PUSHES: EXECUTOR, LAP DATA, ERROR HANDLING, MODELS)',
+      'FRONTEND (7 PUSHES: UI COMPONENTS, CHAT TOOLBAR, HIGHLIGHTING, RESPONSIVE HOOKS)',
+      'FEATURE (6 PUSHES: RAG, FIREBASE, REASONING MODE, API KEYS)',
+      'PERFORMANCE (5 PUSHES/PRS: TOKEN OPTIMIZATION, TRUNCATION)',
+    ],
+    events: [],
+    velocity: [10, 15, 40],
+    velocityLabels: ['Week 1', 'Week 2', 'Week 3'],
+    currentStreak: 5,
+    longestStreak: 12,
+    collaborationScore: 85,
+    workDistribution: { 'Feature Work': 37, 'Reliability': 8, 'Code Review': 2 },
+    reviewedByCount: 4,
+    reviewedOthersCount: 2,
+    collaborators: [],
+  };
+
+  const coderabbit = {
+    id: 2,
+    username: 'coderabbitai[bot]',
+    avatarUrl: 'https://avatars.githubusercontent.com/in/347564?s=64&v=4',
+    impactScore: 43,
+    role: 'Reviewer',
+    summary: ["coderabbitai[bot] is an automated review bot whose activity in this period is almost entirely concentrated on submitting AI-generated pull request reviews. Out of a..."],
+    score: {
+      total: 205.6,
+      breakdown: { featureDelivery: 0, codeQuality: 0, reviews: 120, collaboration: 80, consistency: 5.6 },
+    },
+    categories: [
+      { label: 'Code Review', value: 12 },
+      { label: 'Feature Work', value: 4 },
+    ],
+    commits: 1,
+    prsOpened: 2,
+    prsMerged: 1,
+    reviews: 12,
+    issues: 0,
+    fixes: 0,
+    releases: 0,
+    changedLines: 50,
+    additions: 40,
+    deletions: 10,
+    lastActive: new Date(),
+    highlights: [
+      'AUTOMATED CODE REVIEW (12 REVIEWS SUBMITTED ACROSS TS/PYTHON FILES)',
+      'DOCUMENTATION (DOCSTRINGS ADDED VIA MERGED PR; 3 DOC-RELATED EVENTS)',
+      'REFACTORING (9 REFACTOR-CLASSIFIED REVIEW EVENTS WITH NITPICK/STRUCTURE SUGGESTIONS)',
+      'SECURITY (FLAGGED HARDCODED API KEY IN ENV.EXAMPLE; 1 SECURITY-CLASSIFIED REVIEW)',
+    ],
+    events: [],
+    velocity: [2, 4, 12],
+    velocityLabels: ['Week 1', 'Week 2', 'Week 3'],
+    currentStreak: 2,
+    longestStreak: 5,
+    collaborationScore: 90,
+    workDistribution: { 'Feature Work': 4, 'Reliability': 0, 'Code Review': 12 },
+    reviewedByCount: 0,
+    reviewedOthersCount: 12,
+    collaborators: [],
+  };
+
+  const sujnankumar = {
+    id: 3,
+    username: 'sujnankumar',
+    avatarUrl: 'https://avatars.githubusercontent.com/u/12345678?v=4',
+    impactScore: 25,
+    role: 'Builder',
+    summary: ["sujnankumar's impact score is driven almost entirely by Feature Delivery (80) and Code Quality (35), with minor Collaboration (8) and negligible Consistency (2.5). The..."],
+    score: {
+      total: 119.6,
+      breakdown: { featureDelivery: 80, codeQuality: 35, reviews: 0, collaboration: 8, consistency: 2.5 },
+    },
+    categories: [
+      { label: 'Feature Work', value: 9 },
+      { label: 'Reliability', value: 4 },
+    ],
+    commits: 9,
+    prsOpened: 4,
+    prsMerged: 1,
+    reviews: 0,
+    issues: 0,
+    fixes: 3,
+    releases: 0,
+    changedLines: 400,
+    additions: 300,
+    deletions: 100,
+    lastActive: new Date(),
+    highlights: [
+      'FEATURE DEVELOPMENT (5 OBSERVED: LLM AGENT, API MICROSERVICE, CHAT UI, VISUALIZATION)',
+      'FRONTEND (3 OBSERVED: CHAT INTERFACE, VISUALIZATION CHARTS/PANELS, UI STATES)',
+      'BUG FIX (2 OBSERVED: GRAPH OVERLAP FIX MERGED)',
+      'BACKEND (1 OBSERVED: FIA REGULATION INGESTION PR)',
+    ],
+    events: [],
+    velocity: [1, 5, 9],
+    velocityLabels: ['Week 1', 'Week 2', 'Week 3'],
+    currentStreak: 1,
+    longestStreak: 3,
+    collaborationScore: 40,
+    workDistribution: { 'Feature Work': 11, 'Reliability': 3, 'Code Review': 0 },
+    reviewedByCount: 1,
+    reviewedOthersCount: 0,
+    collaborators: [],
+  };
+
+  const mockData: RepoAnalysisData = {
+    contributors: [sujalmh as any, coderabbit as any, sujnankumar as any],
+    highlights: [],
+    activityFeed: [
+      {
+        id: '1',
+        type: 'review_submitted',
+        actor: 'sujalmh',
+        avatarUrl: sujalmh.avatarUrl,
+        message: 'Reviewed PR #4 with commented',
+        date: new Date(),
+      },
+      {
+        id: '2',
+        type: 'pr_merged',
+        actor: 'sujnankumar',
+        avatarUrl: sujnankumar.avatarUrl,
+        message: 'Completed fixed issue with the simple graph overlapping',
+        date: new Date(),
+      },
+      {
+        id: '3',
+        type: 'pr_opened',
+        actor: 'sujnankumar',
+        avatarUrl: sujnankumar.avatarUrl,
+        message: 'Proposed fixed issue with the simple graph overlapping',
+        date: new Date(),
+      },
+      {
+        id: '4',
+        type: 'push',
+        actor: 'sujalmh',
+        avatarUrl: sujalmh.avatarUrl,
+        message: 'Pushed to main',
+        date: new Date(),
+      },
+    ],
+    topContributor: sujalmh as any,
+    topReviewer: coderabbit as any,
+    topFixer: sujnankumar as any,
+    repoSummaryResult: null,
+    teamInsightsResult: null,
+    healthMetrics: {
+      delivery: 58,
+      collaboration: 28,
+      codeQuality: 70,
+      reviewHealth: 100,
+      knowledgeDistribution: 39,
+      overallScore: 58,
+    },
+    isAnalysed: true,
+    contributorAiMap: new Map(),
+    reviewGraph: [],
+  };
+
+  return (
+    <div className="min-h-screen bg-black text-white p-6">
+      <div className="max-w-7xl mx-auto">
+        <RepoAnalysisView data={mockData} repoOwner="sujalmh" repoName="f1" />
+      </div>
+    </div>
+  );
+}

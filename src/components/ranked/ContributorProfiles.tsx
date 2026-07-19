@@ -41,7 +41,7 @@ export function ContributorProfiles({
             contributorEvidence={contributorEvidence[idx] ?? []}
             repoOwner={repoOwner}
             repoName={repoName}
-            borderClass={borderClass}
+            identity={identity}
             highlightStats={highlightByUser.get(contributor.id)}
           />
         );

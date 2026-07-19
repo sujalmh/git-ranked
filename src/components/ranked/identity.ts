@@ -22,29 +22,29 @@ export const PODIUM: Record<PodiumTier, PodiumStyle> = {
   gold: {
     tier: 'gold',
     text: 'text-[#ccff00]',
-    chip: 'bg-[#ccff00] border-[#ccff00] text-black font-bold',
-    ring: 'ring-4 ring-[#ccff00]',
-    border: 'border-[#ccff00]',
-    glow: 'shadow-[8px_8px_0_0_#ccff00]',
+    chip: 'bg-[#ccff00]/10 border-[#ccff00]/20 text-[#ccff00]',
+    ring: 'ring-2 ring-[#ccff00]/50',
+    border: 'border-[#ccff00]/30',
+    glow: 'bg-[#ccff00]/5',
     dot: 'bg-[#ccff00]',
   },
   silver: {
     tier: 'silver',
-    text: 'text-white',
-    chip: 'bg-white border-white text-black font-bold',
-    ring: 'ring-4 ring-white',
-    border: 'border-white',
-    glow: 'shadow-[8px_8px_0_0_#ffffff]',
-    dot: 'bg-white',
+    text: 'text-zinc-200',
+    chip: 'bg-zinc-400/15 border-zinc-400/30 text-zinc-200',
+    ring: 'ring-2 ring-zinc-400/40',
+    border: 'border-zinc-400/30',
+    glow: 'bg-zinc-400/10',
+    dot: 'bg-zinc-300',
   },
   bronze: {
     tier: 'bronze',
-    text: 'text-zinc-400',
-    chip: 'bg-zinc-800 border-zinc-600 text-white font-bold',
-    ring: 'ring-4 ring-zinc-500',
-    border: 'border-zinc-500',
-    glow: 'shadow-[8px_8px_0_0_#71717a]',
-    dot: 'bg-zinc-500',
+    text: 'text-orange-400',
+    chip: 'bg-orange-600/15 border-orange-600/30 text-orange-400',
+    ring: 'ring-2 ring-orange-600/40',
+    border: 'border-orange-600/30',
+    glow: 'bg-orange-600/10',
+    dot: 'bg-orange-500',
   },
 };
 
@@ -94,11 +94,11 @@ export const SEVERITY: Record<Severity, SeverityStyle> = {
 };
 
 const IDENTITY_PALETTE = [
-  { ring: 'ring-[#ccff00]', border: 'border-[#ccff00]', dot: 'bg-[#ccff00]', hex: '#ccff00' },
-  { ring: 'ring-[#00ffff]', border: 'border-[#00ffff]', dot: 'bg-[#00ffff]', hex: '#00ffff' },
-  { ring: 'ring-[#ff00ff]', border: 'border-[#ff00ff]', dot: 'bg-[#ff00ff]', hex: '#ff00ff' },
-  { ring: 'ring-[#ff5500]', border: 'border-[#ff5500]', dot: 'bg-[#ff5500]', hex: '#ff5500' },
-  { ring: 'ring-[#00ff66]', border: 'border-[#00ff66]', dot: 'bg-[#00ff66]', hex: '#00ff66' },
+  { ring: 'ring-[#ccff00]', border: 'border-[#ccff00]/50', dot: 'bg-[#ccff00]', hex: '#ccff00' },
+  { ring: 'ring-[#00ffff]', border: 'border-[#00ffff]/50', dot: 'bg-[#00ffff]', hex: '#00ffff' },
+  { ring: 'ring-[#ff00ff]', border: 'border-[#ff00ff]/50', dot: 'bg-[#ff00ff]', hex: '#ff00ff' },
+  { ring: 'ring-[#ff5500]', border: 'border-[#ff5500]/50', dot: 'bg-[#ff5500]', hex: '#ff5500' },
+  { ring: 'ring-[#00ff66]', border: 'border-[#00ff66]/50', dot: 'bg-[#00ff66]', hex: '#00ff66' },
 ];
 
 export type IdentityColor = {
@@ -109,10 +109,10 @@ export type IdentityColor = {
 };
 
 export const NEUTRAL_IDENTITY: IdentityColor = {
-  ring: 'ring-white',
-  border: 'border-white',
-  dot: 'bg-white',
-  hex: '#ffffff',
+  ring: 'ring-white/15',
+  border: 'border-white/10',
+  dot: 'bg-zinc-500',
+  hex: '#71717a',
 };
 
 export type IdentityAssignment = {
@@ -169,15 +169,15 @@ export function breakdownSegments(contributor: ContributorInsight): BreakdownSeg
 }
 
 const TOPIC_COLORS: Record<string, string> = {
-  'Feature Work': 'text-black bg-[#ccff00] border-[#ccff00]',
-  'Code Review': 'text-black bg-[#00ffff] border-[#00ffff]',
-  'Reliability': 'text-black bg-[#00ff66] border-[#00ff66]',
-  'Releases': 'text-white bg-[#ff5500] border-[#ff5500]',
-  'Planning': 'text-black bg-[#ff00ff] border-[#ff00ff]',
-  'Maintenance': 'text-black bg-white border-white',
+  'Feature Work': 'text-blue-300 bg-blue-500/10 border-blue-500/20',
+  'Code Review': 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
+  'Reliability': 'text-violet-300 bg-violet-500/10 border-violet-500/20',
+  'Releases': 'text-amber-300 bg-amber-500/10 border-amber-500/20',
+  'Planning': 'text-rose-300 bg-rose-500/10 border-rose-500/20',
+  'Maintenance': 'text-zinc-300 bg-zinc-500/10 border-zinc-500/20',
 };
 
-export const TOPIC_NEUTRAL = 'text-white bg-zinc-800 border-zinc-700';
+export const TOPIC_NEUTRAL = 'text-zinc-300 bg-white/5 border-white/10';
 
 export function topicChipClass(label: string): string {
   return TOPIC_COLORS[label] ?? TOPIC_NEUTRAL;

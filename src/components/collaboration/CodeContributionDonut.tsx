@@ -41,7 +41,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
   if (!active || !payload || payload.length === 0) return null;
   const d = payload[0].payload;
   return (
-    <div className="stark-panel px-3 py-2 text-xs space-y-1">
+    <div className="sleek-panel px-3 py-2 text-xs space-y-1">
       <div className="font-bold text-white flex items-center gap-2">
         <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.fill }} />
         {d.username}

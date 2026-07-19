@@ -132,7 +132,7 @@ export default async function ComparePage(
           {ranked.map(c => {
             const focusAreas = c.profile?.payload.focus_areas ?? [];
             return (
-              <div key={c.id} className="stark-panel p-5 flex flex-col gap-5">
+              <div key={c.id} className="sleek-panel p-5 flex flex-col gap-5">
                 <div className="flex flex-col items-center text-center">
                   <Image
                     src={c.avatarUrl || ''}

@@ -17,7 +17,7 @@ import type { ContributorInsight } from '@/lib/contributor-insights';
 import type { AiResult, ContributorProfile, ImpactAnalysis } from '@/lib/ai/types';
 import type { EvidenceItem } from '@/lib/evidence';
 import { useEvidence } from '@/components/evidence';
-import { topicChipClass } from './identity';
+import { topicChipClass, type IdentityColor } from './identity';
 
 export type StatKey = 'commits' | 'prsOpened' | 'prsMerged' | 'reviews' | 'issues' | 'fixes';
 
@@ -62,15 +62,15 @@ function StatTile({
   if (tile.value === 0 && !highlight) return null;
   return (
     <div
-      className={`flex items-center gap-1.5 border-2 px-2 py-1 ${
+      className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 ${
         highlight
-          ? 'border-[#ff00ff] bg-[#ff00ff] text-black'
-          : 'border-white/20 bg-black text-white'
+          ? 'border-indigo-500/50 bg-indigo-500/10'
+          : 'border-white/10 bg-white/5'
       }`}
       title={`${tile.value} ${tile.label}`}
     >
-      <span className={highlight ? 'text-black' : ''}>{tile.icon}</span>
-      <span className={`text-xs font-black ${highlight ? 'text-black' : 'text-zinc-200'}`}>{tile.value}</span>
+      <span className={highlight ? 'text-indigo-300' : ''}>{tile.icon}</span>
+      <span className={`text-xs font-semibold ${highlight ? 'text-indigo-200' : 'text-zinc-200'}`}>{tile.value}</span>
     </div>
   );
 }
@@ -81,7 +81,7 @@ export function ContributorProfileCard({
   contributorEvidence,
   repoOwner,
   repoName,
-  borderClass,
+  identity,
   highlightStats,
 }: {
   contributor: ContributorInsight;
@@ -89,7 +89,7 @@ export function ContributorProfileCard({
   contributorEvidence: EvidenceItem[];
   repoOwner: string;
   repoName: string;
-  borderClass: string;
+  identity: IdentityColor;
   highlightStats?: Set<StatKey>;
 }) {
   const { open } = useEvidence();
@@ -124,7 +124,10 @@ export function ContributorProfileCard({
   };
 
   return (
-    <div className={`border-2 bg-black p-4 hover:bg-white/5 hover:-translate-y-1 hover:shadow-[4px_4px_0_0_#ccff00] transition-all duration-200 ${borderClass}`}>
+    <div className={`relative rounded-xl border-x border-b bg-zinc-900/40 p-4 hover:bg-zinc-800/60 hover:-translate-y-1 transition-all duration-300 border-x-white/5 border-b-white/5`}>
+      {/* Top glowing border */}
+      <div className={`absolute top-0 left-0 right-0 h-[2px] rounded-t-xl ${identity.dot} shadow-[0_0_8px_0_var(--tw-shadow-color)]`} style={{ '--tw-shadow-color': identity.hex } as any} />
+      
       <Link href={`/repos/${repoOwner}/${repoName}/${contributor.username}`} className="block">
         <div className="flex items-start gap-3 mb-3">
           {contributor.avatarUrl ? (
@@ -133,10 +136,10 @@ export function ContributorProfileCard({
               alt={contributor.username}
               width={44}
               height={44}
-              className="rounded-none border-2 border-white"
+              className="rounded-full border border-white/10"
             />
           ) : (
-            <div className="rounded-none border-2 border-white bg-white/10" style={{ width: 44, height: 44 }} />
+            <div className="rounded-full border border-white/10 bg-white/10" style={{ width: 44, height: 44 }} />
           )}
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-semibold text-white truncate hover:text-indigo-300 transition-colors">
@@ -183,7 +186,7 @@ export function ContributorProfileCard({
       {focusAreas.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           {focusAreas.slice(0, 4).map((area, i) => (
-            <span key={i} className="bg-black border border-white/20 px-2 py-0.5 text-[10px] text-zinc-300 font-bold uppercase tracking-wide">
+            <span key={i} className="rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] text-zinc-300">
               {area}
             </span>
           ))}

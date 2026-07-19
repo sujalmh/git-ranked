@@ -85,14 +85,14 @@ export function HealthRadar({
       <div className="h-44 -mx-2">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart data={chartData} outerRadius="72%">
-            <PolarGrid stroke="rgba(255,255,255,0.2)" />
-            <PolarAngleAxis dataKey="metric" tick={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} />
+            <PolarGrid stroke="rgba(255,255,255,0.1)" />
+            <PolarAngleAxis dataKey="metric" tick={{ fill: '#a1a1aa', fontSize: 10 }} />
             <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
             <Radar
               name="Health"
               dataKey="value"
               stroke="#ccff00"
-              strokeWidth={3}
+              strokeWidth={2}
               fill="url(#radarFill)"
               isAnimationActive
               animationDuration={900}
@@ -100,8 +100,8 @@ export function HealthRadar({
             />
             <defs>
               <linearGradient id="radarFill" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#ccff00" stopOpacity={0.6} />
-                <stop offset="100%" stopColor="#ccff00" stopOpacity={0.1} />
+                <stop offset="0%" stopColor="#ccff00" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="#ccff00" stopOpacity={0.05} />
               </linearGradient>
             </defs>
           </RadarChart>

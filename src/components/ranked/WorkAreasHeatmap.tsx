@@ -14,10 +14,10 @@ const MAX_AREAS_LARGE = 5;
 const MAX_CONTRIBUTORS_LARGE = 6;
 
 function intensityClass(intensity: number): { bg: string, text: string } {
-  if (intensity <= 0) return { bg: 'bg-white/[0.04]', text: 'text-zinc-600' };
-  if (intensity < 0.25) return { bg: 'bg-[#ccff00]/20', text: 'text-white' };
-  if (intensity < 0.5) return { bg: 'bg-[#ccff00]/40', text: 'text-white' };
-  if (intensity < 0.75) return { bg: 'bg-[#ccff00]/70', text: 'text-black' };
+  if (intensity <= 0) return { bg: 'bg-white/[0.02]', text: 'text-zinc-600' };
+  if (intensity < 0.25) return { bg: 'bg-[#ccff00]/15', text: 'text-zinc-300' };
+  if (intensity < 0.5) return { bg: 'bg-[#ccff00]/35', text: 'text-zinc-100' };
+  if (intensity < 0.75) return { bg: 'bg-[#ccff00]/60', text: 'text-black font-medium' };
   return { bg: 'bg-[#ccff00]', text: 'text-black font-bold' };
 }
 
@@ -49,7 +49,7 @@ export function WorkAreasHeatmap({
 
   if (contributors.length === 0 || areaLabels.length === 0) {
     return (
-      <div className="stark-panel p-5 text-sm text-zinc-500">No work-area data yet.</div>
+      <div className="sleek-panel p-5 text-sm text-zinc-500">No work-area data yet.</div>
     );
   }
 
@@ -72,7 +72,7 @@ export function WorkAreasHeatmap({
   };
 
   return (
-    <div className="stark-panel p-5">
+    <div className="sleek-panel p-5">
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-base font-semibold">Work Areas Heatmap</h2>
         {hiddenAreas > 0 && (

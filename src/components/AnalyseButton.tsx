@@ -174,7 +174,7 @@ export function AnalyseButton({
       {showProgress && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => !loading && setShowProgress(false)}>
           <div
-            className="stark-panel p-6 w-full max-w-md mx-4 space-y-4"
+            className="sleek-panel p-6 w-full max-w-md mx-4 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 mb-2">
