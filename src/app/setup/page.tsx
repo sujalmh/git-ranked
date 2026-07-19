@@ -6,13 +6,15 @@ import { auth } from '@/lib/auth';
 type SetupPageProps = {
   searchParams: Promise<{
     error?: string;
+    notice?: string;
   }>;
 };
 
 export default async function SetupPage({ searchParams }: SetupPageProps) {
   const session = await auth();
-  const { error } = await searchParams;
+  const { error, notice } = await searchParams;
   const installUrl = `https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`;
+  const isUpdateNotice = notice === 'github_app_update';
 
   return (
     <div className="flex flex-col min-h-screen relative">
@@ -44,7 +46,7 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
         ) : (
           <>
             <div className="w-20 h-20 rounded-full bg-amber-500/10 flex items-center justify-center mb-8 border border-amber-500/20">
-              {error ? (
+              {error || isUpdateNotice ? (
                 <AlertCircle className="w-10 h-10 text-amber-400" />
               ) : (
                 <GitBranch className="w-10 h-10 text-amber-400" />
@@ -52,13 +54,19 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
             </div>
 
             <h1 className="text-4xl font-extrabold tracking-tight mb-4">
-              {error ? 'Setup could not be completed' : 'Complete setup from GitHub'}
+              {error
+                ? 'Setup could not be completed'
+                : isUpdateNotice
+                  ? 'Installation settings updated'
+                  : 'Complete setup from GitHub'}
             </h1>
 
             <p className="text-xl text-zinc-400 mb-12 leading-relaxed">
               {error
                 ? 'GitHub did not complete the installation authorization. Start the GitRanked install flow again so GitHub can install the app and authorize your account in one pass.'
-                : 'After installing GitRanked, GitHub should authorize your account and return you here automatically. If you landed here directly, start from the GitHub App install flow.'}
+                : isUpdateNotice
+                  ? 'GitHub returned after updating an existing installation. If this browser is not already authenticated, GitHub will not send a new OAuth code for that update path. Start a fresh install authorization flow to connect this account.'
+                  : 'After installing GitRanked, GitHub should authorize your account and return you here automatically. If you landed here directly, start from the GitHub App install flow.'}
             </p>
 
             <a

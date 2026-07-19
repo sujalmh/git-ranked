@@ -115,6 +115,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
   const installationIdParam = url.searchParams.get('installation_id');
+  const setupAction = url.searchParams.get('setup_action');
 
   if (!code) {
     const session = await auth();
@@ -122,10 +123,19 @@ export async function GET(req: Request) {
       return NextResponse.redirect(new URL('/setup', req.url));
     }
 
+    if (setupAction && setupAction !== 'install') {
+      console.info('GitHub App setup callback completed without OAuth code', {
+        hasInstallationId: url.searchParams.has('installation_id'),
+        setupAction,
+      });
+
+      return NextResponse.redirect(new URL(`/setup?notice=github_app_${setupAction}`, req.url));
+    }
+
     console.error('GitHub App callback was invoked without OAuth code', {
       hasInstallationId: url.searchParams.has('installation_id'),
       hasSetupAction: url.searchParams.has('setup_action'),
-      setupAction: url.searchParams.get('setup_action'),
+      setupAction,
       queryKeys: Array.from(url.searchParams.keys()),
     });
 
