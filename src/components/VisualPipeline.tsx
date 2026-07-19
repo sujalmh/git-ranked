@@ -29,34 +29,46 @@ export function VisualPipeline() {
         className="flex flex-col md:flex-row items-stretch justify-center gap-6"
       >
         {/* Step 1 */}
-        <motion.div variants={itemVariants} className="flex-1 stark-panel p-8 text-center group stark-panel-hover">
-          <div className="text-[#ccff00] text-5xl font-black mb-4 group-hover:text-black transition-colors">01</div>
-          <h3 className="text-xl font-black uppercase tracking-tight mb-2">Sync</h3>
-          <p className="text-sm font-medium">Index PRs, commits, and reviews instantly.</p>
+        <motion.div variants={itemVariants} className="flex-1 stark-panel p-10 text-center group stark-panel-hover shadow-[8px_8px_0_0_#333] hover:shadow-[8px_8px_0_0_#ccff00] transition-all relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="text-[#ccff00] text-6xl font-black mb-6 group-hover:text-black transition-colors tracking-tighter">01</div>
+            <h3 className="text-3xl font-black uppercase tracking-tight mb-4">Sync</h3>
+            <p className="text-base font-medium">Index PRs, commits, and reviews instantly.</p>
+          </div>
         </motion.div>
 
         {/* Separator / Arrow */}
         <motion.div variants={itemVariants} className="hidden md:flex items-center justify-center">
-          <div className="w-8 h-2 bg-white" />
+          <div className="flex items-center">
+            <div className="w-12 h-3 bg-zinc-800" />
+            <div className="w-0 h-0 border-t-[12px] border-t-transparent border-l-[16px] border-l-zinc-800 border-b-[12px] border-b-transparent" />
+          </div>
         </motion.div>
 
         {/* Step 2 */}
-        <motion.div variants={itemVariants} className="flex-1 accent-panel p-8 text-center group hover:bg-white hover:border-white transition-colors">
-          <div className="text-black text-5xl font-black mb-4 group-hover:text-black">02</div>
-          <h3 className="text-xl font-black uppercase tracking-tight mb-2">Evaluate</h3>
-          <p className="text-sm font-medium">AI determines each contributor&apos;s true impact and role.</p>
+        <motion.div variants={itemVariants} className="flex-1 accent-panel p-10 text-center group hover:bg-white hover:border-white transition-all shadow-[8px_8px_0_0_#fff] relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="text-black text-6xl font-black mb-6 tracking-tighter">02</div>
+            <h3 className="text-3xl font-black uppercase tracking-tight mb-4">Evaluate</h3>
+            <p className="text-base font-medium">AI determines each contributor&apos;s true impact and role.</p>
+          </div>
         </motion.div>
 
         {/* Separator / Arrow */}
         <motion.div variants={itemVariants} className="hidden md:flex items-center justify-center">
-          <div className="w-8 h-2 bg-white" />
+          <div className="flex items-center">
+            <div className="w-12 h-3 bg-zinc-800" />
+            <div className="w-0 h-0 border-t-[12px] border-t-transparent border-l-[16px] border-l-zinc-800 border-b-[12px] border-b-transparent" />
+          </div>
         </motion.div>
 
         {/* Step 3 */}
-        <motion.div variants={itemVariants} className="flex-1 stark-panel p-8 text-center group stark-panel-hover">
-          <div className="text-[#ccff00] text-5xl font-black mb-4 group-hover:text-black transition-colors">03</div>
-          <h3 className="text-xl font-black uppercase tracking-tight mb-2">Rank</h3>
-          <p className="text-sm font-medium">Clear dashboards highlighting your true MVPs.</p>
+        <motion.div variants={itemVariants} className="flex-1 stark-panel p-10 text-center group stark-panel-hover shadow-[8px_8px_0_0_#333] hover:shadow-[8px_8px_0_0_#ccff00] transition-all relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="text-[#ccff00] text-6xl font-black mb-6 group-hover:text-black transition-colors tracking-tighter">03</div>
+            <h3 className="text-3xl font-black uppercase tracking-tight mb-4">Rank</h3>
+            <p className="text-base font-medium">Clear dashboards highlighting your true MVPs.</p>
+          </div>
         </motion.div>
       </motion.div>
     </div>

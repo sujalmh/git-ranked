@@ -30,7 +30,7 @@ function formatRelativeDate(date: Date) {
   return `${days}d ago`;
 }
 
-export function ActivityFeed({ items }: { items: ActivityItem[] }) {
+export function ActivityFeed({ items, identityColors }: { items: ActivityItem[]; identityColors?: Map<string, string> }) {
   const [revealed, setRevealed] = useState(0);
   const started = useRef(false);
 
@@ -58,13 +58,17 @@ export function ActivityFeed({ items }: { items: ActivityItem[] }) {
     <div className="space-y-2">
       {items.map((item, index) => {
         const visible = index < revealed;
+        const accent = item.actor ? identityColors?.get(item.actor) : undefined;
         return (
           <div
             key={item.id || index}
             className={`flex gap-3 transition-all duration-500 ease-out ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
           >
             <div className="flex flex-col items-center">
-              <div className="w-7 h-7 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center shrink-0">
+              <div
+                className="w-7 h-7 rounded-full bg-zinc-800 border flex items-center justify-center shrink-0"
+                style={accent ? { borderColor: accent } : undefined}
+              >
                 {iconMap[item.type] || <Play className="w-3.5 h-3.5 text-zinc-400" />}
               </div>
               {index !== items.length - 1 && (

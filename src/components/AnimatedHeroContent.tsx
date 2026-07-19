@@ -3,16 +3,20 @@
 import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { ContributionGrid } from '@/components/ContributionGrid';
 
 export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
   return (
-    <div className="flex flex-col items-center justify-center pt-24 pb-32 text-center relative z-10">
+    <div className="flex flex-col items-center justify-center w-full pt-24 pb-32 text-center relative z-10 min-h-[70vh]">
+      <ContributionGrid />
+      
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: "spring" as const, stiffness: 300, damping: 20 }}
+        className="relative z-10 pointer-events-none"
       >
-        <div className="inline-block px-4 py-1 mb-8 border-2 border-[#ccff00] text-[#ccff00] text-xs font-black uppercase tracking-widest">
+        <div className="inline-block px-4 py-1 mb-8 border-2 border-[#ccff00] text-[#ccff00] text-xs font-black uppercase tracking-widest pointer-events-auto">
           GIT RANKED
         </div>
       </motion.div>
@@ -21,7 +25,7 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: "spring" as const, stiffness: 300, damping: 20, delay: 0.1 }}
-        className="text-6xl md:text-8xl font-black tracking-tighter uppercase leading-[0.9] mb-8 max-w-5xl mx-auto"
+        className="text-6xl md:text-8xl font-black tracking-tighter uppercase leading-[0.9] mb-8 max-w-5xl mx-auto relative z-10 pointer-events-none"
       >
         RANK YOUR <br />
         <span className="text-[#ccff00]">CONTRIBUTORS</span>.
@@ -31,7 +35,7 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: "spring" as const, stiffness: 300, damping: 20, delay: 0.2 }}
-        className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-10 font-medium"
+        className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-10 font-medium relative z-10 pointer-events-none"
       >
         Not another generic repo analyzer. GitRanked evaluates true impact, identifying who acts as an architect, reviewer, or maintainer based on real data.
       </motion.p>
@@ -40,7 +44,7 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: "spring" as const, stiffness: 300, damping: 20, delay: 0.3 }}
-        className="flex flex-col sm:flex-row gap-4"
+        className="flex flex-col sm:flex-row gap-4 relative z-10 pointer-events-auto"
       >
         {isSignedIn ? (
           <Link
