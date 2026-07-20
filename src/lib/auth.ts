@@ -194,12 +194,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token.sub) {
         try {
           const githubId = Number(token.sub);
-          const dbUser = await sql`
-            SELECT id, github_id FROM app_users WHERE github_id = ${githubId}
-          `;
-          if (dbUser.length > 0) {
-            session.user.id = dbUser[0].id.toString();
-            session.user.githubId = dbUser[0].github_id;
+          if (!isNaN(githubId)) {
+            const dbUser = await sql`
+              SELECT id, github_id FROM app_users WHERE github_id = ${githubId}
+            `;
+            if (dbUser.length > 0) {
+              session.user.id = dbUser[0].id.toString();
+              session.user.githubId = dbUser[0].github_id;
+            }
+          } else {
+            console.warn("Invalid githubId in token.sub:", token.sub);
           }
         } catch (e) {
           console.error('Error fetching session user:', e);
