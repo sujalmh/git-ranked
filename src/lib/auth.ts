@@ -190,10 +190,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return true;
     },
 
+    async jwt({ token, user, profile, account }) {
+      if (account?.provider === 'github' && profile?.id) {
+        token.githubId = profile.id;
+      } else if (user?.id) {
+        token.githubId = user.id;
+      }
+      return token;
+    },
+
     async session({ session, token }) {
-      if (token.sub) {
+      const rawId = token.githubId ?? token.sub;
+      if (rawId) {
         try {
-          const githubId = Number(token.sub);
+          const githubId = Number(rawId);
           if (!isNaN(githubId)) {
             const dbUser = await sql`
               SELECT id, github_id FROM app_users WHERE github_id = ${githubId}
@@ -203,7 +213,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               session.user.githubId = dbUser[0].github_id;
             }
           } else {
-            console.warn("Invalid githubId in token.sub:", token.sub);
+            console.warn("Invalid githubId in token:", rawId);
           }
         } catch (e) {
           console.error('Error fetching session user:', e);

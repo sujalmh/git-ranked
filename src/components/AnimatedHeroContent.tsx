@@ -68,12 +68,12 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
               </svg>
               Install App
             </a>
-            <Link
+            <a
               href="/api/auth/signin"
               className="px-8 py-4 bg-transparent text-white border-2 border-white font-black uppercase tracking-wider hover:bg-white/10 transition-colors flex items-center justify-center"
             >
               Log In
-            </Link>
+            </a>
           </>
         )}
       </motion.div>
