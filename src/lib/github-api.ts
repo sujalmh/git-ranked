@@ -28,6 +28,7 @@ export type GitHubPullRequest = {
   html_url: string;
   body?: string | null;
   user?: GitHubUser | null;
+  created_at?: string | null;
   merged_at?: string | null;
   additions?: number;
   deletions?: number;

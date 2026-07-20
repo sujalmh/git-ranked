@@ -12,9 +12,35 @@ import {
 
 export type { GitHubUser, GitHubCommit, GitHubPullRequest, GitHubReview, InstallationRepo };
 
-const BACKFILL_COMMIT_LIMIT = 50;
-const BACKFILL_PULL_REQUEST_LIMIT = 10;
+const PER_PAGE = 100;
+// Backfill is bounded by a recent TIME WINDOW, not by page count. This tool
+// scores/ranks recent impact (health = 30 days, AI = 30-day windows), so
+// pulling years of commit history is unnecessary and harmful: it blows GitHub
+// rate limits, bloats the DB, and slows every leaderboard/score query. Going
+// forward webhooks capture all activity; backfill only needs to catch up a
+// recent window. The window is configurable via env with a hard cap so no one
+// accidentally pulls an entire repo's history.
+const DEFAULT_HISTORY_DAYS = 90;
+const MAX_HISTORY_DAYS = 365;
+const MAX_PAGES = 50;          // safety ceiling even for very active repos
+const DETAIL_REVIEW_PR_LIMIT = 25;  // only newest PRs get detail + reviews fetches
 const BACKFILL_REVIEW_LIMIT = 20;
+
+function historyDays(): number {
+  const raw = Number(process.env.BACKFILL_HISTORY_DAYS ?? DEFAULT_HISTORY_DAYS);
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_HISTORY_DAYS;
+  return Math.min(MAX_HISTORY_DAYS, Math.floor(raw));
+}
+
+function backfillSince(): string {
+  const days = historyDays();
+  return new Date(Date.now() - days * 86_400_000).toISOString();
+}
+
+function isAtOrAfter(dateStr: string | null | undefined, since: string): boolean {
+  if (!dateStr) return true; // unknown date → keep, don't drop
+  return new Date(dateStr).getTime() >= new Date(since).getTime() - 86_400_000; // 1-day tolerance
+}
 
 async function insertBackfilledEvent(params: {
   repoId: number;
@@ -55,91 +81,153 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
   let inserted = 0;
   const owner = encodeURIComponent(repo.owner);
   const repoName = encodeURIComponent(repo.name);
+  const since = backfillSince();
+  console.log(`Backfill ${repo.owner}/${repo.name} (window: since ${since}, ${historyDays()}d)`);
 
-  const commits = await githubInstallationApi<GitHubCommit[]>(
-    `/repos/${owner}/${repoName}/commits?per_page=${BACKFILL_COMMIT_LIMIT}`,
-    tokenToUse
-  );
+  // --- Commits: server-side filtered by `since`; stop at end of history ---
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    let commits: GitHubCommit[];
+    try {
+      commits = await githubInstallationApi<GitHubCommit[]>(
+        `/repos/${owner}/${repoName}/commits?per_page=${PER_PAGE}&page=${page}&since=${encodeURIComponent(since)}`,
+        tokenToUse
+      );
+    } catch (err) {
+      console.warn(`Backfill: commits page ${page} failed:`, err instanceof Error ? err.message : err);
+      break;
+    }
+    if (commits.length === 0) break;
 
-  for (const commit of commits) {
-    const contributorId = await upsertContributor(commit.author);
-    await insertBackfilledEvent({
-      repoId: repo.id,
-      contributorId,
-      eventType: 'push',
-      githubEventId: `backfill:commit:${commit.sha}`,
-      payload: {
-        commits: [{ sha: commit.sha, message: commit.commit.message, url: commit.html_url }],
-        commit_count: 1,
-      },
-    });
-    inserted += contributorId ? 1 : 0;
+    for (const commit of commits) {
+      const contributorId = await upsertContributor(commit.author);
+      await insertBackfilledEvent({
+        repoId: repo.id,
+        contributorId,
+        eventType: 'push',
+        githubEventId: `backfill:commit:${commit.sha}`,
+        payload: {
+          commits: [{ sha: commit.sha, message: commit.commit.message, url: commit.html_url }],
+          commit_count: 1,
+        },
+      });
+      if (contributorId) inserted += 1;
+    }
+
+    if (commits.length < PER_PAGE) break;
   }
 
-  const pulls = await githubInstallationApi<GitHubPullRequest[]>(
-    `/repos/${owner}/${repoName}/pulls?state=all&sort=updated&direction=desc&per_page=${BACKFILL_PULL_REQUEST_LIMIT}`,
-    tokenToUse
-  );
+  // --- Pull requests: sorted by created desc; stop when older than the window ---
+  const pulls: GitHubPullRequest[] = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    let pagePulls: GitHubPullRequest[];
+    try {
+      pagePulls = await githubInstallationApi<GitHubPullRequest[]>(
+        `/repos/${owner}/${repoName}/pulls?state=all&sort=created&direction=desc&per_page=${PER_PAGE}&page=${page}`,
+        tokenToUse
+      );
+    } catch (err) {
+      console.warn(`Backfill: pulls page ${page} failed:`, err instanceof Error ? err.message : err);
+      break;
+    }
+    if (pagePulls.length === 0) break;
 
-  for (const pullListItem of pulls) {
-    const pull = await githubInstallationApi<GitHubPullRequest>(
-      `/repos/${owner}/${repoName}/pulls/${pullListItem.number}`,
-      tokenToUse
-    );
-    const contributorId = await upsertContributor(pull.user);
+    // PRs come back newest-first. Once the oldest PR on a page is before the
+    // window we can stop paginating entirely.
+    let reachedCutoff = false;
+    for (const pr of pagePulls) {
+      if (!isAtOrAfter(pr.created_at, since)) {
+        reachedCutoff = true;
+        break;
+      }
+      pulls.push(pr);
+    }
+    if (reachedCutoff || pagePulls.length < PER_PAGE) break;
+  }
+
+  // pulls are most-recent-first; only the first DETAIL_REVIEW_PR_LIMIT get the
+  // expensive per-PR detail + reviews fetches. Older PRs still record their
+  // opened/merged events (and thus their contributors) without diff stats.
+  for (let i = 0; i < pulls.length; i++) {
+    const pullListItem = pulls[i];
+    const contributorId = await upsertContributor(pullListItem.user);
 
     await insertBackfilledEvent({
       repoId: repo.id,
       contributorId,
       eventType: 'pr_opened',
-      githubEventId: `backfill:pr_opened:${pull.id}`,
+      githubEventId: `backfill:pr_opened:${pullListItem.id}`,
       payload: {
-        pr_number: pull.number,
-        title: pull.title,
-        url: pull.html_url,
-        body: pull.body,
+        pr_number: pullListItem.number,
+        title: pullListItem.title,
+        url: pullListItem.html_url,
+        body: pullListItem.body,
       },
     });
-    inserted += contributorId ? 1 : 0;
+    if (contributorId) inserted += 1;
 
-    if (pull.merged_at) {
+    if (pullListItem.merged_at) {
+      let mergePayload: Record<string, unknown> = {
+        pr_number: pullListItem.number,
+        title: pullListItem.title,
+        url: pullListItem.html_url,
+      };
+
+      if (i < DETAIL_REVIEW_PR_LIMIT) {
+        try {
+          const pull = await githubInstallationApi<GitHubPullRequest>(
+            `/repos/${owner}/${repoName}/pulls/${pullListItem.number}`,
+            tokenToUse
+          );
+          mergePayload = {
+            pr_number: pull.number,
+            title: pull.title,
+            url: pull.html_url,
+            additions: pull.additions ?? 0,
+            deletions: pull.deletions ?? 0,
+            changed_files: pull.changed_files ?? 0,
+          };
+        } catch (err) {
+          console.warn(`Backfill: PR detail #${pullListItem.number} failed:`, err instanceof Error ? err.message : err);
+        }
+      }
+
       await insertBackfilledEvent({
         repoId: repo.id,
         contributorId,
         eventType: 'pr_merged',
-        githubEventId: `backfill:pr_merged:${pull.id}`,
-        payload: {
-          pr_number: pull.number,
-          title: pull.title,
-          url: pull.html_url,
-          additions: pull.additions ?? 0,
-          deletions: pull.deletions ?? 0,
-          changed_files: pull.changed_files ?? 0,
-        },
+        githubEventId: `backfill:pr_merged:${pullListItem.id}`,
+        payload: mergePayload,
       });
-      inserted += contributorId ? 1 : 0;
+      if (contributorId) inserted += 1;
     }
 
-    const reviews = await githubInstallationApi<GitHubReview[]>(
-      `/repos/${owner}/${repoName}/pulls/${pull.number}/reviews?per_page=${BACKFILL_REVIEW_LIMIT}`,
-      tokenToUse
-    );
+    if (i < DETAIL_REVIEW_PR_LIMIT) {
+      let reviews: GitHubReview[] = [];
+      try {
+        reviews = await githubInstallationApi<GitHubReview[]>(
+          `/repos/${owner}/${repoName}/pulls/${pullListItem.number}/reviews?per_page=${BACKFILL_REVIEW_LIMIT}`,
+          tokenToUse
+        );
+      } catch (err) {
+        console.warn(`Backfill: reviews for PR #${pullListItem.number} failed:`, err instanceof Error ? err.message : err);
+      }
 
-    for (const review of reviews) {
-      const reviewerId = await upsertContributor(review.user);
-      await insertBackfilledEvent({
-        repoId: repo.id,
-        contributorId: reviewerId,
-        eventType: 'review_submitted',
-        githubEventId: `backfill:review:${review.id}`,
-        payload: {
-          pr_number: pull.number,
-          state: review.state?.toLowerCase(),
-          body: review.body,
-          word_count: reviewWordCount(review.body),
-        },
-      });
-      inserted += reviewerId ? 1 : 0;
+      for (const review of reviews) {
+        const reviewerId = await upsertContributor(review.user);
+        await insertBackfilledEvent({
+          repoId: repo.id,
+          contributorId: reviewerId,
+          eventType: 'review_submitted',
+          githubEventId: `backfill:review:${review.id}`,
+          payload: {
+            pr_number: pullListItem.number,
+            state: review.state?.toLowerCase(),
+            body: review.body,
+            word_count: reviewWordCount(review.body),
+          },
+        });
+        if (reviewerId) inserted += 1;
+      }
     }
   }
 

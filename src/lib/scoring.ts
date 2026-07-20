@@ -172,7 +172,22 @@ export function computeContributionScore(
       if (wordCount > 50) points *= 1.5;
 
       breakdown.reviews += points;
-    } else if (type === 'issue_opened' || type === 'pr_opened') {
+    } else if (type === 'pr_opened') {
+      // Opening a substantial PR IS feature work in progress — credit Feature
+      // Delivery (with a size bonus when diff stats are available) instead of
+      // Collaboration. Previously this landed in Collaboration, so a contributor
+      // shipping many unmerged WIP PRs (e.g. a lead driving a multi-PR effort)
+      // scored ~0 on Feature Delivery, which looked nonsensical.
+      let featurePoints = points;
+      const additions = typeof payload.additions === 'number' ? payload.additions : 0;
+      const deletions = typeof payload.deletions === 'number' ? payload.deletions : 0;
+      const changedFiles = typeof payload.changed_files === 'number' ? payload.changed_files : 0;
+      const changed = additions + deletions;
+      if (changed > 0 || changedFiles > 0) {
+        featurePoints += Math.min(10, Math.log10(changed + 1) * 2) + Math.min(6, changedFiles * 0.3);
+      }
+      breakdown.featureDelivery += featurePoints;
+    } else if (type === 'issue_opened') {
       breakdown.collaboration += points;
     } else if (type === 'issue_closed') {
       if (isFixOrRefactor(payload, type)) breakdown.codeQuality += points;

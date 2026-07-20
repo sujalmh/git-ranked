@@ -30,6 +30,7 @@ export type RepoEventRow = {
   username: string;
   avatar_url: string | null;
   classification?: unknown;
+  diff_facts?: unknown;
 };
 
 export type ContributorAiData = {
@@ -51,6 +52,14 @@ export type RepoAnalysisData = {
   contributorAiMap: Map<number, ContributorAiData>;
   reviewGraph: Array<{ reviewerId: number; reviewer: string; authorId: number; author: string; count: number }>;
 };
+
+export function parseDiffFacts(raw: unknown): { directories?: string[] } | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const obj = raw as Record<string, unknown>;
+  const dirs = obj.directories;
+  if (!Array.isArray(dirs)) return undefined;
+  return { directories: dirs.filter((d): d is string => typeof d === 'string') };
+}
 
 export function buildContributorInsights(rows: RepoEventRow[]) {
   const contributors = new Map<number, ContributorInsight>();
@@ -117,7 +126,7 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
     if (row.type === 'release') contributor.releases += 1;
     if (isFix(row.type, payload)) contributor.fixes += 1;
 
-    const areas = workAreasForEvent(row.type, payload, classifications.get(row.id));
+    const areas = workAreasForEvent(row.type, payload, classifications.get(row.id), parseDiffFacts(row.diff_facts));
     const categoryCounts = categoryCountsByContributor.get(row.contributor_id) ?? new Map<string, number>();
     for (const area of areas) {
       categoryCounts.set(area, (categoryCounts.get(area) ?? 0) + 1);
@@ -173,6 +182,7 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
       contributor_id: r.contributor_id,
       username: r.username,
       classification: r.classification,
+      diff_facts: r.diff_facts,
     }))
   );
   const collabMap = new Map(collabStats.contributors.map(c => [c.contributorId, c]));
@@ -203,7 +213,7 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
 
 export async function fetchRepoEvents(repoId: number): Promise<RepoEventRow[]> {
   return (await sql`
-    SELECT e.id, e.event_type as type, e.payload, e.created_at, e.classification,
+    SELECT e.id, e.event_type as type, e.payload, e.created_at, e.classification, e.diff_facts,
            c.id as contributor_id, c.username, c.avatar_url
     FROM github_events e
     JOIN github_contributors c ON e.contributor_id = c.id
@@ -232,7 +242,7 @@ export async function getRepoAnalysisData(repoId: number): Promise<RepoAnalysisD
     console.error('AI Generation failed', err);
   }
 
-  const healthMetrics = await getRepoInsights(repoId, false);
+  const healthMetrics = await getRepoInsights(repoId, true);
   const isAnalysed = repoSummaryResult !== null && teamInsightsResult !== null && healthMetrics !== null;
 
   const contributorIds = contributors.map(c => c.id);

@@ -9,6 +9,7 @@ export type EventRow = {
   contributor_id: number;
   username: string;
   classification?: unknown;
+  diff_facts?: unknown;
 };
 
 export type ContributorStats = {
@@ -139,6 +140,14 @@ function parseClassification(raw: unknown): ClassificationItem | undefined {
   return raw as ClassificationItem;
 }
 
+function parseDiffFacts(raw: unknown): { directories?: string[] } | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const obj = raw as Record<string, unknown>;
+  const dirs = obj.directories;
+  if (!Array.isArray(dirs)) return undefined;
+  return { directories: dirs.filter((d): d is string => typeof d === 'string') };
+}
+
 function getWorkType(type: string, payload: Record<string, unknown>, classification?: ClassificationItem): string {
   if (classification?.work_type) return classification.work_type;
   if (type === 'review_submitted') return 'Code Review';
@@ -254,7 +263,7 @@ export function computeCollaborationAnalytics(events: EventRow[]): {
 
     const workType = getWorkType(e.event_type, payload, classification);
     if (workType === 'Bug Fix') stats.fixes += 1;
-    const areas = workAreasForEvent(e.event_type, payload, classification);
+    const areas = workAreasForEvent(e.event_type, payload, classification, parseDiffFacts(e.diff_facts));
     for (const area of areas) {
       stats.workDistribution[area] = (stats.workDistribution[area] ?? 0) + 1;
     }

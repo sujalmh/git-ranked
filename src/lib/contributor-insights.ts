@@ -162,11 +162,47 @@ type WorkAreaClassification = {
   technologies?: string[];
 } | null | undefined;
 
+type DiffFactsLike = { directories?: string[] | null } | null | undefined;
+
+// Trim common monorepo prefixes so the surfaced area is the real package/module
+// (e.g. "packages/react-server" -> "react-server") rather than a generic guess.
+function cleanAreaLabel(dir: string): string {
+  if (!dir) return '';
+  let label = dir.replace(/\/+$/, '').trim();
+  label = label.replace(/^(packages|apps|modules|libs|src|app)\//, '');
+  return label || '';
+}
+
 export function workAreasForEvent(
   type: string,
   payload: Record<string, unknown>,
   classification?: WorkAreaClassification,
+  diffFacts?: DiffFactsLike,
 ): string[] {
+  const areas = new Set<string>();
+
+  // 1. Real scope tag from the title (e.g. "[Flight] ...", "[compiler] ...").
+  // React and many repos tag work by subsystem directly in the PR/commit title.
+  const title = titleFromPayload(type, payload);
+  const scopeMatch = title.match(/^\[([^\]]+)\]/);
+  if (scopeMatch) {
+    const scope = scopeMatch[1].trim();
+    if (scope) areas.add(scope);
+  }
+
+  // 2. Real file locations from diff facts (which directories the PR touched).
+  const dirs = diffFacts?.directories ?? [];
+  for (const dir of dirs) {
+    if (typeof dir !== 'string') continue;
+    const area = cleanAreaLabel(dir);
+    if (area) areas.add(area);
+  }
+
+  if (areas.size > 0) return dedupe(Array.from(areas));
+
+  // 3. Best-effort fallback to the title-evidence classification, but ONLY when
+  // no concrete scope/file evidence exists. This keeps the heatmap derived from
+  // real data instead of generic guesses like "Frontend/Backend/API".
   const fromAreas = (classification?.work_areas ?? [])
     .map((a) => (typeof a === 'string' ? a.trim() : ''))
     .filter(Boolean);
@@ -175,11 +211,6 @@ export function workAreasForEvent(
   if (classification?.work_area && classification.work_area.trim()) {
     return [classification.work_area.trim()];
   }
-
-  const techs = (classification?.technologies ?? [])
-    .map((t) => (typeof t === 'string' ? t.trim() : ''))
-    .filter(Boolean);
-  if (techs.length > 0) return dedupe(techs);
 
   return ['Other'];
 }
@@ -245,7 +276,12 @@ export function buildContributionCategories(
     }))
     .sort((a, b) => b.value - a.value);
 
-  return categories.slice(0, 3);
+  // Prefer concrete work areas over the generic "Other" bucket so the heatmap
+  // surfaces real subsystems (e.g. Flight, react-server) instead of "Other".
+  const concrete = categories.filter((c) => c.label !== 'Other');
+  const picked = concrete.length > 0 ? concrete : categories;
+
+  return picked.slice(0, 3);
 }
 
 export function categoryDetail(label: string, contributor: ContributorInsight, value: number) {

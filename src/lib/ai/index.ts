@@ -29,6 +29,16 @@ export const tasks = {
 
 export type TaskId = keyof typeof tasks;
 
+function safeParse(payload: unknown): Record<string, unknown> {
+  if (typeof payload !== 'string') return {};
+  try {
+    const parsed = JSON.parse(payload);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
 const TASK_BY_ID: Record<string, AiTask<unknown>> = {
   contributor_profile: contributorProfileTask as AiTask<unknown>,
   repository_summary: repositorySummaryTask as AiTask<unknown>,
@@ -62,10 +72,21 @@ export async function buildTaskContext(
 
   let scoreBreakdown: TaskContext['scoreBreakdown'] | undefined;
   if (contributorId) {
-    const scoreEvents = eventRows.map((r) => ({
-      type: r.event_type,
-      payload: (r.payload as Record<string, unknown>) || {},
-      created_at: new Date(r.created_at).toISOString(),
+    // Score the contributor from ALL of their stored events — not just the
+    // dateFrom/dateTo window — so the breakdown we hand to the AI matches the
+    // Impact Score displayed on the contributor's card (which is computed from
+    // the same full event set in buildContributorInsights). Otherwise the AI
+    // explained one total while the page showed a different one.
+    const allContributorRows = await sql`
+      SELECT event_type, payload, created_at
+      FROM github_events
+      WHERE repo_id = ${repoId} AND contributor_id = ${contributorId}
+      ORDER BY created_at ASC
+    `;
+    const scoreEvents = allContributorRows.map((r) => ({
+      type: r.event_type as string,
+      payload: typeof r.payload === 'string' ? safeParse(r.payload) : (r.payload as Record<string, unknown>) || {},
+      created_at: new Date(r.created_at as string).toISOString(),
     }));
     scoreBreakdown = computeContributionScore(scoreEvents);
   }

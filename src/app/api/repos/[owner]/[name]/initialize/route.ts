@@ -54,10 +54,15 @@ export async function POST(
   const eventCount = Number(existingEvents[0].cnt);
 
   if (eventCount > 0) {
+    // The repo already has activity. Backfill is idempotent (ON CONFLICT DO
+    // NOTHING on github_event_id), so re-running safely catches up the recent
+    // window — e.g. after a code change to the backfill depth, or simply to
+    // refresh history older than the webhook stream. Return a hint so the UI
+    // can offer a re-sync rather than silently skipping.
     return NextResponse.json({
       alreadyInitialized: true,
       eventCount,
-      message: 'Repository already has activity data.',
+      message: 'Repository already has activity data. Re-sync to refresh the recent activity window.',
     });
   }
 
