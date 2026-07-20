@@ -1,5 +1,5 @@
 import type { ClassificationItem } from './ai/types';
-import { workAreaForEvent } from './contributor-insights';
+import { workAreasForEvent } from './contributor-insights';
 
 export type EventRow = {
   id: number;
@@ -254,8 +254,10 @@ export function computeCollaborationAnalytics(events: EventRow[]): {
 
     const workType = getWorkType(e.event_type, payload, classification);
     if (workType === 'Bug Fix') stats.fixes += 1;
-    const workArea = workAreaForEvent(e.event_type, payload, classification);
-    stats.workDistribution[workArea] = (stats.workDistribution[workArea] ?? 0) + 1;
+    const areas = workAreasForEvent(e.event_type, payload, classification);
+    for (const area of areas) {
+      stats.workDistribution[area] = (stats.workDistribution[area] ?? 0) + 1;
+    }
 
     byContributor.set(e.contributor_id, stats);
   }

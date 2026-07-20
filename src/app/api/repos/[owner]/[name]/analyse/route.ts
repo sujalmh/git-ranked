@@ -5,7 +5,6 @@ import { generateRepoInsights } from '@/lib/insights';
 import {
   buildTaskContext,
   classifyEvents,
-  computeRepoTopScore,
   getOrGenerateTask,
   getRepoContext,
   tasks,
@@ -131,7 +130,6 @@ export async function POST(
               ORDER BY COUNT(e.id) DESC
               LIMIT 5
             `;
-            const topScore = await computeRepoTopScore(repoId, dateFrom, dateTo);
             for (const contributor of topContributors) {
               const ctx = await buildTaskContext(
                 repoId,
@@ -140,8 +138,7 @@ export async function POST(
                 dateFrom,
                 dateTo,
                 contributor.id,
-                contributor.username,
-                topScore
+                contributor.username
               );
               await getOrGenerateTask(tasks.impactAnalysis, ctx, true);
             }

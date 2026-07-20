@@ -96,17 +96,17 @@ For each event, assign two classifications:
 1. work_type — the KIND of work, exactly one from:
 Feature, Bug Fix, Performance, Security, Refactor, Infrastructure, Documentation, Testing, Database, API, Frontend, Backend, Other
 
-2. work_area — the product DOMAIN / surface area the work touches. Derive this from the evidence in the event (title, type, changed files, technologies). Pick the single most fitting domain label — for example: API, UI, Database, Auth, AI, Backend, Infrastructure, Documentation, Testing, DevOps, Security, Mobile, Data, Payments, Billing, Search, Notifications, or another domain that best describes WHERE in the product this work lands. Use "Other" only when no domain is evident from the evidence.
+2. work_areas — ALL the product DOMAINS / surface areas the work touches. A single event can span multiple areas (e.g. a PR touching both API and Database should list both). Derive each area from the evidence in the event (title, type, changed files, technologies). Use concrete domain labels — for example: API, UI, Database, Auth, AI, Backend, Infrastructure, Documentation, Testing, DevOps, Security, Mobile, Data, Payments, Billing, Search, Notifications, or another domain that best describes WHERE in the product this work lands. Include every domain that is clearly supported by the evidence; use ["Other"] only when no domain is evident.
 
 Rules:
 - Base classifications ONLY on the evidence provided (event title, type).
 - Do NOT infer technologies that are not directly observable.
 - Include a confidence score (0-1) reflecting how certain you are.
 - Keep reasoning concise (one sentence).
-- If uncertain, use "Other" with low confidence.`;
+- If uncertain, use ["Other"] with low confidence.`;
 
   const user = `Classify each of the following ${events.length} event(s). Respond as JSON matching this schema:
-{ "items": [{ "event_id": number, "categories": string[], "work_type": string, "work_area": string, "technologies": string[], "confidence": number, "reasoning": string }] }
+{ "items": [{ "event_id": number, "categories": string[], "work_type": string, "work_areas": string[], "technologies": string[], "confidence": number, "reasoning": string }] }
 
 Events:
 ${eventBlock}`;

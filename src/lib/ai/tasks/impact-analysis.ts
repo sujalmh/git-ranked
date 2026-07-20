@@ -1,6 +1,5 @@
 import { ImpactAnalysisSchema } from '../schemas';
 import { buildContributorStatsBlock, buildEventContextBlock } from '../context';
-import { normalizeScoreToImpact } from '../../scoring';
 import { impactAnalysisFallback } from '../fallback';
 import type { AiTask, ImpactAnalysis } from '../types';
 
@@ -28,10 +27,7 @@ Rules:
 
     const statsBlock = buildContributorStatsBlock(ctx.contributorStats);
     const eventBlock = buildEventContextBlock(ctx.events, 30);
-    const rawBreakdown = ctx.scoreBreakdown;
-    const breakdown = rawBreakdown && ctx.topScore
-      ? normalizeScoreToImpact(rawBreakdown, ctx.topScore)
-      : rawBreakdown;
+    const breakdown = ctx.scoreBreakdown;
 
     const breakdownBlock = breakdown
       ? `Deterministic 0-100 Impact Score breakdown:

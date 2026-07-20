@@ -91,11 +91,12 @@ export default async function ContributorDetail(
     eventsByContributor.set(row.contributor_id, list);
   }
 
-  // Compute 0-100 normalized impact score relative to the repo's top contributor
-  const { topScore, scoresByContributor } = computeScoreBaseline(eventsByContributor, classifications);
+  // Compute the absolute 0-100 impact score (comparable across repos and
+  // consistent with the leaderboard).
+  const { scoresByContributor } = computeScoreBaseline(eventsByContributor, classifications);
   const rawScore = scoresByContributor.get(contributorId);
   const normalized = rawScore
-    ? normalizeScoreToImpact(rawScore, topScore)
+    ? normalizeScoreToImpact(rawScore)
     : { total: 0, breakdown: { featureDelivery: 0, codeQuality: 0, reviews: 0, collaboration: 0, consistency: 0 } };
 
   const recentEvents = (eventsByContributor.get(contributorId) ?? []).slice(0, 50);

@@ -18,6 +18,14 @@ export interface ScoreDetails {
   };
 }
 
+export const DIMENSION_CAPS = {
+  featureDelivery: 30,
+  codeQuality: 20,
+  reviews: 25,
+  collaboration: 15,
+  consistency: 10,
+} as const;
+
 const BASE_POINTS: Record<string, number> = {
   push: 1,
   pr_opened: 1,
@@ -181,21 +189,34 @@ export function computeContributionScore(
       ? Math.max(1, Math.round((maxTime - minTime) / 86_400_000) + 1)
       : 1;
   const activeRatio = activeDays.size / spanDays;
-  const breadth = Math.min(activeDays.size, 30);
-  const regularity = activeDays.size >= 3 ? activeRatio * 30 : activeRatio * 10;
-  breakdown.consistency = Math.min(50, breadth + regularity);
+  const breadth = Math.min(activeDays.size, 8);
+  const regularity = activeDays.size >= 3 ? activeRatio * 5 : activeRatio * 2;
+  breakdown.consistency = Math.min(DIMENSION_CAPS.consistency, breadth + regularity);
 
-  const total = breakdown.featureDelivery + breakdown.codeQuality + breakdown.reviews + breakdown.collaboration + breakdown.consistency;
+  // Asymptotic soft cap: strictly increasing in raw points (so more/better work
+  // always scores higher — within-repo ordering is preserved) yet bounded by
+  // each dimension's max, making the 0-100 score comparable across repos.
+  const softCap = (v: number, max: number) => max * (1 - Math.exp(-v / max));
+  const capped = {
+    featureDelivery: softCap(breakdown.featureDelivery, DIMENSION_CAPS.featureDelivery),
+    codeQuality: softCap(breakdown.codeQuality, DIMENSION_CAPS.codeQuality),
+    reviews: softCap(breakdown.reviews, DIMENSION_CAPS.reviews),
+    collaboration: softCap(breakdown.collaboration, DIMENSION_CAPS.collaboration),
+    consistency: breakdown.consistency,
+  };
+
+  const round1 = (v: number) => Math.round(v * 10) / 10;
+  const total = capped.featureDelivery + capped.codeQuality + capped.reviews + capped.collaboration + capped.consistency;
 
   return {
-    total: Math.round(total * 10) / 10,
+    total: round1(Math.min(100, total)),
     breakdown: {
-      featureDelivery: Math.round(breakdown.featureDelivery * 10) / 10,
-      codeQuality: Math.round(breakdown.codeQuality * 10) / 10,
-      reviews: Math.round(breakdown.reviews * 10) / 10,
-      collaboration: Math.round(breakdown.collaboration * 10) / 10,
-      consistency: Math.round(breakdown.consistency * 10) / 10,
-    }
+      featureDelivery: round1(capped.featureDelivery),
+      codeQuality: round1(capped.codeQuality),
+      reviews: round1(capped.reviews),
+      collaboration: round1(capped.collaboration),
+      consistency: round1(capped.consistency),
+    },
   };
 }
 
@@ -213,17 +234,9 @@ export function computeScoreBaseline(
   return { topScore, scoresByContributor };
 }
 
-export function normalizeScoreToImpact(score: ScoreDetails, topScore: number): ScoreDetails {
-  const factor = topScore > 0 ? 100 / topScore : 0;
-  const scale = (v: number) => Math.round(v * factor * 10) / 10;
+export function normalizeScoreToImpact(score: ScoreDetails, _topScore?: number): ScoreDetails {
   return {
-    total: Math.max(1, Math.round(score.total * factor)),
-    breakdown: {
-      featureDelivery: scale(score.breakdown.featureDelivery),
-      codeQuality: scale(score.breakdown.codeQuality),
-      reviews: scale(score.breakdown.reviews),
-      collaboration: scale(score.breakdown.collaboration),
-      consistency: scale(score.breakdown.consistency),
-    },
+    total: Math.max(0, Math.min(100, Math.round(score.total))),
+    breakdown: { ...score.breakdown },
   };
 }

@@ -14,7 +14,7 @@ import {
   formatRelativeDate,
   isFix,
   topBy,
-  workAreaForEvent,
+  workAreasForEvent,
   type ContributorInsight,
   type Highlight,
 } from './contributor-insights';
@@ -117,9 +117,11 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
     if (row.type === 'release') contributor.releases += 1;
     if (isFix(row.type, payload)) contributor.fixes += 1;
 
-    const category = workAreaForEvent(row.type, payload, classifications.get(row.id));
+    const areas = workAreasForEvent(row.type, payload, classifications.get(row.id));
     const categoryCounts = categoryCountsByContributor.get(row.contributor_id) ?? new Map<string, number>();
-    categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1);
+    for (const area of areas) {
+      categoryCounts.set(area, (categoryCounts.get(area) ?? 0) + 1);
+    }
     categoryCountsByContributor.set(row.contributor_id, categoryCounts);
 
     if (!contributor.lastActive || createdAt > contributor.lastActive) contributor.lastActive = createdAt;
@@ -147,12 +149,11 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
     ...contributor,
     score: computeContributionScore(contributor.events, { classifications }),
   }));
-  const topScore = Math.max(...scored.map(contributor => contributor.score.total), 1);
 
   const ranked = scored.map(contributor => {
     const nextContributor = {
       ...contributor,
-      impactScore: Math.max(1, Math.round((contributor.score.total / topScore) * 100)),
+      impactScore: Math.max(1, Math.min(100, Math.round(contributor.score.total))),
     };
     return {
       ...nextContributor,

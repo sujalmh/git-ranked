@@ -88,17 +88,13 @@ export default async function ComparePage(
       username: c.username,
       avatarUrl: c.avatarUrl,
       score,
-      impactScore: score.total,
+      impactScore: Math.max(1, Math.min(100, Math.round(score.total))),
       profile: null,
       impact: null,
     });
   }
-  
-  const topScore = Math.max(...contributors.map(c => c.impactScore), 1);
-  const ranked = contributors.map(c => ({
-    ...c,
-    impactScore: Math.max(1, Math.round((c.impactScore / topScore) * 100))
-  })).sort((a, b) => b.impactScore - a.impactScore).slice(0, 4);
+
+  const ranked = [...contributors].sort((a, b) => b.impactScore - a.impactScore).slice(0, 4);
 
   // Fetch cached AI results for the top 4 contributors
   const topIds = ranked.map(c => c.id);
@@ -131,7 +127,7 @@ export default async function ComparePage(
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {ranked.map(c => {
             const focusAreas = c.profile?.payload.focus_areas ?? [];
-            const norm = normalizeScoreToImpact(c.score, topScore);
+            const norm = normalizeScoreToImpact(c.score);
             return (
               <div key={c.id} className="sleek-panel p-5 flex flex-col gap-5">
                 <div className="flex flex-col items-center text-center">

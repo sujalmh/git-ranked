@@ -41,7 +41,7 @@ export function classifyEventFallback(event: {
       event_id: event.id,
       categories: ['Code Review'],
       work_type: 'Other',
-      work_area: 'Other',
+      work_areas: ['Other'],
       technologies: [],
       confidence: 0.9,
       reasoning: 'Review submitted — classified as code review activity.',
@@ -53,7 +53,7 @@ export function classifyEventFallback(event: {
       event_id: event.id,
       categories: ['Releases'],
       work_type: 'Feature',
-      work_area: 'Other',
+      work_areas: ['Other'],
       technologies: [],
       confidence: 0.8,
       reasoning: 'Release published — classified as feature delivery.',
@@ -74,13 +74,15 @@ export function classifyEventFallback(event: {
   if (!categories.length) categories.push(event.type.startsWith('issue_') ? 'Planning' : 'Maintenance');
 
   const confidence = matched.length > 0 ? 0.6 : 0.3;
-  const workArea = matched.length ? matched[0] : 'Other';
+  const workAreas = matched.length
+    ? Array.from(new Set(matched.map((m) => String(m))))
+    : ['Other'];
 
   return {
     event_id: event.id,
     categories,
     work_type: workType,
-    work_area: workArea,
+    work_areas: workAreas,
     technologies: [],
     confidence,
     reasoning: matched.length

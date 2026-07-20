@@ -88,7 +88,6 @@ export type TaskContext = {
   previousSummary?: unknown;
   healthMetrics?: HealthMetrics;
   scoreBreakdown?: ScoreDetails;
-  topScore?: number;
   contributorStats?: {
     commits: number;
     prsOpened: number;

@@ -156,23 +156,45 @@ export function eventCategory(type: string, payload: Record<string, unknown>) {
 }
 
 type WorkAreaClassification = {
+  work_areas?: string[] | null;
   work_area?: string | null;
   work_type?: string | null;
   technologies?: string[];
 } | null | undefined;
 
-export function workAreaForEvent(
+export function workAreasForEvent(
   type: string,
   payload: Record<string, unknown>,
   classification?: WorkAreaClassification,
-): string {
-  const area = classification?.work_area;
-  if (area && area.trim()) return area.trim();
+): string[] {
+  const fromAreas = (classification?.work_areas ?? [])
+    .map((a) => (typeof a === 'string' ? a.trim() : ''))
+    .filter(Boolean);
+  if (fromAreas.length > 0) return dedupe(fromAreas);
 
-  const techs = classification?.technologies;
-  if (techs && techs.length > 0 && techs[0].trim()) return techs[0].trim();
+  if (classification?.work_area && classification.work_area.trim()) {
+    return [classification.work_area.trim()];
+  }
 
-  return 'Other';
+  const techs = (classification?.technologies ?? [])
+    .map((t) => (typeof t === 'string' ? t.trim() : ''))
+    .filter(Boolean);
+  if (techs.length > 0) return dedupe(techs);
+
+  return ['Other'];
+}
+
+function dedupe(values: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const v of values) {
+    const key = v.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(v);
+    }
+  }
+  return out;
 }
 
 export function isFix(type: string, payload: Record<string, unknown>) {
