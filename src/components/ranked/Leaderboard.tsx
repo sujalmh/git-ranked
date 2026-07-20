@@ -91,6 +91,26 @@ function StreakBadge({ days }: { days: number }) {
   );
 }
 
+function BreakdownLegend() {
+  const segments = [
+    { key: 'featureDelivery', label: 'Shipping', className: 'bg-[#ccff00]' },
+    { key: 'codeQuality', label: 'Quality', className: 'bg-[#00ffff]' },
+    { key: 'reviews', label: 'Reviews', className: 'bg-[#ff00ff]' },
+    { key: 'collaboration', label: 'Collab', className: 'bg-[#ff5500]' },
+    { key: 'consistency', label: 'Consistency', className: 'bg-[#00ff66]' },
+  ];
+  return (
+    <div className="hidden md:flex flex-wrap gap-x-3 px-1 pb-2">
+      {segments.map((s) => (
+        <span key={s.key} className="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+          <span className={`w-2 h-2 rounded-sm ${s.className}`} />
+          {s.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function BreakdownBar({ contributor, animate }: { contributor: ContributorInsight; animate: boolean }) {
   const segments = breakdownSegments(contributor);
   const total = segments.reduce((sum, s) => sum + s.value, 0);
@@ -105,14 +125,6 @@ function BreakdownBar({ contributor, animate }: { contributor: ContributorInsigh
             style={{ width: animate ? `${(s.value / total) * 100}%` : '0%' }}
             title={`${s.label}: ${Math.round(s.value)}`}
           />
-        ))}
-      </div>
-      <div className="hidden md:flex flex-wrap gap-x-2">
-        {segments.map((s) => (
-          <span key={s.key} className="text-[9px] text-zinc-500 flex items-center gap-1">
-            <span className={`w-1.5 h-1.5 rounded-sm ${s.className}`} />
-            {s.label}
-          </span>
         ))}
       </div>
     </div>
@@ -160,25 +172,25 @@ function SmallTeamRow({
       <div className={`absolute top-0 bottom-0 left-0 w-1 ${identity.dot} shadow-[0_0_8px_0_var(--tw-shadow-color)]`} style={{ '--tw-shadow-color': identity.hex } as any} />
       
       <div className="flex items-center gap-4 relative z-10">
-        <span className="w-8 text-center text-2xl font-black text-zinc-600 shrink-0">{rank}</span>
+        <span className="w-8 text-center text-2xl font-black text-zinc-500 shrink-0">{rank}</span>
         <Avatar src={contributor.avatarUrl} name={contributor.username} size={36} ring={identity.ring} />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-white truncate">{contributor.username}</span>
+          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+            <span className="text-base font-semibold text-white truncate">{contributor.username}</span>
             <StreakBadge days={contributor.currentStreak} />
             <RankChange delta={delta} />
-            <span className="text-[10px] text-zinc-500 uppercase tracking-wide hidden sm:inline">{contributor.role}</span>
+            <span className="text-xs text-zinc-400 uppercase tracking-wide hidden sm:inline">{contributor.role}</span>
           </div>
           <div className="mt-1.5">
             <BreakdownBar contributor={contributor} animate={animate} />
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-xl font-black text-white leading-none">
+          <div className="text-xl font-black text-white leading-none mb-1">
             {contributor.impactScore}
-            <span className="text-xs text-zinc-600 font-medium">/100</span>
+            <span className="text-xs text-zinc-500 font-medium ml-0.5">/100</span>
           </div>
-          <div className="text-[9px] uppercase text-zinc-600 tracking-wider">Impact</div>
+          <div className="text-xs uppercase text-zinc-400 tracking-wider font-semibold">Impact</div>
         </div>
       </div>
     </Link>
@@ -217,8 +229,8 @@ function PodiumCard({
           size={rank === 1 ? 64 : 52}
           ring={style?.ring}
         />
-        <span className="text-sm font-bold text-white truncate max-w-full">{contributor.username}</span>
-        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${topicChipClass(area.label)}`}>
+        <span className="text-base font-bold text-white truncate max-w-full">{contributor.username}</span>
+        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${topicChipClass(area.label)}`}>
           {area.label}
         </span>
         <div className="mt-1">
@@ -263,7 +275,7 @@ function CompactRow({
       <div className="text-right shrink-0 w-12">
         <span className="text-sm font-bold text-white">
           {contributor.impactScore}
-          <span className="text-[10px] text-zinc-600">/100</span>
+          <span className="text-xs text-zinc-600 ml-0.5">/100</span>
         </span>
       </div>
     </Link>
@@ -321,6 +333,7 @@ export function Leaderboard({
   if (smallTeam) {
     return (
       <div className="space-y-2">
+        <BreakdownLegend />
         {contributors.map((c, idx) => (
           <SmallTeamRow
             key={c.id}

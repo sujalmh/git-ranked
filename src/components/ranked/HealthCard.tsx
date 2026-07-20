@@ -82,11 +82,11 @@ export function HealthCard({
     <div className="flex flex-col gap-4">
       <div className="flex items-baseline justify-between">
         <div>
-          <div className={`text-4xl font-black leading-none ${sevStyle.text}`}>
+          <div className={`text-5xl font-black leading-none ${sevStyle.text}`}>
             {animatedScore}
-            <span className="text-base text-zinc-600 font-medium">/100</span>
+            <span className="text-lg text-zinc-600 font-medium ml-1">/100</span>
           </div>
-          <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mt-1">
+          <div className="text-xs uppercase tracking-wider text-zinc-500 font-semibold mt-2">
             Team Health · {sevStyle.label}
           </div>
         </div>
@@ -97,7 +97,7 @@ export function HealthCard({
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart data={chartData} outerRadius="70%">
               <PolarGrid stroke="rgba(255,255,255,0.08)" />
-              <PolarAngleAxis dataKey="metric" tick={{ fill: '#a1a1aa', fontSize: 9 }} />
+              <PolarAngleAxis dataKey="metric" tick={{ fill: '#a1a1aa', fontSize: 11 }} />
               <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
               <Radar
                 name="Health"
@@ -135,14 +135,14 @@ export function HealthCard({
               }
               className="group w-full text-left flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-white/5 transition-colors"
             >
-              <span className={`text-[11px] w-16 shrink-0 ${r.text} group-hover:text-white transition-colors`}>{r.short}</span>
-              <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+              <span className={`text-xs font-medium w-16 shrink-0 ${r.text} group-hover:text-white transition-colors`}>{r.short}</span>
+              <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
                 <div
                   className={`h-full ${r.bar} rounded-full transition-[width] duration-700 ease-out`}
                   style={{ width: mounted ? `${r.value}%` : '0%' }}
                 />
               </div>
-              <span className="text-[11px] text-white font-medium w-7 text-right">{r.value}</span>
+              <span className="text-sm text-white font-semibold w-7 text-right">{r.value}</span>
             </button>
           ))}
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle,
   TrendingUp,
@@ -122,8 +122,8 @@ function FindingRow({
         <Icon className={`w-4 h-4 ${sev.text}`} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className={`text-[10px] font-semibold uppercase tracking-wide ${sev.text} mb-0.5`}>{meta.tag}</div>
-        <p className="text-sm text-zinc-200 leading-relaxed">{finding.text}</p>
+        <div className={`text-xs font-semibold uppercase tracking-wide ${sev.text} mb-1`}>{meta.tag}</div>
+        <p className="text-base text-zinc-200 leading-relaxed line-clamp-2">{finding.text}</p>
       </div>
       <button
         type="button"
@@ -160,32 +160,36 @@ export function AiInsights({
   );
   const chips = useMemo(() => buildChips(summary, findings), [summary, findings]);
 
+  const [expanded, setExpanded] = useState(false);
+  const visibleFindings = expanded ? findings : findings.slice(0, 3);
+  const hiddenCount = findings.length - visibleFindings.length;
+
   const hasContent = findings.length > 0 || chips.length > 0 || overview;
 
   if (!hasContent) {
     return (
       <div className="sleek-panel p-5">
         <div className="flex items-center gap-2 mb-2">
-          <Sparkles className="w-4 h-4 text-indigo-300" />
-          <h2 className="text-base font-semibold">AI Insights</h2>
+          <Sparkles className="w-5 h-5 text-indigo-300" />
+          <h2 className="text-lg font-bold text-white">AI Insights</h2>
         </div>
-        <p className="text-sm text-zinc-500">No notable insights surfaced for this period.</p>
+        <p className="text-base text-zinc-400">No notable insights surfaced for this period.</p>
       </div>
     );
   }
 
   return (
     <div className="sleek-panel p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <Sparkles className="w-4 h-4 text-indigo-300" />
-        <h2 className="text-base font-semibold">AI Insights</h2>
-        <span className="text-xs text-zinc-500 ml-1">
+      <div className="flex items-center gap-2 mb-4">
+        <Sparkles className="w-5 h-5 text-indigo-300" />
+        <h2 className="text-lg font-bold text-white">AI Insights</h2>
+        <span className="text-sm text-zinc-400 ml-2">
           {smallTeam ? 'Per-person findings' : 'Team-distribution patterns'}
         </span>
       </div>
 
       {overview && (
-        <p className="text-sm text-zinc-300 leading-relaxed mb-3 max-w-3xl">{overview}</p>
+        <p className="text-base text-zinc-300 leading-relaxed mb-4 max-w-3xl line-clamp-2">{overview}</p>
       )}
 
       {chips.length > 0 && (
@@ -193,7 +197,7 @@ export function AiInsights({
           {chips.map((chip, i) => (
             <span
               key={`${chip.kind}-${i}`}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${CHIP_STYLE[chip.kind]}`}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${CHIP_STYLE[chip.kind]}`}
             >
               {CHIP_ICON[chip.kind]}
               {chip.text}
@@ -204,13 +208,21 @@ export function AiInsights({
 
       {findings.length > 0 ? (
         <div className="space-y-2">
-          {findings.map((f, i) => (
+          {visibleFindings.map((f, i) => (
             <FindingRow key={`${f.kind}-${i}`} finding={f} pool={pool} usernames={usernames} />
           ))}
+          {!expanded && hiddenCount > 0 && (
+            <button
+              onClick={() => setExpanded(true)}
+              className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white border border-white/5 rounded-lg py-2 hover:bg-white/5 transition-colors mt-2"
+            >
+              Show {hiddenCount} more finding{hiddenCount === 1 ? '' : 's'}
+            </button>
+          )}
         </div>
       ) : (
         chips.length > 0 && (
-          <p className="text-xs text-zinc-500">No flagged risks this period — see chips above for the at-a-glance summary.</p>
+          <p className="text-sm text-zinc-400">No flagged risks this period — see chips above for the at-a-glance summary.</p>
         )
       )}
     </div>

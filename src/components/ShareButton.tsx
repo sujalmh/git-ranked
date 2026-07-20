@@ -85,12 +85,12 @@ export function ShareButton({
       <button
         onClick={() => setShowMenu((v) => !v)}
         disabled={loading}
-        className={`flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm font-medium transition-colors ${
+        className={`flex items-center justify-center rounded-xl border border-white/10 w-10 h-10 transition-colors ${
           enabled ? 'bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30' : 'bg-white/5 hover:bg-white/10 text-white'
         }`}
+        title={enabled ? 'Shared' : 'Share'}
       >
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
-        {enabled ? 'Shared' : 'Share'}
       </button>
 
       {showMenu && (

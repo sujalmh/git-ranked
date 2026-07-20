@@ -129,13 +129,13 @@ export function RepoAnalysisView({
           <div className="flex items-center gap-2 mb-1">
             <Crown className="w-5 h-5 text-amber-400" />
             <h2 className="text-lg font-bold text-white">Leaderboard</h2>
-            <span className="text-xs text-zinc-500 ml-1">
+            <span className="text-sm text-zinc-300 ml-2">
               {smallTeam
                 ? `${contributors.length} collaborators · ranked by impact`
                 : `Top 3 of ${contributors.length} · ranked by impact`}
             </span>
           </div>
-          <p className="text-xs text-zinc-500 mb-4">
+          <p className="text-sm text-zinc-300 mb-5">
             {smallTeam
               ? 'Impact breakdown bar shows shipping, quality, reviews, collaboration and consistency.'
               : 'Search and sort the full list below the podium.'}
@@ -151,9 +151,9 @@ export function RepoAnalysisView({
 
         <div className="sleek-panel p-5">
           <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-4 h-4 text-emerald-300" />
-            <h2 className="text-base font-semibold text-white">Team Health</h2>
-            <span className="text-xs text-zinc-500 ml-auto">/100</span>
+            <Activity className="w-5 h-5 text-emerald-300" />
+            <h2 className="text-lg font-bold text-white">Team Health</h2>
+            <span className="text-sm text-zinc-400 ml-auto">/100</span>
           </div>
           {healthMetrics ? (
             <HealthCard metrics={healthMetrics} metricEvidence={metricEvidenceList} />
@@ -168,7 +168,7 @@ export function RepoAnalysisView({
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="w-5 h-5 text-indigo-400" />
           <h2 className="text-lg font-bold text-white">Contributor Profiles</h2>
-          <span className="text-xs text-zinc-500 ml-1">
+          <span className="text-sm text-zinc-300 ml-2">
             {smallTeam ? 'Stat tiles + AI work summary' : `Top ${Math.min(contributors.length, 9)} of ${contributors.length} — open a profile for full detail`}
           </span>
         </div>
@@ -191,9 +191,9 @@ export function RepoAnalysisView({
       {/* 5. Activity feed */}
       <section className="sleek-panel p-5 mb-6">
         <div className="flex items-center gap-2 mb-4">
-          <Layers3 className="w-4 h-4 text-indigo-300" />
-          <h2 className="text-base font-semibold text-white">Activity Feed</h2>
-          <span className="text-xs text-zinc-500 ml-1">most recent first</span>
+          <Layers3 className="w-5 h-5 text-indigo-300" />
+          <h2 className="text-lg font-bold text-white">Activity Feed</h2>
+          <span className="text-sm text-zinc-300 ml-2">most recent first</span>
         </div>
         <ActivityFeed items={activityFeed} identityColors={assignment.hexByUsername} />
       </section>

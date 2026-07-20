@@ -19,16 +19,16 @@ export interface ScoreDetails {
 }
 
 const BASE_POINTS: Record<string, number> = {
-  push: 10,
-  pr_opened: 2,
+  push: 1,
+  pr_opened: 1,
   pr_merged: 10,
   pr_closed: 1,
   review_submitted: 10,
-  issue_opened: 4,
+  issue_opened: 2,
   issue_closed: 3,
   release: 12,
   discussion: 2,
-  comment: 1,
+  comment: 0.5,
 };
 
 export const WORK_TYPE_MULTIPLIER: Record<WorkType, number> = {
@@ -84,18 +84,50 @@ export function computeContributionScore(
   };
 
   const activeDays = new Set<string>();
+  let minTime = Infinity;
+  let maxTime = -Infinity;
+
+  const commentCount = { value: 0 };
+  const issueOpenedCount = { value: 0 };
+  const pushCount = { value: 0 };
+  const pushContentAccrued = { value: 0 };
 
   for (const event of events) {
+    const ts = new Date(event.created_at).getTime();
+    if (Number.isFinite(ts)) {
+      if (ts < minTime) minTime = ts;
+      if (ts > maxTime) maxTime = ts;
+    }
     const dateStr = new Date(event.created_at).toISOString().split('T')[0];
     activeDays.add(dateStr);
-    
+
     const type = event.type;
     const base = BASE_POINTS[type] || 0;
     const payload = event.payload || {};
 
     let points = base;
 
-    // Apply work-type multiplier when classification is available
+    if (type === 'push') {
+      pushCount.value += 1;
+      const commitCount =
+        (typeof payload.commit_count === 'number' && payload.commit_count > 0
+          ? payload.commit_count
+          : 0) ||
+        (Array.isArray(payload.commits) ? payload.commits.length : 0) ||
+        1;
+      const overhead = base / (1 + 0.2 * (pushCount.value - 1));
+      const remaining = Math.max(0, 25 - pushContentAccrued.value);
+      const contentBonus = Math.min(remaining, commitCount);
+      pushContentAccrued.value += contentBonus;
+      points = overhead + contentBonus;
+    } else if (type === 'comment') {
+      commentCount.value += 1;
+      points = base / (1 + 0.15 * (commentCount.value - 1));
+    } else if (type === 'issue_opened') {
+      issueOpenedCount.value += 1;
+      points = base / (1 + 0.1 * (issueOpenedCount.value - 1));
+    }
+
     if (classifications && event.id) {
       const classification = classifications.get(event.id);
       if (classification?.work_type) {
@@ -105,10 +137,9 @@ export function computeContributionScore(
     }
 
     if (type === 'pr_merged') {
-      const changed = (typeof payload.additions === 'number' ? payload.additions : 0) + 
+      const changed = (typeof payload.additions === 'number' ? payload.additions : 0) +
                       (typeof payload.deletions === 'number' ? payload.deletions : 0);
-      if (changed >= 200) points *= 2.5;
-      else if (changed >= 50) points *= 1.5;
+      points *= 1 + Math.min(1.5, Math.log10(changed + 1) * 0.35);
 
       if (isFixOrRefactor(payload, type)) {
         breakdown.codeQuality += points;
@@ -127,7 +158,7 @@ export function computeContributionScore(
       }
       const wordCount = typeof payload.word_count === 'number' ? payload.word_count : 0;
       if (wordCount > 50) points *= 1.5;
-      
+
       breakdown.reviews += points;
     } else if (type === 'issue_opened' || type === 'pr_opened') {
       breakdown.collaboration += points;
@@ -141,8 +172,14 @@ export function computeContributionScore(
     }
   }
 
-  // Consistency score: points based on the number of active days (capped at 50)
-  breakdown.consistency = Math.min(50, activeDays.size * 2.5);
+  const spanDays =
+    Number.isFinite(minTime) && Number.isFinite(maxTime)
+      ? Math.max(1, Math.round((maxTime - minTime) / 86_400_000) + 1)
+      : 1;
+  const activeRatio = activeDays.size / spanDays;
+  const breadth = Math.min(activeDays.size, 30);
+  const regularity = activeDays.size >= 3 ? activeRatio * 30 : activeRatio * 10;
+  breakdown.consistency = Math.min(50, breadth + regularity);
 
   const total = breakdown.featureDelivery + breakdown.codeQuality + breakdown.reviews + breakdown.collaboration + breakdown.consistency;
 

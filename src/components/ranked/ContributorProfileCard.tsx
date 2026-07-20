@@ -70,7 +70,7 @@ function StatTile({
       title={`${tile.value} ${tile.label}`}
     >
       <span className={highlight ? 'text-indigo-300' : ''}>{tile.icon}</span>
-      <span className={`text-xs font-semibold ${highlight ? 'text-indigo-200' : 'text-zinc-200'}`}>{tile.value}</span>
+      <span className={`text-sm font-semibold ${highlight ? 'text-indigo-200' : 'text-zinc-200'}`}>{tile.value}</span>
     </div>
   );
 }
@@ -142,13 +142,13 @@ export function ContributorProfileCard({
             <div className="rounded-full border border-white/10 bg-white/10" style={{ width: 44, height: 44 }} />
           )}
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-semibold text-white truncate hover:text-indigo-300 transition-colors">
+            <h3 className="text-base font-semibold text-white truncate hover:text-indigo-300 transition-colors">
               {contributor.username}
             </h3>
-            <span className="text-[10px] uppercase tracking-wide text-zinc-500">{ROLE_TIER[contributor.role] ?? contributor.role}</span>
+            <span className="text-xs uppercase tracking-wide text-zinc-400">{ROLE_TIER[contributor.role] ?? contributor.role}</span>
           </div>
           {contributor.currentStreak > 0 && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-orange-300 bg-orange-500/10 border border-orange-500/20 rounded-full px-1.5 py-0.5 shrink-0">
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-300 bg-orange-500/10 border border-orange-500/20 rounded-full px-1.5 py-0.5 shrink-0">
               <Flame className="w-3 h-3" />
               {contributor.currentStreak}d
             </span>
@@ -156,12 +156,12 @@ export function ContributorProfileCard({
           <div className="text-right shrink-0">
             <div className="text-lg font-black text-white leading-none">
               {contributor.impactScore}
-              <span className="text-[10px] text-zinc-600 font-medium">/100</span>
+              <span className="text-sm text-zinc-500 font-medium ml-0.5">/100</span>
             </div>
           </div>
         </div>
 
-        <p className="text-xs text-zinc-300 leading-snug mb-3 line-clamp-2">{description}</p>
+        <p className="text-base text-zinc-200 leading-relaxed mb-4 line-clamp-2">{description}</p>
       </Link>
 
       <div className="flex flex-wrap gap-1.5 mb-3">
@@ -175,7 +175,7 @@ export function ContributorProfileCard({
           {contributor.categories.slice(0, 4).map((cat) => (
             <span
               key={cat.label}
-              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${topicChipClass(cat.label)}`}
+              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${topicChipClass(cat.label)}`}
             >
               {cat.label}
             </span>
@@ -186,7 +186,7 @@ export function ContributorProfileCard({
       {focusAreas.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           {focusAreas.slice(0, 4).map((area, i) => (
-            <span key={i} className="rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] text-zinc-300">
+            <span key={i} className="rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-xs text-zinc-300">
               {area}
             </span>
           ))}

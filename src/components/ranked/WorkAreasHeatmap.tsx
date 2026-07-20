@@ -73,13 +73,13 @@ export function WorkAreasHeatmap({
 
   return (
     <div className="sleek-panel p-5">
-      <div className="flex items-center justify-between mb-1">
-        <h2 className="text-base font-semibold">Work Areas Heatmap</h2>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-lg font-bold text-white">Work Areas Heatmap</h2>
         {hiddenAreas > 0 && (
-          <span className="text-[10px] text-zinc-500">top {visibleAreas.length} of {totalAreas} areas</span>
+          <span className="text-xs text-zinc-500">top {visibleAreas.length} of {totalAreas} areas</span>
         )}
       </div>
-      <p className="text-xs text-zinc-500 mb-4">Darker cells = more activity. Hover for exact counts.</p>
+      <p className="text-sm text-zinc-400 mb-5">Darker cells = more activity. Hover for exact counts.</p>
 
       <div className="overflow-x-auto">
         <div className="min-w-full inline-block">
@@ -89,16 +89,16 @@ export function WorkAreasHeatmap({
           >
             <div />
             {visibleAreas.map((label) => (
-              <div key={label} className="text-[10px] uppercase tracking-wide font-semibold text-center text-zinc-400 pb-1 px-1">
+              <div key={label} className="text-xs uppercase tracking-wide font-semibold text-center text-zinc-400 pb-2 px-1">
                 {label}
               </div>
             ))}
 
             {visibleContributors.map((c) => (
               <React.Fragment key={c.id}>
-                <div className="flex items-center gap-2 py-1 pr-2">
-                  <Avatar src={c.avatarUrl} name={c.username} />
-                  <span className="text-xs text-zinc-200 truncate">{c.username}</span>
+                <div className="flex items-center gap-3 py-1.5 pr-2">
+                  <Avatar src={c.avatarUrl} name={c.username} size={28} />
+                  <span className="text-sm text-zinc-200 truncate">{c.username}</span>
                 </div>
                 {visibleAreas.map((label) => {
                   const intensity = intensityFor(c.id, label);
@@ -110,7 +110,7 @@ export function WorkAreasHeatmap({
                       className={`flex items-center justify-center py-1 rounded ${style.bg}`}
                       title={value > 0 ? `${c.username} · ${label}: ${value}` : `${c.username} · ${label}: none`}
                     >
-                      <span className={`text-[10px] ${style.text}`}>
+                      <span className={`text-sm ${style.text}`}>
                         {value > 0 ? value : ''}
                       </span>
                     </div>
