@@ -16,16 +16,16 @@ export default async function RepoAnalysisBoard(
 ) {
   const params = await props.params;
   const session = await auth();
-  if (!session?.user?.id) redirect('/');
 
   const { owner, name } = params;
+  const userId = session?.user?.id ?? -1;
 
   const repoQuery = await sql`
     SELECT r.id, r.github_repo_id, r.default_branch, i.github_installation_id, i.status as install_status, r.installation_id
     FROM repositories r
     LEFT JOIN installations i ON r.installation_id = i.id
     WHERE r.owner = ${owner} AND r.name = ${name} 
-      AND (i.linked_user_id = ${session.user.id} OR r.installation_id IS NULL)
+      AND (i.linked_user_id = ${userId} OR r.installation_id IS NULL)
   `;
 
   if (repoQuery.length === 0) return <div>Repository not found or access denied.</div>;
@@ -72,7 +72,19 @@ export default async function RepoAnalysisBoard(
               {owner} / {name}
             </h1>
           </div>
-          <RepositoryNeedsInit owner={owner} name={name} />
+          {session ? (
+            <RepositoryNeedsInit owner={owner} name={name} />
+          ) : (
+            <div className="sleek-panel p-8 text-center max-w-2xl mx-auto mt-12 flex flex-col items-center">
+              <h2 className="text-xl font-bold mb-2">Repository Not Initialized</h2>
+              <p className="text-sm text-zinc-400 leading-relaxed mb-5 max-w-lg">
+                This repository has not been initialized yet. Please log in to initialize and analyze it.
+              </p>
+              <Link href="/" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl transition-colors">
+                Log In
+              </Link>
+            </div>
+          )}
         </main>
       </div>
     );
@@ -104,13 +116,17 @@ export default async function RepoAnalysisBoard(
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <AnalyseButton owner={owner} name={name} isReanalyse={data.isAnalysed} />
-            <ShareButton
-              owner={owner}
-              name={name}
-              initialEnabled={shareState.enabled}
-              initialUrl={shareState.enabled ? shareUrl : null}
-            />
+            {session ? (
+              <>
+                <AnalyseButton owner={owner} name={name} isReanalyse={data.isAnalysed} />
+                <ShareButton
+                  owner={owner}
+                  name={name}
+                  initialEnabled={shareState.enabled}
+                  initialUrl={shareState.enabled ? shareUrl : null}
+                />
+              </>
+            ) : null}
             <Link href={`/repos/${owner}/${name}/releases`} className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-3.5 py-2 text-sm text-white font-medium">
               Release Notes
             </Link>
@@ -127,7 +143,11 @@ export default async function RepoAnalysisBoard(
             <p className="text-sm text-zinc-400 leading-relaxed mb-5 max-w-lg">
               This repository has contribution data, but the AI insights have not been generated yet. Click below to crunch the data and generate comprehensive health metrics, team summaries, and AI impact scores.
             </p>
-            <AnalyseButton owner={owner} name={name} />
+            {session ? (
+              <AnalyseButton owner={owner} name={name} />
+            ) : (
+              <p className="text-sm text-indigo-400 mt-4">Please log in to analyze this repository.</p>
+            )}
           </div>
         ) : (
           <RepoAnalysisView data={data} readOnly={false} repoOwner={owner} repoName={name} />

@@ -13,15 +13,16 @@ export default async function ReleasesPage(
 ) {
   const params = await props.params;
   const session = await auth();
-  if (!session?.user?.id) redirect('/');
+  const userId = session?.user?.id ?? -1;
 
   const { owner, name } = params;
 
   const repoQuery = await sql`
     SELECT r.id, r.github_repo_id
     FROM repositories r
-    JOIN installations i ON r.installation_id = i.id
-    WHERE r.owner = ${owner} AND r.name = ${name} AND i.linked_user_id = ${session.user.id}
+    LEFT JOIN installations i ON r.installation_id = i.id
+    WHERE r.owner = ${owner} AND r.name = ${name} 
+      AND (i.linked_user_id = ${userId} OR r.installation_id IS NULL)
   `;
 
   if (repoQuery.length === 0) return <div>Repository not found.</div>;

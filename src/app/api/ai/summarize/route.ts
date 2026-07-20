@@ -53,9 +53,9 @@ export async function POST(req: Request) {
     const repoAccess = await sql`
       SELECT r.id
       FROM repositories r
-      JOIN installations i ON r.installation_id = i.id
+      LEFT JOIN installations i ON r.installation_id = i.id
       WHERE r.id = ${parsedRepoId}
-        AND i.linked_user_id = ${session.user.id}
+        AND (i.linked_user_id = ${session.user.id} OR r.installation_id IS NULL)
         AND r.is_active = true
       LIMIT 1
     `;

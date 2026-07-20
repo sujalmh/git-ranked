@@ -26,17 +26,18 @@ export default async function ContributorDetail(
   props: { params: Promise<{ owner: string; name: string; contributor: string }> }
 ) {
   const params = await props.params;
-  const { owner, name, contributor } = params;
-
   const session = await auth();
-  if (!session?.user?.id) redirect('/');
+  const userId = session?.user?.id ?? -1;
+
+  const { owner, name, contributor } = params;
 
   // Verify repo access
   const repoQuery = await sql`
     SELECT r.id
     FROM repositories r
-    JOIN installations i ON r.installation_id = i.id
-    WHERE r.owner = ${owner} AND r.name = ${name} AND i.linked_user_id = ${session.user.id}
+    LEFT JOIN installations i ON r.installation_id = i.id
+    WHERE r.owner = ${owner} AND r.name = ${name} 
+      AND (i.linked_user_id = ${userId} OR r.installation_id IS NULL)
   `;
 
   if (repoQuery.length === 0) return <div>Repository not found.</div>;
