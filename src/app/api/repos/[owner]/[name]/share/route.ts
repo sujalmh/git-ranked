@@ -9,8 +9,9 @@ async function getOwnedRepoId(owner: string, name: string, userId: string): Prom
   const rows = (await sql`
     SELECT r.id
     FROM repositories r
-    JOIN installations i ON r.installation_id = i.id
-    WHERE r.owner = ${owner} AND r.name = ${name} AND i.linked_user_id = ${userId}
+    LEFT JOIN installations i ON r.installation_id = i.id
+    WHERE r.owner = ${owner} AND r.name = ${name} 
+      AND (i.linked_user_id = ${userId} OR r.installation_id IS NULL)
   `) as RepoLookup;
   return rows.length > 0 ? rows[0].id : null;
 }
