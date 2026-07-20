@@ -24,12 +24,17 @@ export default async function Home() {
                 DASHBOARD
               </Link>
             ) : (
-              <a 
-                href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`} 
-                className="px-5 py-2 accent-panel text-sm transition-transform hover:-translate-y-1"
-              >
-                CONNECT TO GITHUB
-              </a>
+              <div className="flex items-center gap-6">
+                <Link href="/api/auth/signin" className="text-sm font-bold tracking-wider hover:text-[#ccff00] transition-colors uppercase">
+                  Log In
+                </Link>
+                <a 
+                  href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`} 
+                  className="px-5 py-2 accent-panel text-sm transition-transform hover:-translate-y-1"
+                >
+                  CONNECT TO GITHUB
+                </a>
+              </div>
             )}
           </nav>
         </div>
