@@ -4,7 +4,7 @@ import { AnimatedHeroContent } from '@/components/AnimatedHeroContent';
 import { AnimatedFeatures } from '@/components/AnimatedFeatures';
 import { VisualPipeline } from '@/components/VisualPipeline';
 import { AnimatedCards } from '@/components/AnimatedCards';
-import { auth } from '@/lib/auth';
+import { auth, signOut } from '@/lib/auth';
 
 export default async function Home() {
   const session = await auth();
@@ -20,9 +20,38 @@ export default async function Home() {
           </div>
           <nav className="flex gap-6 items-center">
             {isSignedIn ? (
-              <Link href="/dashboard" className="px-5 py-2 accent-panel text-sm transition-transform hover:-translate-y-1">
-                DASHBOARD
-              </Link>
+              <div className="flex items-center gap-6">
+                <Link href="/dashboard" className="px-5 py-2 accent-panel text-sm transition-transform hover:-translate-y-1">
+                  DASHBOARD
+                </Link>
+                <div className="h-6 w-px bg-white/20" />
+                <div className="flex items-center gap-3">
+                  {session.user?.image ? (
+                    <Image
+                      src={session.user.image}
+                      alt="Avatar"
+                      className="w-8 h-8 rounded-full border border-white/20"
+                      width={32}
+                      height={32}
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full border border-white/20 bg-white/10" />
+                  )}
+                  {session.user?.name && (
+                    <span className="text-sm font-bold tracking-wider uppercase text-zinc-300">
+                      {session.user.name}
+                    </span>
+                  )}
+                  <form action={async () => {
+                    "use server"
+                    await signOut()
+                  }}>
+                    <button type="submit" className="text-sm font-bold tracking-wider hover:text-red-400 transition-colors uppercase ml-2 text-zinc-500">
+                      Sign Out
+                    </button>
+                  </form>
+                </div>
+              </div>
             ) : (
               <div className="flex items-center gap-6">
                 <a href="/api/auth/signin" className="text-sm font-bold tracking-wider hover:text-[#ccff00] transition-colors uppercase">

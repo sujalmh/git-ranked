@@ -32,6 +32,11 @@ export async function Navbar() {
                 ) : (
                   <div className="w-8 h-8 rounded-full border border-white/10 bg-white/10" />
                 )}
+                {session.user?.name && (
+                  <span className="text-sm font-medium text-zinc-300 mx-2">
+                    {session.user.name}
+                  </span>
+                )}
                 <form action={async () => {
                   "use server"
                   await signOut()
