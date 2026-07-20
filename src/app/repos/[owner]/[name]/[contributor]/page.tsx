@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { sql } from '@/lib/db';
 import { redirect } from 'next/navigation';
-import { computeContributionScore, type ClassificationMap, type RawEvent } from '@/lib/scoring';
+import { computeScoreBaseline, normalizeScoreToImpact, type ClassificationMap, type RawEvent } from '@/lib/scoring';
 import { runTaskById } from '@/lib/ai';
 import type { AiResult, ContributorProfile, ImpactAnalysis } from '@/lib/ai/types';
 import { ContributorProfileCard, ImpactExplanation } from '@/components/ai';
@@ -18,6 +18,8 @@ type EventRow = {
   payload: unknown;
   created_at: Date | string;
   classification?: unknown;
+  contributor_id: number;
+  username: string;
 };
 
 export default async function ContributorDetail(
@@ -53,37 +55,52 @@ export default async function ContributorDetail(
   const contributorId = dbData[0].contributor_id;
   const avatarUrl = dbData[0].avatar_url;
 
-  // Fetch events for this contributor
-  const eventRows = (await sql`
-    SELECT e.id, e.event_type, e.payload, e.created_at, e.classification
-    FROM github_events e
-    WHERE e.repo_id = ${repoId} AND e.contributor_id = ${contributorId}
-    ORDER BY e.created_at DESC
-    LIMIT 50
-  `) as EventRow[];
-
-  // Build classifications map
-  const classifications: ClassificationMap = new Map();
-  for (const row of eventRows) {
-    if (row.classification && typeof row.classification === 'object') {
-      classifications.set(row.id, row.classification as ClassificationItem);
-    }
-  }
-
-  // Compute score
-  const rawEvents: RawEvent[] = eventRows.map(r => ({
-    id: r.id,
-    type: r.event_type,
-    payload: asPayload(r.payload),
-    created_at: eventDate(r.created_at).toISOString(),
-  }));
-  const score = computeContributionScore(rawEvents, { classifications });
-
-  // Fetch AI results (cache only)
+  // 30-day window — matches the AI impact-analysis window so the deterministic
+  // 0-100 score and the AI explanation use the same normalized scale.
   const dateTo = new Date().toISOString().split('T')[0];
   // eslint-disable-next-line react-hooks/purity
   const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
+  // Fetch all contributors' events for the 30-day window so we can compute a
+  // repo-wide topScore and normalize this contributor's score to 0-100.
+  const eventRows = (await sql`
+    SELECT e.id, e.event_type, e.payload, e.created_at, e.classification, e.contributor_id, c.username
+    FROM github_events e
+    JOIN github_contributors c ON e.contributor_id = c.id
+    WHERE e.repo_id = ${repoId}
+      AND c.username NOT ILIKE '%[bot]%'
+      AND e.created_at >= ${dateFrom}::date
+      AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
+    ORDER BY e.created_at DESC
+  `) as EventRow[];
+
+  // Build classifications map and group events by contributor
+  const classifications: ClassificationMap = new Map();
+  const eventsByContributor = new Map<number, RawEvent[]>();
+  for (const row of eventRows) {
+    if (row.classification && typeof row.classification === 'object') {
+      classifications.set(row.id, row.classification as ClassificationItem);
+    }
+    const list = eventsByContributor.get(row.contributor_id) ?? [];
+    list.push({
+      id: row.id,
+      type: row.event_type,
+      payload: asPayload(row.payload),
+      created_at: eventDate(row.created_at).toISOString(),
+    });
+    eventsByContributor.set(row.contributor_id, list);
+  }
+
+  // Compute 0-100 normalized impact score relative to the repo's top contributor
+  const { topScore, scoresByContributor } = computeScoreBaseline(eventsByContributor, classifications);
+  const rawScore = scoresByContributor.get(contributorId);
+  const normalized = rawScore
+    ? normalizeScoreToImpact(rawScore, topScore)
+    : { total: 0, breakdown: { featureDelivery: 0, codeQuality: 0, reviews: 0, collaboration: 0, consistency: 0 } };
+
+  const recentEvents = (eventsByContributor.get(contributorId) ?? []).slice(0, 50);
+
+  // Fetch AI results (cache only)
   let profileResult: AiResult<ContributorProfile> | null = null;
   let impactResult: AiResult<ImpactAnalysis> | null = null;
   try {
@@ -146,8 +163,8 @@ export default async function ContributorDetail(
             <h2 className="text-base font-semibold mb-3">Impact Analysis</h2>
             <ImpactExplanation
               result={impactResult}
-              breakdown={score.breakdown}
-              total={score.total}
+              breakdown={normalized.breakdown}
+              total={normalized.total}
             />
           </div>
         </div>
@@ -155,15 +172,14 @@ export default async function ContributorDetail(
         {/* Recent Events */}
         <div className="sleek-panel p-5">
           <h2 className="text-base font-semibold mb-3">Recent Events</h2>
-          {eventRows.length === 0 ? (
+          {recentEvents.length === 0 ? (
             <p className="text-sm text-zinc-400">No recent activity found.</p>
           ) : (
             <div className="space-y-2">
-              {eventRows.map((row) => {
-                const payload = asPayload(row.payload);
+              {recentEvents.map((row) => {
                 const createdAt = eventDate(row.created_at);
-                const description = describeEvent(row.event_type, payload);
-                const classification = row.classification as ClassificationItem | undefined;
+                const description = describeEvent(row.type, row.payload);
+                const classification = row.id !== undefined ? classifications.get(row.id) : undefined;
                 return (
                   <div key={row.id} className="flex items-start gap-3 py-2 border-b border-white/5 last:border-0">
                     <div className="text-xs text-zinc-500 mt-0.5 w-20 shrink-0">

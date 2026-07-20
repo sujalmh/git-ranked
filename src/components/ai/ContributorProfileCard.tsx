@@ -1,6 +1,5 @@
 import { CheckCircle2, AlertCircle, Target, Award } from 'lucide-react';
 import type { AiResult, ContributorProfile } from '@/lib/ai/types';
-import { ConfidenceBadge } from './ConfidenceBadge';
 
 type Section = {
   key: keyof Pick<ContributorProfile, 'strengths' | 'focus_areas' | 'accomplishments' | 'concerns'>;
@@ -17,14 +16,11 @@ const SECTIONS: Section[] = [
 ];
 
 export function ContributorProfileCard({ result }: { result: AiResult<ContributorProfile> }) {
-  const { payload, confidence, source } = result;
+  const { payload } = result;
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between gap-4">
-        <p className="text-zinc-300 leading-relaxed text-sm">{payload.summary}</p>
-        <ConfidenceBadge confidence={confidence} source={source} />
-      </div>
+      <p className="text-zinc-300 leading-relaxed text-sm">{payload.summary}</p>
 
       {SECTIONS.map(({ key, label, icon: Icon, color }) => {
         const items = payload[key];

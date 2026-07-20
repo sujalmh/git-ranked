@@ -124,10 +124,10 @@ export function ContributorProfileCard({
   };
 
   return (
-    <div className={`relative rounded-xl border-x border-b bg-zinc-900/40 p-4 hover:bg-zinc-800/60 hover:-translate-y-1 transition-all duration-300 border-x-white/5 border-b-white/5`}>
-      {/* Top glowing border */}
-      <div className={`absolute top-0 left-0 right-0 h-[2px] rounded-t-xl ${identity.dot} shadow-[0_0_8px_0_var(--tw-shadow-color)]`} style={{ '--tw-shadow-color': identity.hex } as any} />
-      
+    <div 
+      className="relative rounded-none border border-white/10 hover:border-[var(--tw-shadow-color)] bg-black p-4 transition-all duration-200 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.5)] hover:shadow-[0_0_20px_-2px_var(--tw-shadow-color)]"
+      style={{ '--tw-shadow-color': `${identity.hex}66` } as any}
+    >
       <Link href={`/repos/${repoOwner}/${repoName}/${contributor.username}`} className="block">
         <div className="flex items-start gap-3 mb-3">
           {contributor.avatarUrl ? (
@@ -136,10 +136,10 @@ export function ContributorProfileCard({
               alt={contributor.username}
               width={44}
               height={44}
-              className="rounded-full border border-white/10"
+              className="rounded-none border border-white/10"
             />
           ) : (
-            <div className="rounded-full border border-white/10 bg-white/10" style={{ width: 44, height: 44 }} />
+            <div className="rounded-none border border-white/10 bg-white/10" style={{ width: 44, height: 44 }} />
           )}
           <div className="min-w-0 flex-1">
             <h3 className="text-base font-semibold text-white truncate hover:text-indigo-300 transition-colors">

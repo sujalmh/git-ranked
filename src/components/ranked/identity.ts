@@ -94,11 +94,11 @@ export const SEVERITY: Record<Severity, SeverityStyle> = {
 };
 
 const IDENTITY_PALETTE = [
-  { ring: 'ring-[#ccff00]', border: 'border-[#ccff00]/50', dot: 'bg-[#ccff00]', hex: '#ccff00' },
-  { ring: 'ring-[#00ffff]', border: 'border-[#00ffff]/50', dot: 'bg-[#00ffff]', hex: '#00ffff' },
-  { ring: 'ring-[#ff00ff]', border: 'border-[#ff00ff]/50', dot: 'bg-[#ff00ff]', hex: '#ff00ff' },
-  { ring: 'ring-[#ff5500]', border: 'border-[#ff5500]/50', dot: 'bg-[#ff5500]', hex: '#ff5500' },
-  { ring: 'ring-[#00ff66]', border: 'border-[#00ff66]/50', dot: 'bg-[#00ff66]', hex: '#00ff66' },
+  { ring: 'ring-[#ccff00]', border: 'border-[#ccff00]/30', dot: 'bg-[#ccff00]', hex: '#ccff00' },
+  { ring: 'ring-[#00ffff]', border: 'border-[#00ffff]/30', dot: 'bg-[#00ffff]', hex: '#00ffff' },
+  { ring: 'ring-[#ff00ff]', border: 'border-[#ff00ff]/30', dot: 'bg-[#ff00ff]', hex: '#ff00ff' },
+  { ring: 'ring-[#ff5500]', border: 'border-[#ff5500]/30', dot: 'bg-[#ff5500]', hex: '#ff5500' },
+  { ring: 'ring-[#00ff66]', border: 'border-[#00ff66]/30', dot: 'bg-[#00ff66]', hex: '#00ff66' },
 ];
 
 export type IdentityColor = {
@@ -168,19 +168,29 @@ export function breakdownSegments(contributor: ContributorInsight): BreakdownSeg
   return segments.filter((s) => s.value > 0);
 }
 
-const TOPIC_COLORS: Record<string, string> = {
-  'Feature Work': 'text-blue-300 bg-blue-500/10 border-blue-500/20',
-  'Code Review': 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
-  'Reliability': 'text-violet-300 bg-violet-500/10 border-violet-500/20',
-  'Releases': 'text-amber-300 bg-amber-500/10 border-amber-500/20',
-  'Planning': 'text-rose-300 bg-rose-500/10 border-rose-500/20',
-  'Maintenance': 'text-zinc-300 bg-zinc-500/10 border-zinc-500/20',
-};
+const TOPIC_PALETTE = [
+  'text-sky-300 bg-sky-500/10 border-sky-500/20',
+  'text-pink-300 bg-pink-500/10 border-pink-500/20',
+  'text-violet-300 bg-violet-500/10 border-violet-500/20',
+  'text-amber-300 bg-amber-500/10 border-amber-500/20',
+  'text-fuchsia-300 bg-fuchsia-500/10 border-fuchsia-500/20',
+  'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
+  'text-orange-300 bg-orange-500/10 border-orange-500/20',
+  'text-blue-300 bg-blue-500/10 border-blue-500/20',
+  'text-teal-300 bg-teal-500/10 border-teal-500/20',
+  'text-rose-300 bg-rose-500/10 border-rose-500/20',
+];
 
-export const TOPIC_NEUTRAL = 'text-zinc-300 bg-white/5 border-white/10';
+export const TOPIC_NEUTRAL = 'text-zinc-300 bg-zinc-500/10 border-zinc-500/20';
 
 export function topicChipClass(label: string): string {
-  return TOPIC_COLORS[label] ?? TOPIC_NEUTRAL;
+  if (!label) return TOPIC_NEUTRAL;
+  let hash = 0;
+  for (let i = 0; i < label.length; i++) {
+    hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
+  }
+  if (label.toLowerCase() === 'other') return TOPIC_NEUTRAL;
+  return TOPIC_PALETTE[hash % TOPIC_PALETTE.length];
 }
 
 export type PrimaryArea = { label: string; generalist: boolean };

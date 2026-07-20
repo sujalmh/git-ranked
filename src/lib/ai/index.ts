@@ -11,6 +11,7 @@ import { monthlyReportTask } from './tasks/monthly-report';
 import {
   buildEventContextBlock,
   computeContributorStats,
+  computeRepoTopScore,
   fetchEvents,
   normalizeEvents,
 } from './context';
@@ -53,7 +54,8 @@ export async function buildTaskContext(
   dateFrom: string,
   dateTo: string,
   contributorId?: number,
-  contributorUsername?: string
+  contributorUsername?: string,
+  topScore?: number,
 ): Promise<TaskContext> {
   const eventRows = await fetchEvents(repoId, dateFrom, dateTo, contributorId);
   const events = await normalizeEvents(repoId, repoOwner, repoName, eventRows);
@@ -81,6 +83,7 @@ export async function buildTaskContext(
     events,
     contributorStats: stats,
     scoreBreakdown,
+    topScore,
   };
 }
 
@@ -133,6 +136,11 @@ export async function runTaskById(
     if (rows.length > 0) contributorUsername = rows[0].username;
   }
 
+  let topScore: number | undefined;
+  if (taskId === 'impact_analysis' && contributorId) {
+    topScore = await computeRepoTopScore(repoId, dateFrom, dateTo);
+  }
+
   const ctx = await buildTaskContext(
     repoId,
     repoInfo.owner,
@@ -140,14 +148,15 @@ export async function runTaskById(
     dateFrom,
     dateTo,
     contributorId,
-    contributorUsername
+    contributorUsername,
+    topScore
   );
 
   return runTask(task, ctx, { generateIfMissing });
 }
 
 export { classifyEvents };
-export { fetchEvents, normalizeEvents, buildEventContextBlock };
+export { fetchEvents, normalizeEvents, buildEventContextBlock, computeRepoTopScore };
 export type { AiResult, AiTask, TaskContext };
 export type { ContributorProfile, RepositorySummary, ReleaseNotes, ImpactAnalysis, TeamInsights, WeeklyReport, MonthlyReport, Classification, ClassificationItem, NormalizedEvent, DiffFacts } from './types';
 

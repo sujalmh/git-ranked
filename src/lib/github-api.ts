@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import githubAppJwt from 'universal-github-app-jwt';
+import { isBotUsername } from './contributor-insights';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
@@ -8,6 +9,7 @@ export type GitHubUser = {
   id: number;
   login: string;
   avatar_url?: string | null;
+  type?: string;
 };
 
 export type GitHubCommit = {
@@ -135,6 +137,7 @@ export async function githubInstallationApi<T>(path: string, token: string, time
 
 export async function upsertContributor(user: GitHubUser | null | undefined): Promise<number | null> {
   if (!user) return null;
+  if (user.type === 'Bot' || isBotUsername(user.login)) return null;
 
   const { sql } = await import('./db');
   const rows = await sql`

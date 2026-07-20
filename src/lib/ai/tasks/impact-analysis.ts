@@ -1,5 +1,6 @@
 import { ImpactAnalysisSchema } from '../schemas';
 import { buildContributorStatsBlock, buildEventContextBlock } from '../context';
+import { normalizeScoreToImpact } from '../../scoring';
 import { impactAnalysisFallback } from '../fallback';
 import type { AiTask, ImpactAnalysis } from '../types';
 
@@ -15,8 +16,11 @@ export const impactAnalysisTask: AiTask<ImpactAnalysis> = {
     const system = `You are an Engineering Intelligence analyzer explaining a contributor's impact.
 
 Rules:
+- Explain the 0-100 Impact Score by transparently breaking down its 5 component weights: Feature Delivery (shipping features), Code Quality (bug fixes & refactoring), Review Health, Collaboration, and Consistency.
+- explanation MUST strictly explain the numeric score breakdown — why Feature Delivery or Code Quality scored high or low based on the provided metrics.
+- Do NOT repeat general activity summaries or re-describe what features were built; the contributor profile already covers that.
 - The numeric score breakdown is provided deterministically — your job is to EXPLAIN it, not invent numbers.
-- Reference specific observed activity (merged PRs, reviews, fixes) as evidence.
+- Reference specific observed activity (merged PRs, reviews, fixes) only as evidence for why a component scored the way it did.
 - Identify the contributor's primary role based on their activity distribution.
 - Key signals should be factual observations (e.g., "Merged 5 PRs in 7 days").
 - Do NOT generate or suggest numeric scores.
@@ -24,14 +28,17 @@ Rules:
 
     const statsBlock = buildContributorStatsBlock(ctx.contributorStats);
     const eventBlock = buildEventContextBlock(ctx.events, 30);
-    const breakdown = ctx.scoreBreakdown;
+    const rawBreakdown = ctx.scoreBreakdown;
+    const breakdown = rawBreakdown && ctx.topScore
+      ? normalizeScoreToImpact(rawBreakdown, ctx.topScore)
+      : rawBreakdown;
 
     const breakdownBlock = breakdown
-      ? `Deterministic score breakdown:
-Total: ${breakdown.total}
+      ? `Deterministic 0-100 Impact Score breakdown:
+Impact Score (0-100): ${breakdown.total}
 Feature Delivery: ${breakdown.breakdown.featureDelivery}
 Code Quality: ${breakdown.breakdown.codeQuality}
-Reviews: ${breakdown.breakdown.reviews}
+Review Health: ${breakdown.breakdown.reviews}
 Collaboration: ${breakdown.breakdown.collaboration}
 Consistency: ${breakdown.breakdown.consistency}`
       : 'No score breakdown provided.';

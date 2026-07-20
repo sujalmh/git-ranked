@@ -5,6 +5,7 @@ import { generateRepoInsights } from '@/lib/insights';
 import {
   buildTaskContext,
   classifyEvents,
+  computeRepoTopScore,
   getOrGenerateTask,
   getRepoContext,
   tasks,
@@ -94,6 +95,7 @@ export async function POST(
               WHERE e.repo_id = ${repoId}
                 AND e.created_at >= ${dateFrom}::date
                 AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
+                AND c.username NOT ILIKE '%[bot]%'
               GROUP BY c.id, c.username
               ORDER BY COUNT(e.id) DESC
               LIMIT 5
@@ -124,10 +126,12 @@ export async function POST(
               WHERE e.repo_id = ${repoId}
                 AND e.created_at >= ${dateFrom}::date
                 AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
+                AND c.username NOT ILIKE '%[bot]%'
               GROUP BY c.id, c.username
               ORDER BY COUNT(e.id) DESC
               LIMIT 5
             `;
+            const topScore = await computeRepoTopScore(repoId, dateFrom, dateTo);
             for (const contributor of topContributors) {
               const ctx = await buildTaskContext(
                 repoId,
@@ -136,7 +140,8 @@ export async function POST(
                 dateFrom,
                 dateTo,
                 contributor.id,
-                contributor.username
+                contributor.username,
+                topScore
               );
               await getOrGenerateTask(tasks.impactAnalysis, ctx, true);
             }

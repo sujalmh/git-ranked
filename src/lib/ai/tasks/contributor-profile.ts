@@ -22,7 +22,8 @@ export const contributorProfileTask: AiTask<ContributorProfile> = {
 Rules:
 - Base every statement on the provided events only. Do NOT invent accomplishments or infer skills without evidence.
 - Be concise and objective — this is an engineering analysis, not a performance review.
-- Focus areas should reflect the actual work types observed.
+- summary MUST be a concise 1-2 sentence executive bio focused ONLY on the contributor's overall role and primary domain focus (e.g., "Full-stack developer primarily focused on NL query chat and backend APIs."). Do NOT list activity counts, events, or accomplishments here.
+- Focus areas MUST be extremely concise 1-3 word topic tags (e.g., "API Integration", "Refactoring", "Testing"), NOT descriptive sentences, explanations, or lists of events.
 - Strengths and concerns should be grounded in specific activity patterns (e.g., "Active reviewer" if reviews > 0).
 - Include a confidence score (0-1) reflecting how much evidence you had.`;
 

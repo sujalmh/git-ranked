@@ -133,12 +133,12 @@ export function HealthCard({
                   items: r.evidence.items,
                 })
               }
-              className="group w-full text-left flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-white/5 transition-colors"
+              className="group w-full text-left flex items-center gap-2 rounded-none px-1.5 py-1 hover:bg-white/5 transition-colors"
             >
               <span className={`text-xs font-medium w-16 shrink-0 ${r.text} group-hover:text-white transition-colors`}>{r.short}</span>
-              <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+              <div className="flex-1 h-2 bg-white/5 rounded-none overflow-hidden">
                 <div
-                  className={`h-full ${r.bar} rounded-full transition-[width] duration-700 ease-out`}
+                  className={`h-full ${r.bar} rounded-none transition-[width] duration-700 ease-out`}
                   style={{ width: mounted ? `${r.value}%` : '0%' }}
                 />
               </div>

@@ -13,17 +13,30 @@ export type HeatmapContributor = {
 const MAX_AREAS_LARGE = 5;
 const MAX_CONTRIBUTORS_LARGE = 6;
 
-function intensityClass(intensity: number): { bg: string, text: string } {
-  if (intensity <= 0) return { bg: 'bg-white/[0.02]', text: 'text-zinc-600' };
-  if (intensity < 0.25) return { bg: 'bg-[#ccff00]/15', text: 'text-zinc-300' };
-  if (intensity < 0.5) return { bg: 'bg-[#ccff00]/35', text: 'text-zinc-100' };
-  if (intensity < 0.75) return { bg: 'bg-[#ccff00]/60', text: 'text-black font-medium' };
-  return { bg: 'bg-[#ccff00]', text: 'text-black font-bold' };
+function dynamicHeatmapStyle(value: number, max: number): React.CSSProperties {
+  if (value <= 0 || max <= 0) {
+    return {
+      backgroundColor: 'rgba(255, 255, 255, 0.02)',
+      color: '#52525b',
+    };
+  }
+
+  const t = Math.min(1, Math.max(0, value / max));
+  const hue = Math.round(54 - t * 30);
+  const lightness = Math.round(65 - t * 15);
+  const alpha = (0.2 + t * 0.75).toFixed(2);
+  const textColor = t > 0.5 ? '#000000' : '#fef08a';
+
+  return {
+    backgroundColor: `hsla(${hue}, 95%, ${lightness}%, ${alpha})`,
+    color: textColor,
+    fontWeight: t > 0.5 ? 800 : 600,
+  };
 }
 
 function Avatar({ src, name, size = 22 }: { src: string | null; name: string; size?: number }) {
-  if (!src) return <div className="rounded-full bg-white/10 border border-white/10" style={{ width: size, height: size }} />;
-  return <Image src={src} alt={name} width={size} height={size} className="rounded-full border border-white/10" />;
+  if (!src) return <div className="rounded-none bg-white/10 border border-white/10" style={{ width: size, height: size }} />;
+  return <Image src={src} alt={name} width={size} height={size} className="rounded-none border border-white/10" />;
 }
 
 export function WorkAreasHeatmap({
@@ -35,16 +48,16 @@ export function WorkAreasHeatmap({
 }) {
   const [showAll, setShowAll] = useState(false);
 
-  const { areaLabels, maxByArea, totalAreas } = useMemo(() => {
+  const { areaLabels, globalMax, totalAreas } = useMemo(() => {
     const labels: string[] = [];
-    const max = new Map<string, number>();
+    let max = 0;
     for (const c of contributors) {
       for (const a of c.areas) {
         if (!labels.includes(a.label)) labels.push(a.label);
-        max.set(a.label, Math.max(max.get(a.label) ?? 0, a.value));
+        if (a.value > max) max = a.value;
       }
     }
-    return { areaLabels: labels, maxByArea: max, totalAreas: labels.length };
+    return { areaLabels: labels, globalMax: max, totalAreas: labels.length };
   }, [contributors]);
 
   if (contributors.length === 0 || areaLabels.length === 0) {
@@ -60,12 +73,7 @@ export function WorkAreasHeatmap({
   const hiddenContributors = contributors.length - visibleContributors.length;
   const hiddenAreas = totalAreas - visibleAreas.length;
 
-  const intensityFor = (cid: number, label: string): number => {
-    const c = contributors.find((x) => x.id === cid);
-    const area = c?.areas.find((a) => a.label === label);
-    const max = maxByArea.get(label) ?? 0;
-    return area && max > 0 ? area.value / max : 0;
-  };
+
 
   const valueFor = (cid: number, label: string): number => {
     return contributors.find((x) => x.id === cid)?.areas.find((a) => a.label === label)?.value ?? 0;
@@ -101,16 +109,16 @@ export function WorkAreasHeatmap({
                   <span className="text-sm text-zinc-200 truncate">{c.username}</span>
                 </div>
                 {visibleAreas.map((label) => {
-                  const intensity = intensityFor(c.id, label);
                   const value = valueFor(c.id, label);
-                  const style = intensityClass(intensity);
+                  const cellStyle = dynamicHeatmapStyle(value, globalMax);
                   return (
                     <div
                       key={label}
-                      className={`flex items-center justify-center py-1 rounded ${style.bg}`}
+                      className="flex items-center justify-center py-1 rounded-none transition-colors duration-200"
+                      style={cellStyle}
                       title={value > 0 ? `${c.username} · ${label}: ${value}` : `${c.username} · ${label}: none`}
                     >
-                      <span className={`text-sm ${style.text}`}>
+                      <span className="text-sm">
                         {value > 0 ? value : ''}
                       </span>
                     </div>

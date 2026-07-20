@@ -21,8 +21,9 @@ export function ExplainableScore({ total, breakdown }: { total: number, breakdow
         onClick={() => setExpanded(!expanded)}
       >
         <div className="relative h-16 w-16 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-[2px]">
-          <div className="h-full w-full rounded-full bg-zinc-950 flex items-center justify-center font-black text-xl">
-            {total}
+          <div className="h-full w-full rounded-full bg-zinc-950 flex items-center justify-center">
+            <span className="font-black text-xl">{total}</span>
+            <span className="text-[10px] text-zinc-500 font-medium ml-0.5">/100</span>
           </div>
         </div>
         <div className="flex-1">

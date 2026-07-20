@@ -137,9 +137,13 @@ export function computeContributionScore(
     }
 
     if (type === 'pr_merged') {
-      const changed = (typeof payload.additions === 'number' ? payload.additions : 0) +
-                      (typeof payload.deletions === 'number' ? payload.deletions : 0);
-      points *= 1 + Math.min(1.5, Math.log10(changed + 1) * 0.35);
+      const additions = typeof payload.additions === 'number' ? payload.additions : 0;
+      const deletions = typeof payload.deletions === 'number' ? payload.deletions : 0;
+      const changedFiles = typeof payload.changed_files === 'number' ? payload.changed_files : 0;
+      const changed = additions + deletions;
+      const linesBonus = Math.min(20, Math.log10(changed + 1) * 4);
+      const filesBonus = Math.min(12, changedFiles * 0.6);
+      points += linesBonus + filesBonus;
 
       if (isFixOrRefactor(payload, type)) {
         breakdown.codeQuality += points;
@@ -192,5 +196,34 @@ export function computeContributionScore(
       collaboration: Math.round(breakdown.collaboration * 10) / 10,
       consistency: Math.round(breakdown.consistency * 10) / 10,
     }
+  };
+}
+
+export function computeScoreBaseline(
+  eventsByContributor: Map<number, RawEvent[]>,
+  classifications?: ClassificationMap,
+): { topScore: number; scoresByContributor: Map<number, ScoreDetails> } {
+  const scoresByContributor = new Map<number, ScoreDetails>();
+  let topScore = 1;
+  for (const [contributorId, events] of eventsByContributor) {
+    const score = computeContributionScore(events, { classifications });
+    scoresByContributor.set(contributorId, score);
+    if (score.total > topScore) topScore = score.total;
+  }
+  return { topScore, scoresByContributor };
+}
+
+export function normalizeScoreToImpact(score: ScoreDetails, topScore: number): ScoreDetails {
+  const factor = topScore > 0 ? 100 / topScore : 0;
+  const scale = (v: number) => Math.round(v * factor * 10) / 10;
+  return {
+    total: Math.max(1, Math.round(score.total * factor)),
+    breakdown: {
+      featureDelivery: scale(score.breakdown.featureDelivery),
+      codeQuality: scale(score.breakdown.codeQuality),
+      reviews: scale(score.breakdown.reviews),
+      collaboration: scale(score.breakdown.collaboration),
+      consistency: scale(score.breakdown.consistency),
+    },
   };
 }

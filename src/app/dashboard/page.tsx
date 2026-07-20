@@ -124,7 +124,7 @@ export default async function Dashboard() {
                       ? `${repo.event_count} events · Added ${new Date(repo.added_at).toLocaleDateString()}`
                       : `Added ${new Date(repo.added_at).toLocaleDateString()}`}
                   </span>
-                  <div className="flex items-center gap-1 text-indigo-400 text-sm font-medium group-hover:translate-x-1 transition-transform">
+                  <div className="flex items-center gap-1 text-indigo-400 text-sm font-medium">
                     {repo.event_count > 0 ? 'View Insights' : 'Set up'} <ArrowRight className="w-4 h-4" />
                   </div>
                 </div>

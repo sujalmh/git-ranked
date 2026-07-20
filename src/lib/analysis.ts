@@ -10,11 +10,11 @@ import {
   contributorRole,
   contributorSummary,
   describeEvent,
-  eventCategory,
   eventDate,
   formatRelativeDate,
   isFix,
   topBy,
+  workAreaForEvent,
   type ContributorInsight,
   type Highlight,
 } from './contributor-insights';
@@ -117,7 +117,7 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
     if (row.type === 'release') contributor.releases += 1;
     if (isFix(row.type, payload)) contributor.fixes += 1;
 
-    const category = eventCategory(row.type, payload);
+    const category = workAreaForEvent(row.type, payload, classifications.get(row.id));
     const categoryCounts = categoryCountsByContributor.get(row.contributor_id) ?? new Map<string, number>();
     categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1);
     categoryCountsByContributor.set(row.contributor_id, categoryCounts);
@@ -207,6 +207,7 @@ export async function fetchRepoEvents(repoId: number): Promise<RepoEventRow[]> {
     FROM github_events e
     JOIN github_contributors c ON e.contributor_id = c.id
     WHERE e.repo_id = ${repoId}
+      AND c.username NOT ILIKE '%[bot]%'
     ORDER BY e.created_at DESC
   `) as RepoEventRow[];
 }

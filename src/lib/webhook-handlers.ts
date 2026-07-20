@@ -1,4 +1,5 @@
 import { sql } from './db';
+import { isBotUsername } from './contributor-insights';
 
 type GitHubAccountPayload = {
   id: number;
@@ -195,7 +196,7 @@ export async function handleWebhookEvent(eventName: string, payload: GitHubWebho
   // Helper to upsert contributor
   async function upsertContributor(sender: GitHubSenderPayload | null | undefined): Promise<number | null> {
     if (!sender) return null;
-    if (sender.type === 'Bot') return null;
+    if (sender.type === 'Bot' || isBotUsername(sender.login)) return null;
 
     const res = await sql`
       INSERT INTO github_contributors (github_id, username, avatar_url, last_seen_at)

@@ -60,6 +60,7 @@ export async function fetchUnclassifiedEvents(
       FROM github_events e
       JOIN github_contributors c ON e.contributor_id = c.id
       WHERE e.repo_id = ${repoId}
+        AND c.username NOT ILIKE '%[bot]%'
         AND e.classification IS NULL
         AND e.created_at >= ${dateFrom}::date
         AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
@@ -73,6 +74,7 @@ export async function fetchUnclassifiedEvents(
     FROM github_events e
     JOIN github_contributors c ON e.contributor_id = c.id
     WHERE e.repo_id = ${repoId}
+      AND c.username NOT ILIKE '%[bot]%'
       AND e.classification IS NULL
       AND e.created_at > NOW() - INTERVAL '90 days'
     ORDER BY e.created_at ASC
@@ -89,8 +91,12 @@ function buildClassificationPrompt(events: NormalizedEvent[], repoOwner: string,
 
 Repository: ${repoOwner}/${repoName}
 
-Classify each event into exactly one primary work_type from this list:
+For each event, assign two classifications:
+
+1. work_type — the KIND of work, exactly one from:
 Feature, Bug Fix, Performance, Security, Refactor, Infrastructure, Documentation, Testing, Database, API, Frontend, Backend, Other
+
+2. work_area — the product DOMAIN / surface area the work touches. Derive this from the evidence in the event (title, type, changed files, technologies). Pick the single most fitting domain label — for example: API, UI, Database, Auth, AI, Backend, Infrastructure, Documentation, Testing, DevOps, Security, Mobile, Data, Payments, Billing, Search, Notifications, or another domain that best describes WHERE in the product this work lands. Use "Other" only when no domain is evident from the evidence.
 
 Rules:
 - Base classifications ONLY on the evidence provided (event title, type).
@@ -100,7 +106,7 @@ Rules:
 - If uncertain, use "Other" with low confidence.`;
 
   const user = `Classify each of the following ${events.length} event(s). Respond as JSON matching this schema:
-{ "items": [{ "event_id": number, "categories": string[], "work_type": string, "technologies": string[], "confidence": number, "reasoning": string }] }
+{ "items": [{ "event_id": number, "categories": string[], "work_type": string, "work_area": string, "technologies": string[], "confidence": number, "reasoning": string }] }
 
 Events:
 ${eventBlock}`;

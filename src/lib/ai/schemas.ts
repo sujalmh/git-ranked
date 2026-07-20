@@ -7,6 +7,7 @@ export const ClassificationItemSchema = z.object({
   event_id: z.number(),
   categories: stringArray,
   work_type: z.string(),
+  work_area: z.string().optional(),
   technologies: stringArray,
   confidence: confidenceField,
   reasoning: z.string(),

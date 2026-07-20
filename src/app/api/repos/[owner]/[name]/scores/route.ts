@@ -28,6 +28,7 @@ export async function GET(
       FROM github_events e
       JOIN github_contributors c ON e.contributor_id = c.id
       WHERE e.repo_id = ${repoId}
+        AND c.username NOT ILIKE '%[bot]%'
     `;
 
     // 3. Build classification map from stored classifications

@@ -1,7 +1,6 @@
 import { Brain, Signal } from 'lucide-react';
 import type { AiResult, ImpactAnalysis } from '@/lib/ai/types';
 import type { ScoreDetails } from '@/lib/scoring';
-import { ConfidenceBadge } from './ConfidenceBadge';
 import { ExplainableScore } from '../ExplainableScore';
 
 export function ImpactExplanation({
@@ -15,10 +14,7 @@ export function ImpactExplanation({
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <ExplainableScore total={total} breakdown={breakdown} />
-        {result && <ConfidenceBadge confidence={result.confidence} source={result.source} />}
-      </div>
+      <ExplainableScore total={total} breakdown={breakdown} />
 
       {result ? (
         <>

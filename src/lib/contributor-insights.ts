@@ -75,6 +75,12 @@ export function asNumber(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+export function isBotUsername(username: string | null | undefined): boolean {
+  if (!username) return false;
+  const name = username.toLowerCase();
+  return name.endsWith('[bot]') || name.endsWith('-bot') || /\[bot\]$/.test(name);
+}
+
 export function asString(value: unknown) {
   return typeof value === 'string' ? value : '';
 }
@@ -149,6 +155,26 @@ export function eventCategory(type: string, payload: Record<string, unknown>) {
   return 'Maintenance';
 }
 
+type WorkAreaClassification = {
+  work_area?: string | null;
+  work_type?: string | null;
+  technologies?: string[];
+} | null | undefined;
+
+export function workAreaForEvent(
+  type: string,
+  payload: Record<string, unknown>,
+  classification?: WorkAreaClassification,
+): string {
+  const area = classification?.work_area;
+  if (area && area.trim()) return area.trim();
+
+  const techs = classification?.technologies;
+  if (techs && techs.length > 0 && techs[0].trim()) return techs[0].trim();
+
+  return 'Other';
+}
+
 export function isFix(type: string, payload: Record<string, unknown>) {
   const title = titleFromPayload(type, payload).toLowerCase();
   return (
@@ -201,13 +227,7 @@ export function buildContributionCategories(
 }
 
 export function categoryDetail(label: string, contributor: ContributorInsight, value: number) {
-  if (label === 'Code Review') return `${pluralize(contributor.reviews, 'review')} that helped unblock teammates`;
-  if (label === 'Reliability') return `${pluralize(contributor.fixes, 'fix')} or hardening change detected`;
-  if (label === 'Feature Work')
-    return `${pluralize(contributor.prsMerged + contributor.prsOpened + contributor.commits, 'shipping signal')} captured`;
-  if (label === 'Planning') return `${pluralize(value, 'planning touchpoint')} through issues or PR setup`;
-  if (label === 'Releases') return `${pluralize(contributor.releases, 'release')} published`;
-  return `${pluralize(value, 'contribution')} in this lane`;
+  return `${pluralize(value, 'contribution')} in ${label}`;
 }
 
 export function contributorSummary(contributor: ContributorInsight) {

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, Users, Zap, Code, MessageSquare } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import Image from 'next/image';
-import { computeContributionScore, type ClassificationMap, type RawEvent } from '@/lib/scoring';
+import { computeContributionScore, normalizeScoreToImpact, type ClassificationMap, type RawEvent } from '@/lib/scoring';
 import { getCachedContributorResults } from '@/lib/ai';
 import type { AiResult, ContributorProfile, ImpactAnalysis } from '@/lib/ai/types';
 import { ImpactExplanation } from '@/components/ai';
@@ -131,6 +131,7 @@ export default async function ComparePage(
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {ranked.map(c => {
             const focusAreas = c.profile?.payload.focus_areas ?? [];
+            const norm = normalizeScoreToImpact(c.score, topScore);
             return (
               <div key={c.id} className="sleek-panel p-5 flex flex-col gap-5">
                 <div className="flex flex-col items-center text-center">
@@ -154,30 +155,30 @@ export default async function ComparePage(
                     )}
                   </div>
                 </div>
-                
+
                 <div className="pt-3 border-t border-white/10">
                   <ImpactExplanation
                     result={c.impact}
-                    breakdown={c.score.breakdown}
+                    breakdown={norm.breakdown}
                     total={c.impactScore}
                   />
                 </div>
-                
+
                 <div className="pt-3 border-t border-white/10 space-y-3 text-sm">
                   <div className="flex items-center gap-3">
                     <Zap className="w-4 h-4 text-yellow-400" />
                     <span className="text-zinc-300">Feature Delivery</span>
-                    <span className="ml-auto font-bold">{c.score.breakdown.featureDelivery}</span>
+                    <span className="ml-auto font-bold">{norm.breakdown.featureDelivery}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <Code className="w-4 h-4 text-blue-400" />
                     <span className="text-zinc-300">Code Quality</span>
-                    <span className="ml-auto font-bold">{c.score.breakdown.codeQuality}</span>
+                    <span className="ml-auto font-bold">{norm.breakdown.codeQuality}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <MessageSquare className="w-4 h-4 text-purple-400" />
                     <span className="text-zinc-300">Reviews & Collab</span>
-                    <span className="ml-auto font-bold">{c.score.breakdown.reviews + c.score.breakdown.collaboration}</span>
+                    <span className="ml-auto font-bold">{norm.breakdown.reviews + norm.breakdown.collaboration}</span>
                   </div>
                 </div>
               </div>

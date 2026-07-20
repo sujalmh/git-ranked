@@ -7,6 +7,7 @@ import {
   eventDate,
   titleFromPayload,
 } from '../contributor-insights';
+import { computeScoreBaseline, type ClassificationMap, type RawEvent } from '../scoring';
 import type { Classification, ClassificationItem, DiffFacts, NormalizedEvent, TaskContext } from './types';
 import { getDiffFacts } from './diff-facts';
 
@@ -46,6 +47,7 @@ export async function fetchEvents(
         FROM github_events e
         JOIN github_contributors c ON e.contributor_id = c.id
         WHERE e.repo_id = ${repoId}
+          AND c.username NOT ILIKE '%[bot]%'
           AND e.created_at >= ${dateFrom}::date
           AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
         ORDER BY e.created_at ASC
@@ -108,13 +110,32 @@ export async function normalizeEvents(
 export function parseClassification(raw: unknown): ClassificationItem | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const obj = raw as Record<string, unknown>;
-  const items = Array.isArray(obj.items) ? obj.items : null;
+  const items = Array.isArray(obj.items) ? obj : null;
   if (items) return undefined;
   try {
     return obj as unknown as ClassificationItem;
   } catch {
     return undefined;
   }
+}
+
+export async function computeRepoTopScore(repoId: number, dateFrom: string, dateTo: string): Promise<number> {
+  const rows = await fetchEvents(repoId, dateFrom, dateTo);
+  const classifications: ClassificationMap = new Map();
+  const eventsByContributor = new Map<number, RawEvent[]>();
+  for (const r of rows) {
+    const cls = parseClassification(r.classification);
+    if (cls) classifications.set(r.id, cls);
+    const list = eventsByContributor.get(r.contributor_id) ?? [];
+    list.push({
+      id: r.id,
+      type: r.event_type,
+      payload: (r.payload as Record<string, unknown>) || {},
+      created_at: new Date(r.created_at).toISOString(),
+    });
+    eventsByContributor.set(r.contributor_id, list);
+  }
+  return computeScoreBaseline(eventsByContributor, classifications).topScore;
 }
 
 export function buildEventContextBlock(events: NormalizedEvent[], maxEvents = 60): string {
