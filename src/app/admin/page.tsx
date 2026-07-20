@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { sql } from "@/lib/db";
-import { Users, Database, Github } from "lucide-react";
+import { Users, Database, Package } from "lucide-react";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -72,7 +72,7 @@ export default async function AdminDashboardPage() {
           <StatCard
             title="GitHub App Installs"
             value={activeInstalls.toLocaleString()}
-            icon={<Github className="w-5 h-5 text-amber-400" />}
+            icon={<Package className="w-5 h-5 text-amber-400" />}
             gradient="from-amber-500/20 to-amber-500/0"
           />
         </div>
