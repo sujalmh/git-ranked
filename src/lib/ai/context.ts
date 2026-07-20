@@ -7,7 +7,6 @@ import {
   eventDate,
   titleFromPayload,
 } from '../contributor-insights';
-import { computeScoreBaseline, type ClassificationMap, type RawEvent } from '../scoring';
 import type { Classification, ClassificationItem, DiffFacts, NormalizedEvent, TaskContext } from './types';
 import { getDiffFacts } from './diff-facts';
 
@@ -117,25 +116,6 @@ export function parseClassification(raw: unknown): ClassificationItem | undefine
   } catch {
     return undefined;
   }
-}
-
-export async function computeRepoTopScore(repoId: number, dateFrom: string, dateTo: string): Promise<number> {
-  const rows = await fetchEvents(repoId, dateFrom, dateTo);
-  const classifications: ClassificationMap = new Map();
-  const eventsByContributor = new Map<number, RawEvent[]>();
-  for (const r of rows) {
-    const cls = parseClassification(r.classification);
-    if (cls) classifications.set(r.id, cls);
-    const list = eventsByContributor.get(r.contributor_id) ?? [];
-    list.push({
-      id: r.id,
-      type: r.event_type,
-      payload: (r.payload as Record<string, unknown>) || {},
-      created_at: new Date(r.created_at).toISOString(),
-    });
-    eventsByContributor.set(r.contributor_id, list);
-  }
-  return computeScoreBaseline(eventsByContributor, classifications).topScore;
 }
 
 export function buildEventContextBlock(events: NormalizedEvent[], maxEvents = 60): string {

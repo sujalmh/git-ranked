@@ -234,7 +234,7 @@ export function computeScoreBaseline(
   return { topScore, scoresByContributor };
 }
 
-export function normalizeScoreToImpact(score: ScoreDetails, _topScore?: number): ScoreDetails {
+export function normalizeScoreToImpact(score: ScoreDetails): ScoreDetails {
   return {
     total: Math.max(0, Math.min(100, Math.round(score.total))),
     breakdown: { ...score.breakdown },
