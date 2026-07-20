@@ -2,8 +2,9 @@ import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
-import { GitBranch, ArrowRight, LayoutDashboard, Settings } from 'lucide-react';
+import { GitBranch, ArrowRight, LayoutDashboard, Settings, Globe } from 'lucide-react';
 import { redirect } from 'next/navigation';
+import { AddPublicRepo } from '@/components/AddPublicRepo';
 
 import { getRepoInsights, HealthMetrics } from '@/lib/insights';
 
@@ -31,10 +32,10 @@ export default async function Dashboard() {
              i.status as installation_status,
              (SELECT COUNT(*) FROM github_events WHERE repo_id = r.id) as event_count
       FROM repositories r
-      JOIN installations i ON r.installation_id = i.id
-      WHERE i.linked_user_id = ${session.user.id}
+      LEFT JOIN installations i ON r.installation_id = i.id
+      WHERE (i.linked_user_id = ${session.user.id} OR r.installation_id IS NULL)
         AND r.is_active = true
-        AND i.status != 'deleted'
+        AND (i.status IS NULL OR i.status != 'deleted')
       ORDER BY r.added_at DESC
     `) as DashboardRepo[];
     
@@ -71,6 +72,8 @@ export default async function Dashboard() {
             <Settings className="w-4 h-4" /> Manage Installations
           </a>
         </div>
+
+        <AddPublicRepo />
 
         {repos.length === 0 ? (
           <div className="sleek-panel p-8 text-center flex flex-col items-center max-w-xl mx-auto mt-12">

@@ -30,8 +30,9 @@ export async function POST(
   const repoQuery = await sql`
     SELECT r.id, r.github_repo_id, i.github_installation_id, i.status as install_status
     FROM repositories r
-    JOIN installations i ON r.installation_id = i.id
-    WHERE r.owner = ${owner} AND r.name = ${name} AND i.linked_user_id = ${session.user.id}
+    LEFT JOIN installations i ON r.installation_id = i.id
+    WHERE r.owner = ${owner} AND r.name = ${name} 
+      AND (i.linked_user_id = ${session.user.id} OR r.installation_id IS NULL)
   `;
 
   if (repoQuery.length === 0) {
@@ -73,10 +74,10 @@ export async function POST(
       try {
         const result = await backfillRepoActivity({
           id: repo.id,
-          github_installation_id: repo.github_installation_id,
+          github_installation_id: repo.github_installation_id || '',
           owner,
           name,
-        });
+        }, (session as any).accessToken);
 
         if (result.skipped) {
           controller.enqueue(

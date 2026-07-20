@@ -118,14 +118,19 @@ export async function getInstallationAccessToken(installationId: number | string
   return data.token;
 }
 
-export async function githubInstallationApi<T>(path: string, token: string, timeoutMs = DEFAULT_TIMEOUT_MS) {
+export async function githubInstallationApi<T>(path: string, token: string | null, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+  
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`https://api.github.com${path}`, {
     signal: AbortSignal.timeout(timeoutMs),
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
+    headers,
   });
 
   if (!response.ok) {

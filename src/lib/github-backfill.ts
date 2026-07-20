@@ -37,9 +37,17 @@ function reviewWordCount(body: string | null | undefined) {
   return body.trim().split(/\s+/).filter(Boolean).length;
 }
 
-export async function backfillRepoActivity(repo: InstallationRepo) {
-  const installationToken = await getInstallationAccessToken(repo.github_installation_id);
-  if (!installationToken) {
+export async function backfillRepoActivity(repo: InstallationRepo, userToken?: string) {
+  let tokenToUse: string | null = userToken || null;
+  
+  if (repo.github_installation_id) {
+    const installationToken = await getInstallationAccessToken(repo.github_installation_id);
+    if (installationToken) {
+      tokenToUse = installationToken;
+    }
+  }
+
+  if (!tokenToUse && repo.github_installation_id) {
     console.warn('Skipping GitHub backfill: GITHUB_APP_ID and private key are not configured');
     return { skipped: true, inserted: 0 };
   }
@@ -50,7 +58,7 @@ export async function backfillRepoActivity(repo: InstallationRepo) {
 
   const commits = await githubInstallationApi<GitHubCommit[]>(
     `/repos/${owner}/${repoName}/commits?per_page=${BACKFILL_COMMIT_LIMIT}`,
-    installationToken
+    tokenToUse
   );
 
   for (const commit of commits) {
@@ -70,13 +78,13 @@ export async function backfillRepoActivity(repo: InstallationRepo) {
 
   const pulls = await githubInstallationApi<GitHubPullRequest[]>(
     `/repos/${owner}/${repoName}/pulls?state=all&sort=updated&direction=desc&per_page=${BACKFILL_PULL_REQUEST_LIMIT}`,
-    installationToken
+    tokenToUse
   );
 
   for (const pullListItem of pulls) {
     const pull = await githubInstallationApi<GitHubPullRequest>(
       `/repos/${owner}/${repoName}/pulls/${pullListItem.number}`,
-      installationToken
+      tokenToUse
     );
     const contributorId = await upsertContributor(pull.user);
 
@@ -114,7 +122,7 @@ export async function backfillRepoActivity(repo: InstallationRepo) {
 
     const reviews = await githubInstallationApi<GitHubReview[]>(
       `/repos/${owner}/${repoName}/pulls/${pull.number}/reviews?per_page=${BACKFILL_REVIEW_LIMIT}`,
-      installationToken
+      tokenToUse
     );
 
     for (const review of reviews) {

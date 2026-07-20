@@ -21,15 +21,16 @@ export default async function RepoAnalysisBoard(
   const { owner, name } = params;
 
   const repoQuery = await sql`
-    SELECT r.id, r.github_repo_id, r.default_branch, i.github_installation_id, i.status as install_status
+    SELECT r.id, r.github_repo_id, r.default_branch, i.github_installation_id, i.status as install_status, r.installation_id
     FROM repositories r
-    JOIN installations i ON r.installation_id = i.id
-    WHERE r.owner = ${owner} AND r.name = ${name} AND i.linked_user_id = ${session.user.id}
+    LEFT JOIN installations i ON r.installation_id = i.id
+    WHERE r.owner = ${owner} AND r.name = ${name} 
+      AND (i.linked_user_id = ${session.user.id} OR r.installation_id IS NULL)
   `;
 
   if (repoQuery.length === 0) return <div>Repository not found or access denied.</div>;
 
-  if (repoQuery[0].install_status === 'deleted') {
+  if (repoQuery[0].installation_id !== null && repoQuery[0].install_status === 'deleted') {
     return (
       <div className="flex flex-col min-h-screen relative">
         <Navbar />

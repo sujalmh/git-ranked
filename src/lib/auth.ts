@@ -191,6 +191,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async jwt({ token, user, profile, account }) {
+      if (account?.access_token) {
+        token.accessToken = account.access_token;
+      }
       if (account?.provider === 'github' && profile?.id) {
         token.githubId = profile.id;
       } else if (user?.id) {
@@ -200,6 +203,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async session({ session, token }) {
+      if (token.accessToken) {
+        session.accessToken = token.accessToken as string;
+      }
       const rawId = token.githubId ?? token.sub;
       if (rawId) {
         try {
