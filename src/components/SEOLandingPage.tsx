@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { ContributionGrid } from '@/components/ContributionGrid';
 import type { SEOPageData } from '@/lib/seo-content';
 import { ChevronRight, ArrowRight } from 'lucide-react';
+import { Footer } from '@/components/Footer';
 
 export function SEOLandingPage({ data }: { data: SEOPageData }) {
   return (
@@ -130,17 +131,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
       </main>
       
       {/* Footer */}
-      <footer className="w-full border-t border-white/10 py-12 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="GitRanked Logo" className="w-6 h-6 grayscale opacity-50" />
-            <span className="text-lg font-black tracking-tighter uppercase text-zinc-500">GitRanked</span>
-          </div>
-          <div className="text-sm text-zinc-600 font-medium flex gap-6">
-            <span>© 2026 GitRanked. All rights reserved.</span>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

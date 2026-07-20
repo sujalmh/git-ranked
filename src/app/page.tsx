@@ -4,6 +4,7 @@ import { AnimatedHeroContent } from '@/components/AnimatedHeroContent';
 import { AnimatedFeatures } from '@/components/AnimatedFeatures';
 import { VisualPipeline } from '@/components/VisualPipeline';
 import { AnimatedCards } from '@/components/AnimatedCards';
+import { Footer } from '@/components/Footer';
 import { auth, signOut } from '@/lib/auth';
 
 export default async function Home() {
@@ -96,6 +97,9 @@ export default async function Home() {
           </div>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }
+
