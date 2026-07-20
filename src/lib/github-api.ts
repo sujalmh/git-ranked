@@ -155,3 +155,53 @@ export async function upsertContributor(user: GitHubUser | null | undefined): Pr
 
   return rows[0].id as number;
 }
+
+export type PublicGitHubRepo = {
+  id: number;
+  name: string;
+  full_name: string;
+  owner: {
+    login: string;
+    avatar_url: string;
+  };
+  description: string | null;
+  stargazers_count: number;
+  forks_count: number;
+  language: string | null;
+  created_at: string;
+  updated_at: string;
+  open_issues_count: number;
+  private: boolean;
+};
+
+export async function getPublicRepository(owner: string, name: string): Promise<PublicGitHubRepo | null> {
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+  
+  const token = process.env.GITHUB_TOKEN;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(`https://api.github.com/repos/${owner}/${name}`, {
+      headers,
+      next: { revalidate: 3600 } // Cache public API results for 1 hour
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error(`Failed to fetch public repo: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data.private) return null; // Ensure we don't accidentally leak private repos if token has access
+
+    return data as PublicGitHubRepo;
+  } catch (error) {
+    console.error(`Failed to fetch public repository ${owner}/${name}:`, error);
+    return null;
+  }
+}
