@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 
-export const runtime = 'edge';
+// Edge runtime removed to avoid 1MB size limit from bundled TTF fonts
 
 // ─── Colours matching the actual Leaderboard component ───────────────────────
 const BG = '#000000';
