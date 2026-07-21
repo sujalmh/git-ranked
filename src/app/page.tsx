@@ -14,7 +14,7 @@ export default async function Home() {
   return (
     <div className="flex flex-col min-h-screen relative overflow-hidden bg-black text-white">
       <header className="w-full z-10 border-b-2 border-white/10 relative">
-        <div className="flex items-center justify-between px-6 py-6 max-w-7xl mx-auto w-full">
+        <div className="flex items-center justify-between px-6 py-6 w-full">
           <div className="flex items-center gap-3">
             <Image src="/logo.png" alt="GitRanked Logo" width={32} height={32} className="rounded-none" />
             <span className="text-2xl font-black tracking-tighter uppercase">GitRanked</span>
@@ -22,7 +22,7 @@ export default async function Home() {
           <nav className="flex gap-6 items-center">
             {isSignedIn ? (
               <div className="flex items-center gap-6">
-                <Link href="/dashboard" className="px-5 py-2 accent-panel text-sm transition-transform hover:-translate-y-1">
+                <Link href="/dashboard" className="px-5 py-2 accent-panel text-sm">
                   DASHBOARD
                 </Link>
                 <div className="h-6 w-px bg-white/20" />
@@ -60,7 +60,7 @@ export default async function Home() {
                 </a>
                 <a 
                   href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`} 
-                  className="px-5 py-2 accent-panel text-sm transition-transform hover:-translate-y-1"
+                  className="px-5 py-2 accent-panel text-sm"
                 >
                   CONNECT TO GITHUB
                 </a>

@@ -24,7 +24,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
             </Link>
             <a 
               href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`} 
-              className="px-5 py-2 accent-panel text-sm transition-transform hover:-translate-y-1"
+              className="px-5 py-2 accent-panel text-sm"
             >
               CONNECT TO GITHUB
             </a>

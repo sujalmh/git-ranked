@@ -36,15 +36,6 @@ export const RepositorySummarySchema = z.object({
   next_focus: stringArray,
 });
 
-export const ReleaseNotesSchema = z.object({
-  summary: z.string(),
-  features: stringArray,
-  fixes: stringArray,
-  improvements: stringArray,
-  breaking_changes: stringArray,
-  other: stringArray,
-});
-
 export const ImpactAnalysisSchema = z.object({
   explanation: z.string(),
   contributor_role: z.string(),

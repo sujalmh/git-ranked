@@ -57,7 +57,7 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
           <>
             <a
               href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
-              className="px-8 py-4 bg-white text-black border-2 border-white font-black uppercase tracking-wider hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2"
+              className="px-8 py-4 bg-white text-black border-2 border-white font-black uppercase tracking-wider hover:bg-[#ccff00] hover:border-[#ccff00] transition-colors flex items-center justify-center gap-2"
             >
               <svg 
                 xmlns="http://www.w3.org/2000/svg" 

@@ -17,11 +17,13 @@ export function ShareButton({
   name,
   initialEnabled,
   initialUrl,
+  isStatic = false,
 }: {
   owner: string;
   name: string;
   initialEnabled: boolean;
   initialUrl: string | null;
+  isStatic?: boolean;
 }) {
   const [enabled, setEnabled] = useState(initialEnabled);
   const [origin, setOrigin] = useState<string | null>(null);
@@ -37,6 +39,31 @@ export function ShareButton({
   const [copied, setCopied] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMenu) return;
+
+    function handlePointerDown(e: MouseEvent | TouchEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setShowMenu(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showMenu]);
 
   async function enableSharing() {
     setLoading(true);
@@ -81,67 +108,71 @@ export function ShareButton({
   }
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <button
         onClick={() => setShowMenu((v) => !v)}
         disabled={loading}
-        className={`flex items-center justify-center rounded-xl border border-white/10 w-10 h-10 transition-colors ${
-          enabled ? 'bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30' : 'bg-white/5 hover:bg-white/10 text-white'
+        className={`flex items-center justify-center rounded-xl border border-white/10 px-4 py-3 transition-colors ${
+          (enabled || isStatic) ? 'bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30' : 'bg-white/5 hover:bg-white/10 text-white'
         }`}
-        title={enabled ? 'Shared' : 'Share'}
+        title={(enabled || isStatic) ? 'Shared' : 'Share'}
       >
-        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Share2 className="w-5 h-5" />}
       </button>
 
       {showMenu && (
-        <div className="absolute right-0 top-12 z-40 w-80 sleek-panel p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
-          {enabled && displayUrl ? (
+        <div className="absolute right-0 top-12 z-40 w-96 bg-black border border-white p-5 space-y-4 shadow-[6px_6px_0_0_#fff]" onClick={(e) => e.stopPropagation()}>
+          {(enabled || isStatic) && displayUrl ? (
             <>
-              <div className="text-xs uppercase tracking-wide text-zinc-500">Public read-only link</div>
+              <div className="text-sm uppercase tracking-wide text-zinc-500 font-semibold">Public read-only link</div>
               <div className="flex items-center gap-2">
                 <input
                   readOnly
                   value={displayUrl}
-                  className="flex-1 rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-xs text-zinc-200 truncate"
+                  className="flex-1 rounded-lg bg-black/30 border border-white/10 px-4 py-2.5 text-sm text-zinc-200 truncate"
                   onFocus={(e) => e.target.select()}
                 />
                 <button
                   onClick={copyLink}
-                  className="rounded-lg bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-xs font-medium text-white transition-colors"
+                  className="rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors"
                   title="Copy link"
                 >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
                 </button>
               </div>
-              <p className="text-xs text-zinc-500">
-                Anyone with this link can view the analysis. They cannot trigger analysis or edit the repo.
-              </p>
-              <button
-                onClick={disableSharing}
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-2 rounded-lg bg-white/5 hover:bg-white/10 px-3 py-2 text-xs font-medium text-zinc-300 transition-colors"
-              >
-                <Link2Off className="w-3.5 h-3.5" />
-                Revoke share link
-              </button>
+              {!isStatic && (
+                <>
+                  <p className="text-sm text-zinc-500 leading-relaxed">
+                    Anyone with this link can view the analysis. They cannot trigger analysis or edit the repo.
+                  </p>
+                  <button
+                    onClick={disableSharing}
+                    disabled={loading}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg bg-white/5 hover:bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition-colors"
+                  >
+                    <Link2Off className="w-4 h-4" />
+                    Revoke share link
+                  </button>
+                </>
+              )}
             </>
           ) : (
             <>
-              <div className="text-xs uppercase tracking-wide text-zinc-500">Share analysis</div>
-              <p className="text-xs text-zinc-400">
+              <div className="text-sm uppercase tracking-wide text-zinc-500 font-semibold">Share analysis</div>
+              <p className="text-sm text-zinc-400 leading-relaxed">
                 Generate a public, read-only link to these analysis results. Viewers cannot trigger analysis or modify the repository.
               </p>
               <button
                 onClick={enableSharing}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-xs font-medium text-white transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors"
               >
-                <Share2 className="w-3.5 h-3.5" />
+                <Share2 className="w-4 h-4" />
                 Create share link
               </button>
             </>
           )}
-          {error && <p className="text-xs text-amber-300">{error}</p>}
+          {error && <p className="text-sm text-amber-300">{error}</p>}
         </div>
       )}
     </div>

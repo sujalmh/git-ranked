@@ -48,13 +48,21 @@ async function insertBackfilledEvent(params: {
   eventType: string;
   payload: Record<string, unknown>;
   githubEventId: string;
+  createdAt?: string | null;
 }) {
   if (!params.contributorId) return;
 
+  // Use the real GitHub event timestamp when available so historical events
+  // keep their original date; fall back to now only if a timestamp is missing.
+  const createdAt = params.createdAt ?? new Date().toISOString();
+
+  // ON CONFLICT DO UPDATE (not DO NOTHING) so re-running backfill repairs the
+  // created_at of rows that were previously stamped with ingestion time.
   await sql`
-    INSERT INTO github_events (repo_id, contributor_id, event_type, payload, github_event_id)
-    VALUES (${params.repoId}, ${params.contributorId}, ${params.eventType}, ${JSON.stringify(params.payload)}, ${params.githubEventId})
-    ON CONFLICT (github_event_id) DO NOTHING
+    INSERT INTO github_events (repo_id, contributor_id, event_type, payload, github_event_id, created_at)
+    VALUES (${params.repoId}, ${params.contributorId}, ${params.eventType}, ${JSON.stringify(params.payload)}, ${params.githubEventId}, ${createdAt})
+    ON CONFLICT (github_event_id) DO UPDATE
+    SET created_at = EXCLUDED.created_at
   `;
 }
 
@@ -100,11 +108,16 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
 
     for (const commit of commits) {
       const contributorId = await upsertContributor(commit.author);
+      // committer.date = when the commit landed in the repo (most relevant for
+      // activity timelines); fall back to author date, then to now.
+      const commitDate =
+        commit.commit.committer?.date ?? commit.commit.author?.date ?? null;
       await insertBackfilledEvent({
         repoId: repo.id,
         contributorId,
         eventType: 'push',
         githubEventId: `backfill:commit:${commit.sha}`,
+        createdAt: commitDate,
         payload: {
           commits: [{ sha: commit.sha, message: commit.commit.message, url: commit.html_url }],
           commit_count: 1,
@@ -156,6 +169,7 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
       contributorId,
       eventType: 'pr_opened',
       githubEventId: `backfill:pr_opened:${pullListItem.id}`,
+      createdAt: pullListItem.created_at,
       payload: {
         pr_number: pullListItem.number,
         title: pullListItem.title,
@@ -196,6 +210,7 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
         contributorId,
         eventType: 'pr_merged',
         githubEventId: `backfill:pr_merged:${pullListItem.id}`,
+        createdAt: pullListItem.merged_at,
         payload: mergePayload,
       });
       if (contributorId) inserted += 1;
@@ -219,6 +234,7 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
           contributorId: reviewerId,
           eventType: 'review_submitted',
           githubEventId: `backfill:review:${review.id}`,
+          createdAt: review.submitted_at,
           payload: {
             pr_number: pullListItem.number,
             state: review.state?.toLowerCase(),

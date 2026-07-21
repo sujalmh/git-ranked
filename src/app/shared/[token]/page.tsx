@@ -4,6 +4,7 @@ import { Navbar } from '@/components/Navbar';
 import { RepoAnalysisView } from '@/components/RepoAnalysisView';
 import { fetchRepoEvents, getRepoAnalysisData } from '@/lib/analysis';
 import { getRepoByShareToken } from '@/lib/share';
+import { getPublicRepository } from '@/lib/github-api';
 
 export default async function SharedRepoAnalysis(
   props: { params: Promise<{ token: string }> }
@@ -36,11 +37,13 @@ export default async function SharedRepoAnalysis(
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
   const canonicalUrl = `${appUrl}/repos/${repo.owner}/${repo.name}`;
+  const githubRepo = await getPublicRepository(repo.owner, repo.name);
+  const repoDescription = githubRepo?.description || 'AI Engineering Intelligence: Understand what shipped, where bottlenecks are, and how your team collaborates.';
 
   return (
     <div className="flex flex-col min-h-screen relative">
       <Navbar />
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
+      <main className="flex-1 w-full px-6 py-8">
         <div className="mb-4 flex items-center gap-2 text-xs text-emerald-300/90 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2 max-w-fit">
           <ShieldCheck className="w-3.5 h-3.5" />
           Shared read-only view — analysis cannot be triggered or modified here.
@@ -55,8 +58,8 @@ export default async function SharedRepoAnalysis(
               <GitBranch className="w-6 h-6 text-indigo-400" />
               {repo.owner} / {repo.name}
             </h1>
-            <p className="text-sm text-zinc-400 max-w-2xl">
-              AI Engineering Intelligence: Understand what shipped, where bottlenecks are, and how your team collaborates.
+            <p className="text-base text-zinc-400 max-w-2xl">
+              {repoDescription}
             </p>
           </div>
         </div>

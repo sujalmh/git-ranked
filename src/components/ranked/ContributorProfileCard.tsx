@@ -17,7 +17,7 @@ import type { ContributorInsight } from '@/lib/contributor-insights';
 import type { AiResult, ContributorProfile, ImpactAnalysis } from '@/lib/ai/types';
 import type { EvidenceItem } from '@/lib/evidence';
 import { useEvidence } from '@/components/evidence';
-import { topicChipClass, type IdentityColor } from './identity';
+import { topicChipClass, randomNeonHex, type IdentityColor } from './identity';
 
 export type StatKey = 'commits' | 'prsOpened' | 'prsMerged' | 'reviews' | 'issues' | 'fixes';
 
@@ -97,6 +97,7 @@ export function ContributorProfileCard({
   const breakdown = contributor.score.breakdown;
   const focusAreas = aiData.profile?.payload.focus_areas ?? [];
   const highlight = highlightStats ?? new Set<StatKey>();
+  const glowHex = randomNeonHex(contributor.username);
 
   const tiles: Tile[] = [
     { key: 'commits', icon: <GitCommit className="w-3 h-3 text-zinc-400" />, value: contributor.commits, label: 'commits' },
@@ -125,8 +126,12 @@ export function ContributorProfileCard({
 
   return (
     <div 
-      className="relative rounded-none border border-white/10 hover:border-[var(--tw-shadow-color)] bg-black p-4 transition-all duration-200 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.5)] hover:shadow-[0_0_20px_-2px_var(--tw-shadow-color)]"
-      style={{ '--tw-shadow-color': `${identity.hex}66` } as any}
+      className="relative rounded-none border border-white/10 hover:border-[var(--tw-shadow-color)] bg-black p-4 transition-all duration-300 shadow-[2px_2px_8px_0_var(--tw-shadow-base)] hover:shadow-[0_0_12px_0_var(--tw-shadow-hover)]"
+      style={{ 
+        '--tw-shadow-color': glowHex,
+        '--tw-shadow-base': `${glowHex}0D`,
+        '--tw-shadow-hover': `${glowHex}20`
+      } as any}
     >
       <Link href={`/repos/${repoOwner}/${repoName}/${contributor.username}`} className="block">
         <div className="flex items-start gap-3 mb-3">

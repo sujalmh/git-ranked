@@ -21,6 +21,7 @@ import {
   primaryWorkArea,
   topicChipClass,
   buildRising,
+  randomNeonHex,
   type IdentityAssignment,
   type RankDeltaMap,
   type RisingEntry,
@@ -159,38 +160,41 @@ function SmallTeamRow({
 }) {
   const identity = identityFor(assignment, contributor.id);
   const delta = deltaFor(rankDeltas, contributor.id, rank);
+  const glowHex = randomNeonHex(contributor.username);
   return (
     <Link
       href={`/repos/${repoOwner}/${repoName}/${contributor.username}`}
-      className="relative block rounded-none border border-white/10 hover:border-[var(--tw-shadow-color)] bg-black pl-5 pr-4 py-3 transition-all duration-200 ease-out overflow-hidden shadow-[0_2px_12px_-2px_rgba(0,0,0,0.5)] hover:shadow-[0_0_20px_-2px_var(--tw-shadow-color)]"
+      className="relative block rounded-none border border-white/10 hover:border-[var(--tw-shadow-color)] bg-black pl-5 pr-4 py-3 transition-all duration-300 ease-out overflow-hidden shadow-[2px_2px_8px_0_var(--tw-shadow-base)] hover:shadow-[0_0_12px_0_var(--tw-shadow-hover)]"
       style={{
         opacity: animate ? 1 : 0,
         transform: animate ? 'translateY(0)' : 'translateY(6px)',
         transitionDelay: `${Math.min(rank, 6) * 40}ms`,
-        '--tw-shadow-color': `${identity.hex}66`,
+        '--tw-shadow-color': glowHex,
+        '--tw-shadow-base': `${glowHex}0D`,
+        '--tw-shadow-hover': `${glowHex}20`,
       } as any}
     >
       
       <div className="flex items-center gap-4 relative z-10">
-        <span className="w-8 text-center text-2xl font-black text-zinc-500 shrink-0">{rank}</span>
+        <span className="w-8 text-center text-3xl font-black text-zinc-500 shrink-0">{rank}</span>
         <Avatar src={contributor.avatarUrl} name={contributor.username} size={36} ring={identity.ring} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            <span className="text-base font-semibold text-white truncate">{contributor.username}</span>
+            <span className="text-lg font-semibold text-white truncate">{contributor.username}</span>
             <StreakBadge days={contributor.currentStreak} />
             <RankChange delta={delta} />
-            <span className="text-xs text-zinc-400 uppercase tracking-wide hidden sm:inline">{contributor.role}</span>
+            <span className="text-sm text-zinc-400 uppercase tracking-wide hidden sm:inline">{contributor.role}</span>
           </div>
           <div className="mt-1.5">
             <BreakdownBar contributor={contributor} animate={animate} />
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-xl font-black text-white leading-none mb-1">
+          <div className="text-2xl font-black text-white leading-none mb-1">
             {contributor.impactScore}
-            <span className="text-xs text-zinc-500 font-medium ml-0.5">/100</span>
+            <span className="text-sm text-zinc-500 font-medium ml-0.5">/100</span>
           </div>
-          <div className="text-xs uppercase text-zinc-400 tracking-wider font-semibold">Impact</div>
+          <div className="text-sm uppercase text-zinc-400 tracking-wider font-semibold">Impact</div>
         </div>
       </div>
     </Link>
@@ -213,17 +217,24 @@ function PodiumCard({
   const style = podiumStyleForRank(rank);
   const area = primaryWorkArea(contributor);
   const isGold = rank === 1;
-  const identity = identityFor(assignment, contributor.id);
+  const medalHex = rank === 1 ? '#ffd700' : rank === 2 ? '#c0c0c0' : '#cd7f32';
+  
   return (
     <Link
       href={`/repos/${repoOwner}/${repoName}/${contributor.username}`}
-      className={`relative rounded-none border border-white/10 hover:border-[var(--tw-shadow-color)] bg-black p-4 flex flex-col items-center text-center transition-all duration-200 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.5)] hover:shadow-[0_0_24px_-2px_var(--tw-shadow-color)] ${isGold ? 'order-first' : ''}`}
-      style={{ '--tw-shadow-color': `${identity.hex}66` } as any}
+      className={`relative rounded-none border-2 ${style?.border ?? 'border-white/10'} bg-black p-4 flex flex-col items-center text-center transition-all duration-300 shadow-[2px_2px_16px_0_var(--tw-shadow-base)] hover:shadow-[0_0_24px_0_var(--tw-shadow-hover)] origin-bottom ${
+        rank === 1 ? 'order-1 sm:order-2 z-10 sm:scale-100' : rank === 2 ? 'order-2 sm:order-1 sm:scale-[0.92]' : 'order-3 sm:order-3 sm:scale-[0.85]'
+      }`}
+      style={{ 
+        '--tw-shadow-color': medalHex,
+        '--tw-shadow-base': `${medalHex}66`,
+        '--tw-shadow-hover': `${medalHex}99`
+      } as any}
     >
       <div className="relative flex flex-col items-center gap-3">
         <div className="flex items-center gap-1">
-          {isGold && <Crown className="w-5 h-5 text-[#ccff00]" />}
-          <span className={`text-sm font-black uppercase tracking-wide ${style?.text ?? 'text-zinc-400'}`}>
+          {isGold && <Crown className="w-5 h-5 text-[#ffd700]" />}
+          <span className={`text-base font-black uppercase tracking-wide ${style?.text ?? 'text-zinc-400'}`}>
             #{rank} {style ? style.tier : ''}
           </span>
         </div>
@@ -233,14 +244,14 @@ function PodiumCard({
           size={rank === 1 ? 64 : 52}
           ring={style?.ring}
         />
-        <span className="text-base font-bold text-white truncate max-w-full">{contributor.username}</span>
-        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${topicChipClass(area.label)}`}>
+        <span className="text-lg font-bold text-white truncate max-w-full">{contributor.username}</span>
+        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium ${topicChipClass(area.label)}`}>
           {area.label}
         </span>
         <div className="mt-1">
-          <span className="text-2xl font-black text-white">
+          <span className="text-3xl font-black text-white">
             {contributor.impactScore}
-            <span className="text-sm text-zinc-600 font-medium">/100</span>
+            <span className="text-base text-zinc-600 font-medium">/100</span>
           </span>
         </div>
         {contributor.currentStreak > 0 && <StreakBadge days={contributor.currentStreak} />}
@@ -263,22 +274,29 @@ function CompactRow({
   repoName: string;
 }) {
   const delta = deltaFor(rankDeltas, contributor.id, rank);
+  const glowHex = randomNeonHex(contributor.username);
+  
   return (
     <Link
       href={`/repos/${repoOwner}/${repoName}/${contributor.username}`}
-      className="relative flex items-center gap-3 rounded-none border border-white/10 hover:border-white/40 bg-black pl-4 pr-3 py-2 transition-all duration-200 overflow-hidden shadow-[0_2px_10px_-2px_rgba(0,0,0,0.5)] hover:shadow-[0_0_16px_-4px_rgba(255,255,255,0.2)]"
+      className="relative flex items-center gap-3 rounded-none border border-[var(--tw-shadow-color)] bg-black pl-4 pr-3 py-2 transition-all duration-300 overflow-hidden shadow-[2px_2px_12px_0_var(--tw-shadow-base)] hover:shadow-[0_0_16px_0_var(--tw-shadow-hover)]"
+      style={{ 
+        '--tw-shadow-color': glowHex,
+        '--tw-shadow-base': `${glowHex}40`,
+        '--tw-shadow-hover': `${glowHex}80`
+      } as any}
     >
-      <span className="w-8 text-center text-lg font-black text-zinc-500 shrink-0 relative z-10">{rank}</span>
+      <span className="w-8 text-center text-xl font-black text-zinc-500 shrink-0 relative z-10">{rank}</span>
       <Avatar src={contributor.avatarUrl} name={contributor.username} size={28} />
       <div className="min-w-0 flex-1">
-        <span className="text-sm font-medium text-white truncate">{contributor.username}</span>
+        <span className="text-base font-medium text-white truncate">{contributor.username}</span>
       </div>
       <StreakBadge days={contributor.currentStreak} />
       <RankChange delta={delta} />
       <div className="text-right shrink-0 w-12">
-        <span className="text-sm font-bold text-white">
+        <span className="text-base font-bold text-white">
           {contributor.impactScore}
-          <span className="text-xs text-zinc-600 ml-0.5">/100</span>
+          <span className="text-sm text-zinc-600 ml-0.5">/100</span>
         </span>
       </div>
     </Link>
@@ -378,7 +396,7 @@ export function Leaderboard({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 sm:items-end sm:pt-4 sm:pb-2">
         {podium.map((c, i) => (
           <PodiumCard
             key={c.id}

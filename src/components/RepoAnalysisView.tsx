@@ -1,8 +1,12 @@
+'use client';
+
+import React from 'react';
 import {
   ArrowRight,
   Brain,
   Layers3,
   Sparkles,
+  UsersRound,
   Crown,
   Activity,
 } from 'lucide-react';
@@ -31,6 +35,7 @@ import {
   type MetricEvidence,
   type EvidenceItem,
 } from '@/lib/evidence';
+import { ShareLeaderboardButton } from '@/components/ShareLeaderboardButton';
 
 const METRIC_KEYS: HealthMetricKey[] = ['delivery', 'collaboration', 'codeQuality', 'reviewHealth', 'knowledgeDistribution'];
 
@@ -47,6 +52,7 @@ export function RepoAnalysisView({
   repoName: string;
   rankDeltas?: RankDeltaMap | null;
 }) {
+
   const {
     contributors,
     activityFeed,
@@ -124,18 +130,25 @@ export function RepoAnalysisView({
       )}
 
       {/* 2. Hero row: Leaderboard (60) + Health (40) */}
-      <section className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5 mb-6">
+      <section className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5 mb-6 items-start">
         <div className="sleek-panel p-5">
-          <div className="flex items-center gap-2 mb-1">
-            <Crown className="w-5 h-5 text-amber-400" />
-            <h2 className="text-lg font-bold text-white">Leaderboard</h2>
-            <span className="text-sm text-zinc-300 ml-2">
-              {smallTeam
-                ? `${contributors.length} collaborators · ranked by impact`
-                : `Top 3 of ${contributors.length} · ranked by impact`}
-            </span>
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <div className="flex items-center gap-2">
+              <Crown className="w-6 h-6 text-amber-400" />
+              <h2 className="text-xl font-bold text-white">Leaderboard</h2>
+              <span className="text-base text-zinc-300 ml-2">
+                {smallTeam
+                  ? `${contributors.length} collaborators · ranked by impact`
+                  : `Top 3 of ${contributors.length} · ranked by impact`}
+              </span>
+            </div>
+            <ShareLeaderboardButton
+              repoOwner={repoOwner}
+              repoName={repoName}
+              contributors={contributors}
+            />
           </div>
-          <p className="text-sm text-zinc-300 mb-5">
+          <p className="text-base text-zinc-300 mb-5">
             {smallTeam
               ? 'Impact breakdown bar shows shipping, quality, reviews, collaboration and consistency.'
               : 'Search and sort the full list below the podium.'}
@@ -149,26 +162,38 @@ export function RepoAnalysisView({
           />
         </div>
 
-        <div className="sleek-panel p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-5 h-5 text-emerald-300" />
-            <h2 className="text-lg font-bold text-white">Team Health</h2>
-            <span className="text-sm text-zinc-400 ml-auto">/100</span>
+        <div className="flex flex-col gap-5 w-full">
+          <div className="sleek-panel p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Activity className="w-6 h-6 text-emerald-300" />
+              <h2 className="text-xl font-bold text-white">Team Health</h2>
+              <span className="text-base text-zinc-400 ml-auto">/100</span>
+            </div>
+            {healthMetrics ? (
+              <HealthCard metrics={healthMetrics} metricEvidence={metricEvidenceList} />
+            ) : (
+              <div className="text-zinc-500 text-sm">Generating…</div>
+            )}
           </div>
-          {healthMetrics ? (
-            <HealthCard metrics={healthMetrics} metricEvidence={metricEvidenceList} />
-          ) : (
-            <div className="text-zinc-500 text-sm">Generating…</div>
-          )}
+
+          {/* 5. Activity feed moved to hero right column */}
+          <div className="sleek-panel p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Layers3 className="w-6 h-6 text-indigo-300" />
+              <h2 className="text-xl font-bold text-white">Activity Feed</h2>
+              <span className="text-base text-zinc-300 ml-2">most recent first</span>
+            </div>
+            <ActivityFeed items={activityFeed} identityColors={assignment.hexByUsername} />
+          </div>
         </div>
       </section>
 
       {/* 3. Contributor profiles */}
       <section className="mb-6">
         <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-5 h-5 text-indigo-400" />
-          <h2 className="text-lg font-bold text-white">Contributor Profiles</h2>
-          <span className="text-sm text-zinc-300 ml-2">
+          <UsersRound className="w-6 h-6 text-indigo-400" />
+          <h2 className="text-xl font-bold text-white">Contributor Profiles</h2>
+          <span className="text-base text-zinc-300 ml-2">
             {smallTeam ? 'Stat tiles + AI work summary' : `Top ${Math.min(contributors.length, 9)} of ${contributors.length} — open a profile for full detail`}
           </span>
         </div>
@@ -188,15 +213,6 @@ export function RepoAnalysisView({
         <WorkAreasHeatmap contributors={heatmapContributors} smallTeam={smallTeam} />
       </section>
 
-      {/* 5. Activity feed */}
-      <section className="sleek-panel p-5 mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Layers3 className="w-5 h-5 text-indigo-300" />
-          <h2 className="text-lg font-bold text-white">Activity Feed</h2>
-          <span className="text-sm text-zinc-300 ml-2">most recent first</span>
-        </div>
-        <ActivityFeed items={activityFeed} identityColors={assignment.hexByUsername} />
-      </section>
 
       {/* 6. AI insights — single merged section */}
       <section className="mb-6">

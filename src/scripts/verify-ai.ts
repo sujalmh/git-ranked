@@ -6,14 +6,13 @@ config({ path: resolve(process.cwd(), '.env.local') });
 import {
   ContributorProfileSchema,
   RepositorySummarySchema,
-  ReleaseNotesSchema,
   ImpactAnalysisSchema,
   TeamInsightsSchema,
   WeeklyReportSchema,
   MonthlyReportSchema,
   ClassificationSchema,
 } from '../lib/ai/schemas';
-import { classifyEventsFallback, contributorProfileFallback, repositorySummaryFallback, releaseNotesFallback, impactAnalysisFallback, teamInsightsFallback, weeklyReportFallback, monthlyReportFallback } from '../lib/ai/fallback';
+import { classifyEventsFallback, contributorProfileFallback, repositorySummaryFallback, impactAnalysisFallback, teamInsightsFallback, weeklyReportFallback, monthlyReportFallback } from '../lib/ai/fallback';
 import type { TaskContext, NormalizedEvent } from '../lib/ai/types';
 import { computeContributionScore } from '../lib/scoring';
 
@@ -152,9 +151,6 @@ async function main() {
   const summaryResult = repositorySummaryFallback(ctx);
   results.push(validateSchema('Repository Summary (fallback)', RepositorySummarySchema, summaryResult));
 
-  // Test release notes fallback
-  const releaseResult = releaseNotesFallback(ctx);
-  results.push(validateSchema('Release Notes (fallback)', ReleaseNotesSchema, releaseResult));
 
   // Test impact analysis fallback
   const impactResult = impactAnalysisFallback(ctx);

@@ -111,10 +111,10 @@ export default async function ComparePage(
   return (
     <div className="flex flex-col min-h-screen relative">
       <Navbar />
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
+      <main className="flex-1 w-full px-6 py-8">
         <div className="mb-8">
           <Link href={`/repos/${owner}/${name}`} className="inline-flex items-center gap-2 text-zinc-400 hover:text-white mb-4 text-sm transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Back to dashboard
+            <ArrowLeft className="w-4 h-4" /> Back to Repo
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2.5 mb-1">
             <Users className="w-6 h-6 text-indigo-400" />
@@ -139,16 +139,16 @@ export default async function ComparePage(
                     width={64}
                     height={64}
                   />
-                  <h2 className="text-base font-semibold">{c.username}</h2>
-                  <div className="text-xs text-zinc-400 mt-2 flex flex-wrap justify-center gap-1">
+                  <h2 className="text-lg font-bold">{c.username}</h2>
+                  <div className="text-sm text-zinc-400 mt-2 flex flex-wrap justify-center content-start gap-1.5 h-20">
                     {focusAreas.length > 0 ? (
                       focusAreas.map((area, i) => (
-                        <span key={i} className="px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/30 rounded-md text-indigo-300">
+                        <span key={i} className="px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-md text-indigo-300">
                           {area}
                         </span>
                       ))
                     ) : (
-                      <span className="px-2 py-0.5 bg-white/5 rounded-md text-zinc-500">No focus areas</span>
+                      <span className="px-2.5 py-1 bg-white/5 rounded-md text-zinc-500">No focus areas</span>
                     )}
                   </div>
                 </div>
@@ -161,23 +161,7 @@ export default async function ComparePage(
                   />
                 </div>
 
-                <div className="pt-3 border-t border-white/10 space-y-3 text-sm">
-                  <div className="flex items-center gap-3">
-                    <Zap className="w-4 h-4 text-yellow-400" />
-                    <span className="text-zinc-300">Feature Delivery</span>
-                    <span className="ml-auto font-bold">{norm.breakdown.featureDelivery}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Code className="w-4 h-4 text-blue-400" />
-                    <span className="text-zinc-300">Code Quality</span>
-                    <span className="ml-auto font-bold">{norm.breakdown.codeQuality}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <MessageSquare className="w-4 h-4 text-purple-400" />
-                    <span className="text-zinc-300">Reviews & Collab</span>
-                    <span className="ml-auto font-bold">{norm.breakdown.reviews + norm.breakdown.collaboration}</span>
-                  </div>
-                </div>
+
               </div>
             );
           })}

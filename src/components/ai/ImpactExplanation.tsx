@@ -13,27 +13,27 @@ export function ImpactExplanation({
   total: number;
 }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <ExplainableScore total={total} breakdown={breakdown} />
 
       {result ? (
         <>
-          <div className="flex items-center gap-2 pt-2">
-            <Brain className="w-4 h-4 text-purple-400" />
-            <span className="text-sm font-semibold text-white">{result.payload.contributor_role}</span>
+          <div className="flex items-center gap-2 pt-2 mb-2">
+            <Brain className="w-6 h-6 text-[#ccff00]" />
+            <span className="text-xl font-bold text-white uppercase tracking-wider">{result.payload.contributor_role}</span>
           </div>
-          <p className="text-sm text-zinc-300 leading-relaxed">{result.payload.explanation}</p>
+          <p className="text-xl text-zinc-200 leading-relaxed border-l-2 border-[#ccff00]/40 pl-4 font-medium">{result.payload.explanation}</p>
           {result.payload.key_signals.length > 0 && (
-            <div>
-              <h4 className="text-xs uppercase tracking-wide text-zinc-500 font-semibold mb-2 flex items-center gap-1.5">
-                <Signal className="w-3.5 h-3.5 text-indigo-400" />
+            <div className="pt-3">
+              <h4 className="text-base uppercase tracking-wider font-bold mb-3 flex items-center gap-2 text-[#00bbff]">
+                <Signal className="w-5 h-5" />
                 Key Signals
               </h4>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2.5">
                 {result.payload.key_signals.map((signal, i) => (
                   <span
                     key={i}
-                    className="rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs text-zinc-300"
+                    className="rounded-full bg-[#00bbff]/10 border border-[#00bbff]/30 px-3.5 py-1.5 text-base font-semibold text-[#00bbff]"
                   >
                     {signal}
                   </span>
@@ -43,7 +43,7 @@ export function ImpactExplanation({
           )}
         </>
       ) : (
-        <p className="text-sm text-zinc-500">No AI impact analysis available yet.</p>
+        <p className="text-base text-zinc-400">No AI impact analysis available yet.</p>
       )}
     </div>
   );

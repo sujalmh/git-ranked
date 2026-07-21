@@ -29,6 +29,7 @@ type GitHubCommitPayload = {
   id: string;
   message: string;
   url: string;
+  timestamp?: string;
 };
 
 type GitHubPullRequestPayload = {
@@ -40,11 +41,15 @@ type GitHubPullRequestPayload = {
   changed_files?: number;
   body?: string | null;
   merged?: boolean;
+  created_at?: string | null;
+  merged_at?: string | null;
+  closed_at?: string | null;
 };
 
 type GitHubReviewPayload = {
   state: string;
   body?: string | null;
+  submitted_at?: string | null;
 };
 
 type GitHubIssuePayload = {
@@ -52,6 +57,8 @@ type GitHubIssuePayload = {
   title: string;
   body?: string | null;
   labels: { name: string }[];
+  created_at?: string | null;
+  closed_at?: string | null;
 };
 
 type GitHubReleasePayload = {
@@ -59,6 +66,8 @@ type GitHubReleasePayload = {
   name?: string | null;
   body?: string | null;
   html_url: string;
+  created_at?: string | null;
+  published_at?: string | null;
 };
 
 type GitHubWebhookPayload = {
@@ -69,6 +78,7 @@ type GitHubWebhookPayload = {
   repository?: GitHubRepositoryPayload;
   sender?: GitHubSenderPayload | null;
   commits?: GitHubCommitPayload[];
+  head_commit?: GitHubCommitPayload | null;
   ref?: string;
   pull_request?: GitHubPullRequestPayload;
   review?: GitHubReviewPayload;
@@ -214,9 +224,15 @@ export async function handleWebhookEvent(eventName: string, payload: GitHubWebho
 
   let mappedEventType: string | null = null;
   let extractPayload: Record<string, unknown> = {};
+  let eventCreatedAt: string | null = null;
 
   if (eventName === 'push') {
     mappedEventType = 'push';
+    // Prefer the head commit's timestamp (the push moment); fall back to the
+    // last commit on the push.
+    eventCreatedAt = payload.head_commit?.timestamp
+      ?? payload.commits?.[payload.commits.length - 1]?.timestamp
+      ?? null;
     extractPayload = {
       commits: (payload.commits ?? []).map(commit => ({
         sha: commit.id,
@@ -227,9 +243,16 @@ export async function handleWebhookEvent(eventName: string, payload: GitHubWebho
       commit_count: payload.commits?.length ?? 0,
     };
   } else if (eventName === 'pull_request' && payload.pull_request) {
-    if (payload.action === 'opened') mappedEventType = 'pr_opened';
-    else if (payload.action === 'closed' && payload.pull_request.merged) mappedEventType = 'pr_merged';
-    else if (payload.action === 'closed' && !payload.pull_request.merged) mappedEventType = 'pr_closed';
+    if (payload.action === 'opened') {
+      mappedEventType = 'pr_opened';
+      eventCreatedAt = payload.pull_request.created_at ?? null;
+    } else if (payload.action === 'closed' && payload.pull_request.merged) {
+      mappedEventType = 'pr_merged';
+      eventCreatedAt = payload.pull_request.merged_at ?? null;
+    } else if (payload.action === 'closed' && !payload.pull_request.merged) {
+      mappedEventType = 'pr_closed';
+      eventCreatedAt = payload.pull_request.closed_at ?? null;
+    }
 
     if (mappedEventType) {
       extractPayload = {
@@ -249,6 +272,7 @@ export async function handleWebhookEvent(eventName: string, payload: GitHubWebho
     payload.review
   ) {
     mappedEventType = 'review_submitted';
+    eventCreatedAt = payload.review.submitted_at ?? null;
     extractPayload = {
       pr_number: payload.pull_request.number,
       state: payload.review.state,
@@ -256,8 +280,13 @@ export async function handleWebhookEvent(eventName: string, payload: GitHubWebho
       word_count: payload.review.body ? payload.review.body.split(/\s+/).length : 0,
     };
   } else if (eventName === 'issues' && payload.issue) {
-    if (payload.action === 'opened') mappedEventType = 'issue_opened';
-    else if (payload.action === 'closed') mappedEventType = 'issue_closed';
+    if (payload.action === 'opened') {
+      mappedEventType = 'issue_opened';
+      eventCreatedAt = payload.issue.created_at ?? null;
+    } else if (payload.action === 'closed') {
+      mappedEventType = 'issue_closed';
+      eventCreatedAt = payload.issue.closed_at ?? null;
+    }
 
     if (mappedEventType) {
       extractPayload = {
@@ -269,6 +298,7 @@ export async function handleWebhookEvent(eventName: string, payload: GitHubWebho
     }
   } else if (eventName === 'release' && payload.action === 'published' && payload.release) {
     mappedEventType = 'release';
+    eventCreatedAt = payload.release.published_at ?? payload.release.created_at ?? null;
     extractPayload = {
       tag_name: payload.release.tag_name,
       name: payload.release.name,
@@ -278,9 +308,12 @@ export async function handleWebhookEvent(eventName: string, payload: GitHubWebho
   }
 
   if (mappedEventType) {
+    // Use the real GitHub event timestamp when available; fall back to now so
+    // real-time webhook deliveries still record a sane time.
+    const createdAt = eventCreatedAt ?? new Date().toISOString();
     await sql`
-      INSERT INTO github_events (repo_id, contributor_id, event_type, payload, github_event_id)
-      VALUES (${internalRepoId}, ${contributorId}, ${mappedEventType}, ${JSON.stringify(extractPayload)}, ${eventId})
+      INSERT INTO github_events (repo_id, contributor_id, event_type, payload, github_event_id, created_at)
+      VALUES (${internalRepoId}, ${contributorId}, ${mappedEventType}, ${JSON.stringify(extractPayload)}, ${eventId}, ${createdAt})
       ON CONFLICT (github_event_id) DO NOTHING
     `;
   }

@@ -2,10 +2,11 @@ import { sql } from '@/lib/db';
 import { getPublicRepository } from '@/lib/github-api';
 import { notFound } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
-import { GitBranch, Star, GitFork, AlertCircle, ArrowRight, Brain, Code } from 'lucide-react';
+import { GitBranch, Star, GitFork, AlertCircle, ArrowRight, Brain, Code, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { fetchRepoEvents, getRepoAnalysisData } from '@/lib/analysis';
 import { RepoAnalysisView } from '@/components/RepoAnalysisView';
+import { ShareButton } from '@/components/ShareButton';
 import { formatDistanceToNow } from 'date-fns';
 
 export default async function PublicRepoPage(
@@ -38,6 +39,10 @@ export default async function PublicRepoPage(
     }
   }
 
+  const dateToObj = new Date();
+  const dateFromObj = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const periodText = `${dateFromObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${dateToObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
   // Render full analysis if available
   if (analysisData && analysisData.isAnalysed) {
     return (
@@ -58,13 +63,31 @@ export default async function PublicRepoPage(
 
         <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-black flex items-center gap-2.5 mb-2 uppercase tracking-tighter">
-              <GitBranch className="w-8 h-8 text-[#ccff00]" />
-              {owner} / {name}
-            </h1>
-            <p className="text-zinc-400 max-w-3xl text-lg font-medium">
-              {githubRepo.description || "Public repository AI insights and engineering metrics."}
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+              <h1 className="text-3xl font-black flex items-center gap-2.5 uppercase tracking-tighter">
+                <GitBranch className="w-8 h-8 text-[#ccff00]" />
+                {owner} / {name}
+              </h1>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 shrink-0 self-start sm:self-auto">
+                <Calendar className="w-3.5 h-3.5 text-[#ccff00]" />
+                <span>Analysis Period: 30 Days ({periodText})</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-3">
+              <p className="text-zinc-400 max-w-3xl text-lg font-medium">
+                {githubRepo.description || "Public repository AI insights and engineering metrics."}
+              </p>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <ShareButton
+                  owner={owner}
+                  name={name}
+                  initialEnabled={true}
+                  initialUrl={`/github/${owner}/${name}`}
+                  isStatic={true}
+                />
+              </div>
+            </div>
           </div>
           
           <RepoAnalysisView data={analysisData} readOnly={true} repoOwner={owner} repoName={name} />

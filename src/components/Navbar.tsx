@@ -7,33 +7,33 @@ export async function Navbar() {
   const session = await auth();
 
   return (
-    <header className="sticky top-0 z-50 glass border-b-0 rounded-none w-full">
-      <div className="flex items-center justify-between p-4 max-w-7xl mx-auto w-full">
+    <header className="sticky top-0 z-50 bg-black border-b-2 border-white/10 w-full">
+      <div className="flex items-center justify-between px-6 py-4 w-full">
         <Link href="/" className="flex items-center gap-3">
-          <Image src="/logo.png" alt="GitRanked Logo" width={28} height={28} className="rounded-full shadow-md" />
-          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-amber-500 bg-clip-text text-transparent">GitRanked</span>
+          <Image src="/logo.png" alt="GitRanked Logo" width={32} height={32} className="rounded-none" />
+          <span className="text-2xl font-black tracking-tighter uppercase text-white">GitRanked</span>
         </Link>
         <div className="flex items-center gap-4">
           {session ? (
-            <div className="flex items-center gap-4">
-              <Link href="/dashboard" className="text-sm font-medium text-zinc-300 hover:text-white transition-colors">
-                Dashboard
+            <div className="flex items-center gap-6">
+              <Link href="/dashboard" className="px-5 py-2 accent-panel text-sm">
+                DASHBOARD
               </Link>
-              <div className="h-6 w-px bg-white/10" />
-              <div className="flex items-center gap-2">
+              <div className="h-6 w-px bg-white/20" />
+              <div className="flex items-center gap-3">
                 {session.user?.image ? (
                   <Image
                     src={session.user.image}
                     alt="Avatar"
-                    className="w-8 h-8 rounded-full border border-white/10"
+                    className="w-8 h-8 rounded-full border border-white/20"
                     width={32}
                     height={32}
                   />
                 ) : (
-                  <div className="w-8 h-8 rounded-full border border-white/10 bg-white/10" />
+                  <div className="w-8 h-8 rounded-full border border-white/20 bg-white/10" />
                 )}
                 {session.user?.name && (
-                  <span className="text-sm font-medium text-zinc-300 mx-2">
+                  <span className="text-sm font-bold tracking-wider uppercase text-zinc-300">
                     {session.user.name}
                   </span>
                 )}
@@ -41,21 +41,29 @@ export async function Navbar() {
                   "use server"
                   await signOut()
                 }}>
-                  <button type="submit" className="text-sm text-zinc-400 hover:text-white transition-colors">
+                  <button type="submit" className="text-sm font-bold tracking-wider hover:text-red-400 transition-colors uppercase ml-2 text-zinc-500">
                     Sign Out
                   </button>
                 </form>
               </div>
             </div>
           ) : (
-            <form action={async () => {
-              "use server"
-              await signIn("github")
-            }}>
-              <button type="submit" className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors text-sm">
-                Sign In
-              </button>
-            </form>
+            <div className="flex items-center gap-6">
+              <form action={async () => {
+                "use server"
+                await signIn("github")
+              }}>
+                <button type="submit" className="text-sm font-bold tracking-wider hover:text-[#ccff00] transition-colors uppercase">
+                  Log In
+                </button>
+              </form>
+              <Link
+                href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
+                className="px-5 py-2 accent-panel text-sm"
+              >
+                CONNECT TO GITHUB
+              </Link>
+            </div>
           )}
         </div>
       </div>

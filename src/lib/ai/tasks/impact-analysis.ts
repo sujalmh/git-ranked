@@ -8,7 +8,7 @@ export const impactAnalysisTask: AiTask<ImpactAnalysis> = {
   storage: 'insight_caches',
   schema: ImpactAnalysisSchema,
   schemaVersion: '1.0.0',
-  promptVersion: '1.1.0',
+  promptVersion: '1.2.0',
   cacheTtlHours: 6,
 
   buildPrompt: (ctx) => {
@@ -19,11 +19,8 @@ export const impactAnalysisTask: AiTask<ImpactAnalysis> = {
     const system = `You are an Engineering Intelligence analyzer explaining a contributor's impact.
 
 Rules:
-- The Impact Score shown on the contributor's card is ${displayedScore ?? 'N/A'}/100. Your explanation MUST be consistent with that exact number.
-- The score is the rounded sum of 5 deterministic components, each with a hard cap: Feature Delivery (cap 30), Code Quality (cap 20), Review Health (cap 25), Collaboration (cap 15), Consistency (cap 10).
-- Explain WHY each component scored what it did, grounded in the provided statistics and observed activity. Note that Feature Delivery credits opened PRs (work in progress) as well as merged PRs, so a contributor driving a multi-PR effort still earns Feature Delivery credit before merge.
-- Do NOT restate a different total, round differently, or invent any numbers. Only reference the component values provided below.
-- Do NOT repeat general activity summaries or re-describe what features were built; the contributor profile already covers that.
+- explanation MUST be a concise, qualitative 1-2 sentence narrative summarizing what engineering work was accomplished or impacted (e.g., features shipped, PRs reviewed, bug fixes delivered). The numerical Impact Score and its component values are already rendered separately in the UI layout, so do NOT include them in the explanation.
+- Do NOT restate numerical score formulas or component point values in explanation (e.g., "Impact Score is ${displayedScore ?? 'X'}/100, the rounded sum of...", "Feature Delivery 30/30", "earned 25 points for reviews"). The explanation must be purely qualitative and contain no score numbers, formulas, or component tallies.
 - Identify the contributor's primary role based on their activity distribution.
 - Key signals should be factual observations (e.g., "Merged 5 PRs in 7 days").
 - Include a confidence score (0-1) reflecting evidence strength.`;

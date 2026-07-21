@@ -1,5 +1,5 @@
 import { containsAny, FEATURE_WORDS, RELIABILITY_WORDS } from '../contributor-insights';
-import type { ClassificationItem, ContributorProfile, ImpactAnalysis, MonthlyReport, RepositorySummary, ReleaseNotes, TeamInsights, WeeklyReport } from './types';
+import type { ClassificationItem, ContributorProfile, ImpactAnalysis, MonthlyReport, RepositorySummary, TeamInsights, WeeklyReport } from './types';
 import type { NormalizedEvent, TaskContext, WorkType } from './types';
 
 const FIX_WORDS = ['fix', 'bug', 'error', 'broken', 'crash', 'issue'];
@@ -165,31 +165,6 @@ export function repositorySummaryFallback(ctx: TaskContext): RepositorySummary {
     technical_changes: technicalChanges,
     risks: [],
     next_focus: [],
-  };
-}
-
-export function releaseNotesFallback(ctx: TaskContext): ReleaseNotes {
-  const events = ctx.events;
-  const features = events
-    .filter((e) => e.type === 'pr_merged' && e.classification?.work_type === 'Feature')
-    .map((e) => e.title)
-    .slice(0, 15);
-  const fixes = events
-    .filter((e) => (e.type === 'pr_merged' || e.type === 'issue_closed') && e.classification?.work_type === 'Bug Fix')
-    .map((e) => e.title)
-    .slice(0, 15);
-  const improvements = events
-    .filter((e) => e.type === 'pr_merged' && ['Performance', 'Refactor', 'Infrastructure'].includes(e.classification?.work_type ?? ''))
-    .map((e) => e.title)
-    .slice(0, 10);
-
-  return {
-    summary: `${features.length} feature(s), ${fixes.length} fix(es), and ${improvements.length} improvement(s) between ${ctx.dateFrom} and ${ctx.dateTo}.`,
-    features,
-    fixes,
-    improvements,
-    breaking_changes: [],
-    other: [],
   };
 }
 

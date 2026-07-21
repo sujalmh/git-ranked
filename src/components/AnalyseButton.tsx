@@ -151,7 +151,7 @@ export function AnalyseButton({
       <button
         onClick={handleAnalyse}
         disabled={loading}
-        className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
+        className={`flex items-center gap-2 rounded-xl px-6 py-3 text-base font-semibold transition-colors ${
           loading
             ? 'bg-indigo-600/50 text-indigo-200 cursor-not-allowed'
             : isComplete
@@ -160,13 +160,13 @@ export function AnalyseButton({
         }`}
       >
         {loading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
+          <Loader2 className="w-5 h-5 animate-spin" />
         ) : isComplete ? (
-          <CheckCircle2 className="w-4 h-4" />
+          <CheckCircle2 className="w-5 h-5" />
         ) : isReanalyse ? (
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCw className="w-5 h-5" />
         ) : (
-          <Brain className="w-4 h-4" />
+          <Brain className="w-5 h-5" />
         )}
         {loading ? 'Analyzing...' : isComplete ? 'Done' : isReanalyse ? 'Re-analyse' : 'Analyse Repository'}
       </button>

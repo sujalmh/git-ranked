@@ -79,10 +79,10 @@ export function ActivityFeed({ items, identityColors }: { items: ActivityItem[];
               )}
             </div>
             <div className="pt-1 pb-2 flex-1">
-              <div className="text-base text-white leading-snug mb-1">
+              <div className="text-lg text-white leading-snug mb-1">
                 <span className="font-bold">{item.actor}</span> {item.message}
               </div>
-              <div className="text-sm text-zinc-500">
+              <div className="text-base text-zinc-500">
                 {formatRelativeDate(item.date)}
               </div>
             </div>

@@ -6,7 +6,6 @@ import { runTaskById } from '@/lib/ai';
 const VALID_TASKS = [
   'contributor_profile',
   'repository_summary',
-  'release_notes',
   'impact_analysis',
   'team_insights',
   'weekly_report',

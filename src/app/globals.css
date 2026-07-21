@@ -8,13 +8,13 @@
 
 @layer utilities {
   .sleek-panel {
-    @apply bg-black border border-white/10 rounded-none shadow-[0_4px_20px_0_rgba(0,0,0,0.6)] transition-all duration-200;
+    @apply bg-black border-b border-r border-white rounded-none shadow-[0_4px_20px_0_rgba(0,0,0,0.6)] transition-all duration-200;
   }
   .sleek-panel-hover {
     @apply hover:border-white/40 hover:shadow-[0_0_20px_-4px_rgba(255,255,255,0.2)];
   }
   .accent-panel {
-    @apply bg-[#ccff00] text-black border-2 border-[#ccff00] font-bold;
+    @apply bg-[#ccff00] text-black border-2 border-[#ccff00] font-bold transition-colors duration-200 hover:bg-white hover:border-white hover:text-black;
   }
   .text-accent {
     @apply text-[#ccff00];

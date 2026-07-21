@@ -3,7 +3,7 @@ import type { ContributorInsight, ContributionCategory } from '@/lib/contributor
 export const SMALL_TEAM_THRESHOLD = 5;
 
 export function isSmallTeam(count: number): boolean {
-  return count > 0 && count <= SMALL_TEAM_THRESHOLD;
+  return false;
 }
 
 export type PodiumTier = 'gold' | 'silver' | 'bronze';
@@ -21,30 +21,30 @@ export type PodiumStyle = {
 export const PODIUM: Record<PodiumTier, PodiumStyle> = {
   gold: {
     tier: 'gold',
-    text: 'text-[#ccff00]',
-    chip: 'bg-[#ccff00]/10 border-[#ccff00]/20 text-[#ccff00]',
-    ring: 'ring-2 ring-[#ccff00]/50',
-    border: 'border-[#ccff00]/30',
-    glow: 'bg-[#ccff00]/5',
-    dot: 'bg-[#ccff00]',
+    text: 'text-[#ffd700]',
+    chip: 'bg-[#ffd700]/10 border-[#ffd700]/30 text-[#ffd700]',
+    ring: 'ring-2 ring-[#ffd700]/60',
+    border: 'border-[#ffd700]',
+    glow: 'bg-[#ffd700]/10',
+    dot: 'bg-[#ffd700]',
   },
   silver: {
     tier: 'silver',
-    text: 'text-zinc-200',
-    chip: 'bg-zinc-400/15 border-zinc-400/30 text-zinc-200',
-    ring: 'ring-2 ring-zinc-400/40',
-    border: 'border-zinc-400/30',
-    glow: 'bg-zinc-400/10',
-    dot: 'bg-zinc-300',
+    text: 'text-[#c0c0c0]',
+    chip: 'bg-[#c0c0c0]/10 border-[#c0c0c0]/30 text-[#c0c0c0]',
+    ring: 'ring-2 ring-[#c0c0c0]/60',
+    border: 'border-[#c0c0c0]',
+    glow: 'bg-[#c0c0c0]/10',
+    dot: 'bg-[#c0c0c0]',
   },
   bronze: {
     tier: 'bronze',
-    text: 'text-orange-400',
-    chip: 'bg-orange-600/15 border-orange-600/30 text-orange-400',
-    ring: 'ring-2 ring-orange-600/40',
-    border: 'border-orange-600/30',
-    glow: 'bg-orange-600/10',
-    dot: 'bg-orange-500',
+    text: 'text-[#cd7f32]',
+    chip: 'bg-[#cd7f32]/10 border-[#cd7f32]/30 text-[#cd7f32]',
+    ring: 'ring-2 ring-[#cd7f32]/60',
+    border: 'border-[#cd7f32]',
+    glow: 'bg-[#cd7f32]/10',
+    dot: 'bg-[#cd7f32]',
   },
 };
 
@@ -85,11 +85,11 @@ export const SEVERITY: Record<Severity, SeverityStyle> = {
   },
   info: {
     severity: 'info',
-    text: 'text-zinc-300',
-    border: 'border-l-zinc-500',
-    chip: 'bg-zinc-500/10 border-zinc-500/20 text-zinc-300',
-    dot: 'bg-zinc-500',
-    label: 'Info',
+    text: 'text-[#00ff66]',
+    border: 'border-l-[#00ff66]',
+    chip: 'bg-[#00ff66]/10 border-[#00ff66]/20 text-[#00ff66]',
+    dot: 'bg-[#00ff66]',
+    label: 'Healthy',
   },
 };
 
@@ -114,6 +114,19 @@ export const NEUTRAL_IDENTITY: IdentityColor = {
   dot: 'bg-zinc-500',
   hex: '#71717a',
 };
+
+export function randomNeonHex(seed: string): string {
+  const colors = [
+    '#ff0055', '#ffaa00', '#ccff00', '#00ff66', '#00ffff', 
+    '#00bbff', '#9900ff', '#ff00aa', '#ff3300', '#33ff00', 
+    '#ff00ff', '#00ffcc', '#ffcc00'
+  ];
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
 
 export type IdentityAssignment = {
   colorByUserId: Map<number, IdentityColor>;

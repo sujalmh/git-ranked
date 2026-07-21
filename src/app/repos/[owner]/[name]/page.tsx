@@ -2,7 +2,7 @@ import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
-import { GitBranch, Brain } from 'lucide-react';
+import { GitBranch, Brain, Calendar } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { AnalyseButton } from '@/components/AnalyseButton';
 import { RepoAnalysisView } from '@/components/RepoAnalysisView';
@@ -10,6 +10,7 @@ import { ShareButton } from '@/components/ShareButton';
 import { RepositoryNeedsInit } from '@/components/InitializeButton';
 import { fetchRepoEvents, getRepoAnalysisData } from '@/lib/analysis';
 import { getShareState } from '@/lib/share';
+import { getPublicRepository } from '@/lib/github-api';
 
 export default async function RepoAnalysisBoard(
   props: { params: Promise<{ owner: string; name: string }> }
@@ -34,7 +35,7 @@ export default async function RepoAnalysisBoard(
     return (
       <div className="flex flex-col min-h-screen relative">
         <Navbar />
-        <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
+        <main className="flex-1 w-full px-6 py-8">
           <div className="sleek-panel p-8 text-center max-w-2xl mx-auto mt-12">
             <h2 className="text-xl font-bold mb-2">Installation Removed</h2>
             <p className="text-sm text-zinc-400 mb-5">
@@ -60,7 +61,7 @@ export default async function RepoAnalysisBoard(
     return (
       <div className="flex flex-col min-h-screen relative">
         <Navbar />
-        <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
+        <main className="flex-1 w-full px-6 py-8">
           <div className="mb-8">
             <div className="flex items-center gap-2 text-sm text-zinc-400 mb-2">
               <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
@@ -95,44 +96,62 @@ export default async function RepoAnalysisBoard(
   const shareUrl = shareState.token
     ? `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/shared/${shareState.token}`
     : null;
+  const githubRepo = await getPublicRepository(owner, name);
+  const repoDescription = githubRepo?.description || 'AI Engineering Intelligence: Understand what shipped, where bottlenecks are, and how your team collaborates.';
+  const dateToObj = new Date();
+  const dateFromObj = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const periodText = `${dateFromObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${dateToObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
   return (
     <div className="flex flex-col min-h-screen relative">
       <Navbar />
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-zinc-400 mb-2">
-              <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
-              <span className="text-zinc-600">/</span>
-              <span>{owner}</span>
-            </div>
-            <h1 className="text-2xl font-bold flex items-center gap-2.5 mb-1">
-              <GitBranch className="w-6 h-6 text-indigo-400" />
+      <main className="flex-1 w-full px-6 py-8">
+        <div className="mb-8">
+          <div className="flex items-center gap-2 text-sm text-zinc-400 mb-2">
+            <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
+            <span className="text-zinc-600">/</span>
+            <span>{owner}</span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+            <h1 className="text-3xl font-black flex items-center gap-2.5 uppercase tracking-tighter">
+              <GitBranch className="w-8 h-8 text-[#ccff00]" />
               {owner} / {name}
             </h1>
-            <p className="text-sm text-zinc-400 max-w-2xl">
-              AI Engineering Intelligence: Understand what shipped, where bottlenecks are, and how your team collaborates.
-            </p>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 shrink-0 self-start sm:self-auto">
+              <Calendar className="w-3.5 h-3.5 text-[#ccff00]" />
+              <span>Analysis Period: 30 Days ({periodText})</span>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {session ? (
-              <>
-                <AnalyseButton owner={owner} name={name} isReanalyse={data.isAnalysed} />
+
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-3">
+            <p className="text-base text-zinc-400 max-w-2xl">
+              {repoDescription}
+            </p>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {session ? (
+                <>
+                  <AnalyseButton owner={owner} name={name} isReanalyse={data.isAnalysed} />
+                  <ShareButton
+                    owner={owner}
+                    name={name}
+                    initialEnabled={shareState.enabled}
+                    initialUrl={shareState.enabled ? shareUrl : null}
+                  />
+                </>
+              ) : (
                 <ShareButton
                   owner={owner}
                   name={name}
-                  initialEnabled={shareState.enabled}
-                  initialUrl={shareState.enabled ? shareUrl : null}
+                  initialEnabled={true}
+                  initialUrl={`/repos/${owner}/${name}`}
+                  isStatic={true}
                 />
-              </>
-            ) : null}
-            <Link href={`/repos/${owner}/${name}/releases`} className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-3.5 py-2 text-sm text-white font-medium">
-              Release Notes
-            </Link>
-            <Link href={`/repos/${owner}/${name}/compare`} className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-3.5 py-2 text-sm text-white font-medium">
-              Compare Team
-            </Link>
+              )}
+              <Link href={`/repos/${owner}/${name}/compare`} className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-6 py-3 text-base text-white font-semibold flex items-center justify-center">
+                Compare Team
+              </Link>
+            </div>
           </div>
         </div>
 

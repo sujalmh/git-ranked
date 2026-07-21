@@ -3,7 +3,6 @@ import { runTask, getCachedResult } from './runner';
 import { classifyEvents } from './tasks/work-classification';
 import { contributorProfileTask } from './tasks/contributor-profile';
 import { repositorySummaryTask } from './tasks/repository-summary';
-import { releaseNotesTask } from './tasks/release-notes';
 import { impactAnalysisTask } from './tasks/impact-analysis';
 import { teamInsightsTask } from './tasks/team-insights';
 import { weeklyReportTask } from './tasks/weekly-report';
@@ -20,7 +19,6 @@ import type { AiResult, AiTask, TaskContext } from './types';
 export const tasks = {
   contributorProfile: contributorProfileTask,
   repositorySummary: repositorySummaryTask,
-  releaseNotes: releaseNotesTask,
   impactAnalysis: impactAnalysisTask,
   teamInsights: teamInsightsTask,
   weeklyReport: weeklyReportTask,
@@ -42,7 +40,6 @@ function safeParse(payload: unknown): Record<string, unknown> {
 const TASK_BY_ID: Record<string, AiTask<unknown>> = {
   contributor_profile: contributorProfileTask as AiTask<unknown>,
   repository_summary: repositorySummaryTask as AiTask<unknown>,
-  release_notes: releaseNotesTask as AiTask<unknown>,
   impact_analysis: impactAnalysisTask as AiTask<unknown>,
   team_insights: teamInsightsTask as AiTask<unknown>,
   weekly_report: weeklyReportTask as AiTask<unknown>,
@@ -170,7 +167,7 @@ export async function runTaskById(
 export { classifyEvents };
 export { fetchEvents, normalizeEvents, buildEventContextBlock };
 export type { AiResult, AiTask, TaskContext };
-export type { ContributorProfile, RepositorySummary, ReleaseNotes, ImpactAnalysis, TeamInsights, WeeklyReport, MonthlyReport, Classification, ClassificationItem, NormalizedEvent, DiffFacts } from './types';
+export type { ContributorProfile, RepositorySummary, ImpactAnalysis, TeamInsights, WeeklyReport, MonthlyReport, Classification, ClassificationItem, NormalizedEvent, DiffFacts } from './types';
 
 export async function getCachedContributorResults(
   repoId: number,
@@ -219,7 +216,6 @@ export async function getCachedContributorResults(
 const LEGACY_TASK_MAP: Record<string, string> = {
   weekly: 'repository_summary',
   team_insights: 'team_insights',
-  release_notes: 'release_notes',
   areas_of_contribution: 'contributor_profile',
 };
 

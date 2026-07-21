@@ -5,7 +5,6 @@ import type {
   ClassificationSchema,
   ContributorProfileSchema,
   RepositorySummarySchema,
-  ReleaseNotesSchema,
   ImpactAnalysisSchema,
   TeamInsightsSchema,
   WeeklyReportSchema,
@@ -124,7 +123,6 @@ export type AiResult<T> = {
 
 export type ContributorProfile = z.infer<typeof ContributorProfileSchema>;
 export type RepositorySummary = z.infer<typeof RepositorySummarySchema>;
-export type ReleaseNotes = z.infer<typeof ReleaseNotesSchema>;
 export type ImpactAnalysis = z.infer<typeof ImpactAnalysisSchema>;
 export type TeamInsights = z.infer<typeof TeamInsightsSchema>;
 export type WeeklyReport = z.infer<typeof WeeklyReportSchema>;

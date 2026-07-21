@@ -23,14 +23,14 @@ function StatCard({
   accent: string;
 }) {
   return (
-    <div className="sleek-panel p-4 flex items-center gap-3">
-      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${accent}`}>
+    <div className="bg-black border-b border-r border-white p-5 flex items-center gap-5 transition-all">
+      <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${accent}`}>
         {icon}
       </div>
       <div className="min-w-0">
-        <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">{label}</div>
-        <div className="text-xl font-black text-white leading-tight truncate">{value}</div>
-        {sub && <div className="text-[10px] text-zinc-500 truncate">{sub}</div>}
+        <div className="text-sm uppercase tracking-wider text-zinc-500 font-bold">{label}</div>
+        <div className="text-4xl font-black text-white leading-tight truncate">{value}</div>
+        {sub && <div className="text-sm text-zinc-400 truncate mt-0.5">{sub}</div>}
       </div>
     </div>
   );
@@ -49,34 +49,34 @@ export function StatsStrip({
   const healthSev = healthSeverity(health);
 
   return (
-    <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+    <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
       <StatCard
-        icon={<Users className="w-4 h-4 text-indigo-300" />}
+        icon={<Users className="w-7 h-7 text-[#00ffff]" />}
         label="Collaborators"
         value={String(contributors.length)}
         sub="ranked this period"
-        accent="bg-indigo-500/10 border border-indigo-500/20"
+        accent="bg-[#00ffff]/10 border border-[#00ffff]/20"
       />
       <StatCard
-        icon={<Zap className="w-4 h-4 text-amber-300" />}
+        icon={<Zap className="w-7 h-7 text-[#ccff00]" />}
         label="Total Impact"
         value={totalImpact.toLocaleString()}
         sub="sum of impact scores"
-        accent="bg-amber-500/10 border border-amber-500/20"
+        accent="bg-[#ccff00]/10 border border-[#ccff00]/20"
       />
       <StatCard
-        icon={<HeartPulse className={`w-4 h-4 ${SEVERITY[healthSev].text}`} />}
+        icon={<HeartPulse className={`w-7 h-7 ${SEVERITY[healthSev].text}`} />}
         label="Team Health"
         value={`${health}/100`}
         sub={SEVERITY[healthSev].label.toLowerCase()}
         accent={`border ${SEVERITY[healthSev].chip}`}
       />
       <StatCard
-        icon={<Flame className="w-4 h-4 text-orange-300" />}
+        icon={<Flame className="w-7 h-7 text-[#ff5500]" />}
         label="Active Streaks"
         value={String(activeStreaks)}
         sub={activeStreaks === 1 ? 'contributor on a streak' : 'contributors on a streak'}
-        accent="bg-orange-500/10 border border-orange-500/20"
+        accent="bg-[#ff5500]/10 border border-[#ff5500]/20"
       />
     </section>
   );

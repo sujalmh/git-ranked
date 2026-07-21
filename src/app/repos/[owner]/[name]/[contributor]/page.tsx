@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { Navbar } from '@/components/Navbar';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Crown } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { sql } from '@/lib/db';
@@ -100,6 +100,11 @@ export default async function ContributorDetail(
     ? normalizeScoreToImpact(rawScore)
     : { total: 0, breakdown: { featureDelivery: 0, codeQuality: 0, reviews: 0, collaboration: 0, consistency: 0 } };
 
+  // Calculate leaderboard rank for top 3 gold/silver/bronze styling
+  const sortedContributors = Array.from(scoresByContributor.entries()).sort((a, b) => b[1].total - a[1].total);
+  const rankIndex = sortedContributors.findIndex(([id]) => id === contributorId);
+  const rank = rankIndex !== -1 ? rankIndex + 1 : null;
+
   const recentEvents = (eventsByContributor.get(contributorId) ?? []).slice(0, 50);
 
   // Fetch AI results (cache only)
@@ -116,43 +121,65 @@ export default async function ContributorDetail(
     <div className="flex flex-col min-h-screen relative">
       <Navbar />
       
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
-        <Link href={`/repos/${owner}/${name}`} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-5 w-fit text-sm">
-          <ArrowLeft className="w-4 h-4" /> Back to Repo
+      <main className="flex-1 w-full px-6 py-8">
+        <Link href={`/repos/${owner}/${name}`} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-6 w-fit text-base font-medium">
+          <ArrowLeft className="w-5 h-5" /> Back to Repo
         </Link>
 
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {avatarUrl && (
               <Image
                 src={avatarUrl}
-                className="rounded-full border border-white/10"
+                className={`rounded-full ${
+                  rank === 1 ? 'border-2 border-[#ffd700] shadow-[0_0_15px_rgba(255,215,0,0.4)]' :
+                  rank === 2 ? 'border-2 border-[#c0c0c0] shadow-[0_0_15px_rgba(192,192,192,0.4)]' :
+                  rank === 3 ? 'border-2 border-[#cd7f32] shadow-[0_0_15px_rgba(205,127,50,0.4)]' :
+                  'border border-white/10'
+                }`}
                 alt={contributor}
-                width={56}
-                height={56}
+                width={64}
+                height={64}
               />
             )}
             <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2.5 mb-0.5">
-                {contributor}
-              </h1>
-              <p className="text-sm text-zinc-400">Deep dive into impact and code velocity.</p>
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className={`text-3xl md:text-4xl font-black ${
+                  rank === 1 ? 'text-[#ffd700]' :
+                  rank === 2 ? 'text-[#c0c0c0]' :
+                  rank === 3 ? 'text-[#cd7f32]' :
+                  'text-white'
+                }`}>
+                  {contributor}
+                </h1>
+                {rank && rank <= 3 && (
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-sm font-bold uppercase tracking-wider ${
+                    rank === 1 ? 'bg-[#ffd700]/10 border border-[#ffd700]/40 text-[#ffd700]' :
+                    rank === 2 ? 'bg-[#c0c0c0]/10 border border-[#c0c0c0]/40 text-[#c0c0c0]' :
+                    'bg-[#cd7f32]/10 border border-[#cd7f32]/40 text-[#cd7f32]'
+                  }`}>
+                    {rank === 1 && <Crown className="w-4 h-4 text-[#ffd700]" />}
+                    #{rank} Contributor
+                  </span>
+                )}
+              </div>
+              <p className="text-base text-zinc-400">Deep dive into impact and code velocity.</p>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* AI Contributor Profile */}
-          <div className="sleek-panel p-5">
-            <h2 className="text-base font-semibold mb-3">AI Contributor Profile</h2>
+          <div className="sleek-panel p-6 border-t-2 border-t-[#00ffff]">
+            <h2 className="text-xl uppercase tracking-wider font-bold mb-4 text-white">AI Contributor Profile</h2>
             {profileResult ? (
               <ContributorProfileCard result={profileResult} />
             ) : (
               <div className="text-center py-6">
-                <p className="text-sm text-zinc-400 mb-3">No AI profile generated yet.</p>
+                <p className="text-base text-zinc-400 mb-3">No AI profile generated yet.</p>
                 <Link
                   href={`/repos/${owner}/${name}`}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 transition-colors font-semibold text-sm"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 transition-colors font-semibold text-base"
                 >
                   Analyse repository to generate
                 </Link>
@@ -161,8 +188,8 @@ export default async function ContributorDetail(
           </div>
 
           {/* AI Impact Analysis */}
-          <div className="sleek-panel p-5">
-            <h2 className="text-base font-semibold mb-3">Impact Analysis</h2>
+          <div className="sleek-panel p-6 border-t-2 border-t-[#ccff00]">
+            <h2 className="text-xl uppercase tracking-wider font-bold mb-4 text-white">Impact Analysis</h2>
             <ImpactExplanation
               result={impactResult}
               breakdown={normalized.breakdown}
@@ -172,30 +199,30 @@ export default async function ContributorDetail(
         </div>
 
         {/* Recent Events */}
-        <div className="sleek-panel p-5">
-          <h2 className="text-base font-semibold mb-3">Recent Events</h2>
+        <div className="sleek-panel p-6 border-t-2 border-t-[#ff00ff]">
+          <h2 className="text-xl uppercase tracking-wider font-bold mb-4 text-white">Recent Events</h2>
           {recentEvents.length === 0 ? (
-            <p className="text-sm text-zinc-400">No recent activity found.</p>
+            <p className="text-base text-zinc-400">No recent activity found.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {recentEvents.map((row) => {
                 const createdAt = eventDate(row.created_at);
                 const description = describeEvent(row.type, row.payload);
                 const classification = row.id !== undefined ? classifications.get(row.id) : undefined;
                 return (
-                  <div key={row.id} className="flex items-start gap-3 py-2 border-b border-white/5 last:border-0">
-                    <div className="text-xs text-zinc-500 mt-0.5 w-20 shrink-0">
+                  <div key={row.id} className="flex items-start gap-4 py-3 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors -mx-2 px-2 rounded-lg">
+                    <div className="text-xs font-bold uppercase tracking-wider text-zinc-500 mt-1 w-24 shrink-0">
                       {formatRelativeDate(createdAt)}
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm text-zinc-300">{description}</p>
+                      <p className="text-base text-zinc-200 font-medium">{description}</p>
                       {classification && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400">
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border border-[#ff00ff]/30 text-[#ff00ff] bg-[#ff00ff]/10">
                             {classification.work_type}
                           </span>
-                          <span className="text-xs text-zinc-600">
-                            {Math.round(classification.confidence * 100)}% confidence
+                          <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">
+                            {Math.round(classification.confidence * 100)}% conf
                           </span>
                         </div>
                       )}

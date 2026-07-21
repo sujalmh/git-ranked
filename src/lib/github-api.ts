@@ -17,6 +17,8 @@ export type GitHubCommit = {
   html_url?: string;
   commit: {
     message: string;
+    author?: { date?: string } | null;
+    committer?: { date?: string } | null;
   };
   author?: GitHubUser | null;
 };
