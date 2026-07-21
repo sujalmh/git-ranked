@@ -56,79 +56,79 @@ export default async function Dashboard() {
     <div className="flex flex-col min-h-screen relative">
       <Navbar />
       
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
-        <div className="flex items-center justify-between mb-8">
+      <main className="flex-1 w-full px-6 md:px-12 py-8">
+        <div className="flex items-center justify-between mb-12">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2.5 mb-1">
-              <LayoutDashboard className="w-6 h-6 text-indigo-400" />
+            <h1 className="text-3xl md:text-4xl font-black tracking-tighter flex items-center gap-4 mb-2">
+              <LayoutDashboard className="w-8 h-8 text-accent" />
               Your Repositories
             </h1>
-            <p className="text-sm text-zinc-400">Track activity, compute scores, and generate AI insights.</p>
+            <p className="text-lg font-medium text-zinc-400">Track activity, compute scores, and generate AI insights.</p>
           </div>
           <a 
             href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
-            className="px-3.5 py-2 rounded-lg bg-white/10 hover:bg-white/20 font-medium transition-colors border border-white/5 flex items-center gap-2 text-sm"
+            className="px-5 py-2 accent-panel text-sm flex items-center gap-2 uppercase tracking-wider"
           >
-            <Settings className="w-4 h-4" /> Manage Installations
+            <Settings className="w-4 h-4" /> MANAGE INSTALLATIONS
           </a>
         </div>
 
         <AddPublicRepo />
 
         {repos.length === 0 ? (
-          <div className="sleek-panel p-8 text-center flex flex-col items-center max-w-xl mx-auto mt-12">
-            <div className="w-14 h-14 rounded-full bg-indigo-500/10 flex items-center justify-center mb-4 border border-indigo-500/20">
-              <GitBranch className="w-7 h-7 text-indigo-400" />
+          <div className="sleek-panel p-12 text-center flex flex-col items-center max-w-2xl mx-auto mt-12 border-2 border-white/20">
+            <div className="w-16 h-16 rounded-none bg-white/5 flex items-center justify-center mb-6 border-2 border-white/20">
+              <GitBranch className="w-8 h-8 text-accent" />
             </div>
-            <h2 className="text-xl font-bold mb-2">No Repositories Tracked Yet</h2>
-            <p className="text-sm text-zinc-400 mb-6 max-w-md mx-auto">
+            <h2 className="text-3xl font-black uppercase tracking-tighter mb-4">No Repositories Tracked Yet</h2>
+            <p className="text-lg font-medium text-zinc-400 mb-8 max-w-lg mx-auto">
               Install the GitRanked GitHub App on your repositories to start tracking commits, PRs, and reviews.
             </p>
             <a 
               href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
-              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-all shadow-lg shadow-indigo-500/20"
+              className="px-8 py-3 accent-panel text-sm tracking-wider uppercase"
             >
-              Install GitHub App
+              INSTALL GITHUB APP
             </a>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {repos.map(repo => (
               <Link 
                 href={`/repos/${repo.owner}/${repo.name}`} 
                 key={repo.id}
-                className="sleek-panel p-5 flex flex-col gap-3 group cursor-pointer"
+                className="sleek-panel sleek-panel-hover p-6 flex flex-col gap-4 group cursor-pointer border-2 border-white/10"
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 rounded-lg bg-zinc-800/50 border border-white/5">
-                    <GitBranch className="w-4 h-4 text-zinc-300" />
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-white/5 border border-white/20">
+                    <GitBranch className="w-5 h-5 text-white group-hover:text-accent transition-colors" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-base font-semibold truncate">{repo.owner} / {repo.name}</h3>
-                    <p className="text-xs text-zinc-500 truncate">Default branch: {repo.default_branch}</p>
+                    <h3 className="text-lg font-bold break-all">{repo.owner} / {repo.name}</h3>
+                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mt-0.5">Branch: {repo.default_branch}</p>
                   </div>
                   {repo.healthMetrics && repo.event_count > 0 ? (
                     <div className="text-right shrink-0">
-                      <div className="text-lg font-black text-indigo-400 leading-none">{repo.healthMetrics.overallScore}</div>
-                      <div className="text-[10px] uppercase text-zinc-500 tracking-wider">Health</div>
+                      <div className="text-3xl font-black text-accent leading-none">{repo.healthMetrics.overallScore}</div>
+                      <div className="text-[10px] font-bold uppercase text-zinc-500 tracking-wider mt-1">HEALTH</div>
                     </div>
                   ) : repo.event_count === 0 ? (
                     <div className="text-right shrink-0">
-                      <div className="text-[10px] uppercase text-amber-400 tracking-wider font-medium border border-amber-500/30 bg-amber-500/10 rounded-md px-2 py-0.5">
-                        Initialize
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-black bg-accent px-2 py-1">
+                        INITIALIZE
                       </div>
                     </div>
                   ) : null}
                 </div>
                 
-                <div className="mt-auto pt-3 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-xs text-zinc-500">
+                <div className="mt-auto pt-4 border-t-2 border-white/10 flex items-center justify-between">
+                  <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
                     {repo.event_count > 0
-                      ? `${repo.event_count} events · Added ${new Date(repo.added_at).toLocaleDateString()}`
-                      : `Added ${new Date(repo.added_at).toLocaleDateString()}`}
+                      ? `${repo.event_count} EVENTS`
+                      : `ADDED ${new Date(repo.added_at).toLocaleDateString()}`}
                   </span>
-                  <div className="flex items-center gap-1 text-indigo-400 text-sm font-medium">
-                    {repo.event_count > 0 ? 'View Insights' : 'Set up'} <ArrowRight className="w-4 h-4" />
+                  <div className="flex items-center gap-2 text-accent text-sm font-bold uppercase tracking-wider group-hover:translate-x-1 transition-transform">
+                    {repo.event_count > 0 ? 'VIEW INSIGHTS' : 'SET UP'} <ArrowRight className="w-4 h-4" />
                   </div>
                 </div>
               </Link>
