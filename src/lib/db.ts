@@ -1,10 +1,39 @@
 import { neon } from '@neondatabase/serverless';
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL is not defined in the environment');
+let cachedDbUrl: string | null = null;
+let cachedNeonClient: any = null;
+
+function getNeonSql() {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    throw new Error('DATABASE_URL is not defined in the environment');
+  }
+  if (!cachedNeonClient || cachedDbUrl !== dbUrl) {
+    cachedDbUrl = dbUrl;
+    cachedNeonClient = neon(dbUrl);
+  }
+  return cachedNeonClient;
 }
 
-export const sql = neon(process.env.DATABASE_URL);
+export type SqlFunction = {
+  <T = Record<string, any>>(strings: TemplateStringsArray, ...values: any[]): Promise<T[]>;
+  unsafe: <T = Record<string, any>>(str: string) => Promise<T[]>;
+};
+
+export const sql: SqlFunction = Object.assign(
+  (strings: TemplateStringsArray, ...values: any[]) => {
+    return getNeonSql()(strings, ...values);
+  },
+  {
+    unsafe: (str: string) => {
+      const client = getNeonSql();
+      if (typeof client.unsafe === 'function') {
+        return client.unsafe(str);
+      }
+      return client([str] as any);
+    },
+  }
+);
 
 // Run this once during deployment or manually to create the schema
 export async function initSchema() {
@@ -287,6 +316,11 @@ export async function initSchema() {
 
 async function swapInsightCachesConstraint() {
   const NEW_CONSTRAINT_NAME = 'insight_caches_repo_contributor_type_key';
+
+  const tableCheck = await sql`
+    SELECT 1 FROM information_schema.tables WHERE table_name = 'insight_caches'
+  `;
+  if (tableCheck.length === 0) return;
 
   // Check if the target constraint already exists by definition (not name),
   // so we're resilient to auto-generated or previously-renamed names.

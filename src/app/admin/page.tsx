@@ -10,6 +10,25 @@ import { AdminModelSelector } from "@/components/AdminModelSelector";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
+  if (!process.env.DATABASE_URL) {
+    return (
+      <div className="min-h-screen bg-black text-white p-8 md:p-16 flex items-center justify-center">
+        <div className="max-w-md p-8 rounded-2xl bg-zinc-950 border border-amber-500/30 text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-xl font-bold">
+            !
+          </div>
+          <h1 className="text-xl font-bold text-zinc-100">Database Configuration Missing</h1>
+          <p className="text-sm text-zinc-400 leading-relaxed">
+            <code className="text-amber-300">DATABASE_URL</code> is not defined in your environment variables. Please configure your Neon PostgreSQL connection string in Vercel or your server environment settings.
+          </p>
+          <Link href="/" className="inline-block px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-lg text-sm text-zinc-300 font-medium">
+            Return to Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const session = await auth();
 
   const userGithubId = session?.user?.githubId;
