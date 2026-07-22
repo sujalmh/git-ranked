@@ -14,8 +14,6 @@ import {
 import Link from 'next/link';
 import { ActivityFeed } from '@/components/ActivityFeed';
 import { EvidenceProvider } from '@/components/evidence';
-import { AiFindings } from '@/components/AiFindings';
-import { ContributorAreas } from '@/components/ContributorAreas';
 import {
   StatsStrip,
   Leaderboard,
@@ -190,17 +188,7 @@ export function RepoAnalysisView({
         </div>
       </section>
 
-      {/* 3. AI Findings & Surfaced Risks */}
-      <section className="mb-6">
-        <AiFindings
-          teamInsights={teamInsightsResult?.payload ?? null}
-          risks={risks}
-          pool={evidencePool}
-          usernames={usernames}
-        />
-      </section>
-
-      {/* 4. Contributor profiles */}
+      {/* 3. Contributor profiles */}
       <section className="mb-6">
         <div className="flex items-center gap-2 mb-4">
           <UsersRound className="w-6 h-6 text-indigo-400" />
@@ -220,12 +208,7 @@ export function RepoAnalysisView({
         />
       </section>
 
-      {/* 5. Contributors x Areas Matrix */}
-      <section className="mb-6">
-        <ContributorAreas contributors={heatmapContributors} />
-      </section>
-
-      {/* 6. Work areas heatmap */}
+      {/* 4. Work areas heatmap */}
       <section className="mb-6">
         <WorkAreasHeatmap contributors={heatmapContributors} smallTeam={smallTeam} />
       </section>

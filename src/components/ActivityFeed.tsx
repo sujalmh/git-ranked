@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GitCommit, GitMerge, GitPullRequest, MessageSquare, Play, Tag, Bug, Star } from 'lucide-react';
 
 export type ActivityItem = {
@@ -23,27 +23,19 @@ const iconMap: Record<string, React.ReactNode> = {
   'highlight': <Star className="w-3.5 h-3.5 text-yellow-400" />,
 };
 
-function formatRelativeDate(date: Date) {
-  const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
-  if (days === 0) return 'Today';
+function formatRelativeDate(date: Date | string) {
+  const d = date instanceof Date ? date : new Date(date);
+  const days = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+  if (days <= 0) return 'Today';
   if (days === 1) return 'Yesterday';
   return `${days}d ago`;
 }
 
 export function ActivityFeed({ items, identityColors }: { items: ActivityItem[]; identityColors?: Map<string, string> }) {
-  const [revealed, setRevealed] = useState(0);
-  const started = useRef(false);
+  const [revealed, setRevealed] = useState(() => items.length);
 
   useEffect(() => {
-    if (started.current || items.length === 0) return;
-    started.current = true;
-    let i = 0;
-    const id = window.setInterval(() => {
-      i += 1;
-      setRevealed(i);
-      if (i >= items.length) window.clearInterval(id);
-    }, 70);
-    return () => window.clearInterval(id);
+    setRevealed(items.length);
   }, [items.length]);
 
   if (items.length === 0) {
@@ -56,8 +48,8 @@ export function ActivityFeed({ items, identityColors }: { items: ActivityItem[];
 
   return (
     <div 
-      className="space-y-2 max-h-[400px] overflow-y-auto pr-4"
-      style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}
+      className="space-y-2 max-h-[480px] overflow-y-auto pr-3"
+      style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.15) transparent' }}
     >
       {items.map((item, index) => {
         const visible = index < revealed;
@@ -65,7 +57,7 @@ export function ActivityFeed({ items, identityColors }: { items: ActivityItem[];
         return (
           <div
             key={item.id || index}
-            className={`flex gap-3 transition-all duration-500 ease-out ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+            className={`flex gap-3 transition-all duration-300 ease-out ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
           >
             <div className="flex flex-col items-center">
               <div
@@ -78,11 +70,11 @@ export function ActivityFeed({ items, identityColors }: { items: ActivityItem[];
                 <div className="w-px flex-1 bg-white/10 my-1" />
               )}
             </div>
-            <div className="pt-1 pb-2 flex-1">
-              <div className="text-lg text-white leading-snug mb-1">
+            <div className="pt-1 pb-2 flex-1 min-w-0">
+              <div className="text-sm text-white leading-snug mb-0.5 break-words">
                 <span className="font-bold">{item.actor}</span> {item.message}
               </div>
-              <div className="text-base text-zinc-500">
+              <div className="text-xs text-zinc-500">
                 {formatRelativeDate(item.date)}
               </div>
             </div>

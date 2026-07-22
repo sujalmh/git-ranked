@@ -36,16 +36,13 @@ const KIND_META: Record<FindingKind, { icon: typeof AlertTriangle; tag: string }
 function buildFindings(
   teamInsights: TeamInsights | null,
   risks: string[],
-  includeRising: boolean,
 ): Finding[] {
   const out: Finding[] = [];
   if (teamInsights) {
     for (const t of teamInsights.single_owner_modules) out.push({ kind: 'single-owner', text: t, severity: 'warning' });
     for (const t of teamInsights.review_bottlenecks) out.push({ kind: 'bottleneck', text: t, severity: 'warning' });
     for (const t of teamInsights.quiet_areas) out.push({ kind: 'quiet', text: t, severity: 'info' });
-    if (includeRising) {
-      for (const t of teamInsights.rising_contributors) out.push({ kind: 'rising', text: t, severity: 'info' });
-    }
+    for (const t of teamInsights.rising_contributors) out.push({ kind: 'rising', text: t, severity: 'info' });
   }
   for (const t of risks) out.push({ kind: 'risk', text: t, severity: 'risk' });
   return out;
@@ -155,8 +152,8 @@ export function AiInsights({
   smallTeam: boolean;
 }) {
   const findings = useMemo(
-    () => dedupe(buildFindings(teamInsights, risks, smallTeam)),
-    [teamInsights, risks, smallTeam],
+    () => dedupe(buildFindings(teamInsights, risks)),
+    [teamInsights, risks],
   );
   const chips = useMemo(() => buildChips(summary, findings), [summary, findings]);
 

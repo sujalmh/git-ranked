@@ -149,16 +149,14 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
     contributor.highlights.push(highlightText);
     highlights.push({ date: createdAt, username: row.username, text: highlightText });
 
-    if (row.type !== 'push') {
-      activityItems.push({
-        id: `${row.type}-${createdAt.getTime()}-${row.username}`,
-        type: row.type,
-        actor: row.username,
-        avatarUrl: row.avatar_url,
-        message: highlightText,
-        date: createdAt,
-      });
-    }
+    activityItems.push({
+      id: `${row.type}-${createdAt.getTime()}-${row.username}-${row.id}`,
+      type: row.type,
+      actor: row.username,
+      avatarUrl: row.avatar_url,
+      message: highlightText,
+      date: createdAt,
+    });
 
     contributors.set(row.contributor_id, contributor);
   }
@@ -227,7 +225,7 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
   return {
     contributors: merged,
     highlights: highlights.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 8),
-    activityFeed: activityItems.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 20),
+    activityFeed: activityItems.sort((a, b) => b.date.getTime() - a.date.getTime()),
     reviewGraph: collabStats.reviewGraph,
   };
 }
