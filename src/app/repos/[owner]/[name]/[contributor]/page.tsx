@@ -85,7 +85,7 @@ export default async function ContributorDetail(
 
   // Fetch contributor work units
   const workUnitsQuery = await sql`
-    SELECT wu.id, wu.work_type, wu.facts, wu.derived, wu.extraction_confidence,
+    SELECT wu.id, wu.work_type, wu.summary, wu.facts, wu.derived, wu.extraction_confidence,
            wu.extraction_source, wu.shipped, wu.outcome, wu.size_metrics, wu.rationale,
            wu.shipped_at, wu.created_at
     FROM work_units wu
@@ -195,10 +195,12 @@ export default async function ContributorDetail(
                     </div>
 
                     <div className="text-sm font-medium text-zinc-200 mt-1">
-                      {unit.rationale?.impact_reason}
+                      {unit.summary || unit.rationale?.impact_reason}
                     </div>
 
                     <div className="text-xs text-zinc-400">
+                      {unit.rationale?.impact_reason}
+                      {unit.rationale?.impact_reason && unit.rationale?.quality_reason ? ' · ' : ''}
                       Quality: {unit.rationale?.quality_reason}
                     </div>
                   </div>

@@ -20,7 +20,7 @@ export async function GET(
     if (contributorParam) {
       const contributorId = parseInt(contributorParam, 10);
       workUnits = await sql`
-        SELECT wu.id, wu.work_type, wu.facts, wu.derived, wu.extraction_confidence,
+        SELECT wu.id, wu.work_type, wu.summary, wu.facts, wu.derived, wu.extraction_confidence,
                wu.extraction_source, wu.shipped, wu.outcome, wu.size_metrics, wu.rationale,
                wu.shipped_at, wu.created_at
         FROM work_units wu
@@ -30,7 +30,7 @@ export async function GET(
       `;
     } else {
       workUnits = await sql`
-        SELECT wu.id, wu.work_type, wu.facts, wu.derived, wu.extraction_confidence,
+        SELECT wu.id, wu.work_type, wu.summary, wu.facts, wu.derived, wu.extraction_confidence,
                wu.extraction_source, wu.shipped, wu.outcome, wu.size_metrics, wu.rationale,
                wu.shipped_at, wu.created_at, wuc.contributor_id
         FROM work_units wu

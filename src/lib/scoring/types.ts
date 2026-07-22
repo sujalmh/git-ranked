@@ -63,6 +63,7 @@ export interface WorkUnit {
   repo_id: number;
   candidate_id: number;
   work_type: WorkType;
+  summary?: string | null;
   facts: Facts | ReviewFacts;
   derived: Derived;
   derivation_ruleset_version: string;

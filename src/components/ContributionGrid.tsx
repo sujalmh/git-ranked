@@ -12,10 +12,40 @@ export function ContributionGrid() {
 
   useEffect(() => {
     setMounted(true);
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      if (
+        e.clientX >= rect.left - 100 &&
+        e.clientX <= rect.right + 100 &&
+        e.clientY >= rect.top - 100 &&
+        e.clientY <= rect.bottom + 100
+      ) {
+        setMousePos({ x, y });
+      } else {
+        setMousePos({ x: -1000, y: -1000 });
+      }
+    };
+
+    const handleMouseLeave = () => {
+      setMousePos({ x: -1000, y: -1000 });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+    };
   }, []);
 
   if (!mounted) {
-    return <div className="absolute inset-0 z-0 overflow-hidden" />;
+    return <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none" />;
   }
 
   // Generate deterministic but random-looking base opacities for the tiles
@@ -29,25 +59,10 @@ export function ContributionGrid() {
     return 0.6; // rare heavy
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    setMousePos({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    });
-  };
-
-  const handleMouseLeave = () => {
-    setMousePos({ x: -1000, y: -1000 });
-  };
-
   return (
     <div 
       ref={containerRef}
-      className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden pointer-events-auto"
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
+      className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden pointer-events-none"
     >
       {/* Combined masks to fade out the middle and top/bottom edges, leaving the sides visible */}
       <div 
@@ -88,8 +103,8 @@ export function ContributionGrid() {
       <div 
         className="absolute inset-0 pointer-events-none flex items-center justify-center transition-opacity duration-300"
         style={{ 
-          WebkitMaskImage: `radial-gradient(120px circle at ${mousePos.x}px ${mousePos.y}px, black 0%, transparent 100%)`,
-          maskImage: `radial-gradient(120px circle at ${mousePos.x}px ${mousePos.y}px, black 0%, transparent 100%)`,
+          WebkitMaskImage: `radial-gradient(140px circle at ${mousePos.x}px ${mousePos.y}px, black 0%, transparent 100%)`,
+          maskImage: `radial-gradient(140px circle at ${mousePos.x}px ${mousePos.y}px, black 0%, transparent 100%)`,
         }}
       >
         {/* Hover Glow Grid (Same transform as base grid so tiles perfectly align) */}
@@ -116,3 +131,4 @@ export function ContributionGrid() {
     </div>
   );
 }
+

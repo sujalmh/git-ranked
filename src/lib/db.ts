@@ -198,6 +198,9 @@ export async function initSchema() {
   await sql`ALTER TABLE github_events ADD COLUMN IF NOT EXISTS before_sha VARCHAR(40)`.catch(() => {});
   await sql`ALTER TABLE github_events ADD COLUMN IF NOT EXISTS after_sha VARCHAR(40)`.catch(() => {});
 
+  // work_units: summary column for the AI-generated work item description
+  await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS summary TEXT`.catch(() => {});
+
   await sql`
     CREATE TABLE IF NOT EXISTS work_unit_candidates (
       id BIGSERIAL PRIMARY KEY,

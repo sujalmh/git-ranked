@@ -42,9 +42,9 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            className="relative z-10 pointer-events-none"
+            className="relative z-10"
           >
-            <div className="inline-block px-4 py-1 mb-8 border-2 border-[#ccff00] text-[#ccff00] text-xs font-black uppercase tracking-widest pointer-events-auto">
+            <div className="inline-block px-4 py-1 mb-8 border-2 border-[#ccff00] text-[#ccff00] text-xs font-black uppercase tracking-widest">
               GIT RANKED FOR TEAMS
             </div>
           </motion.div>
@@ -53,7 +53,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.1 }}
-            className="text-5xl md:text-7xl font-black tracking-tighter uppercase leading-[0.9] mb-8 max-w-5xl mx-auto relative z-10 pointer-events-none px-4"
+            className="text-5xl md:text-7xl font-black tracking-tighter uppercase leading-[0.9] mb-8 max-w-5xl mx-auto relative z-10 px-4"
           >
             {data.heroTitle} <br />
             <span className="text-[#ccff00]">{data.heroHighlight}</span>.
@@ -63,7 +63,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.2 }}
-            className="text-lg md:text-xl text-zinc-400 max-w-3xl mx-auto mb-10 font-medium relative z-10 pointer-events-none px-6"
+            className="text-lg md:text-xl text-zinc-400 max-w-3xl mx-auto mb-10 font-medium relative z-10 px-6"
           >
             {data.heroSubtitle}
           </motion.p>
@@ -72,7 +72,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.3 }}
-            className="flex flex-col sm:flex-row gap-4 relative z-10 pointer-events-auto px-6"
+            className="flex flex-col sm:flex-row gap-4 relative z-10 px-6"
           >
             <a
               href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}

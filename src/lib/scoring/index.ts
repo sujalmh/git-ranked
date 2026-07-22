@@ -49,7 +49,7 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
   const rawEvents = rawEventsQuery as RawEvent[];
 
   const workUnitsQuery = await sql`
-    SELECT wu.id, wu.repo_id, wu.candidate_id, wu.work_type, wu.facts, wu.derived,
+    SELECT wu.id, wu.repo_id, wu.candidate_id, wu.work_type, wu.summary, wu.facts, wu.derived,
            wu.derivation_ruleset_version, wu.extraction_confidence, wu.extraction_source,
            wu.flagged_for_review, wu.shipped, wu.outcome, wu.outcome_updated_at,
            wu.size_metrics, wu.rationale, wu.created_at, wu.shipped_at, wu.source_event_ids,
@@ -68,6 +68,7 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
       repo_id: row.repo_id,
       candidate_id: row.candidate_id,
       work_type: row.work_type,
+      summary: row.summary,
       facts: row.facts,
       derived: row.derived,
       derivation_ruleset_version: row.derivation_ruleset_version,

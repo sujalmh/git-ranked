@@ -9,7 +9,107 @@ import type { Facts, ReviewFacts, ScoringConfig, WorkType } from './types';
 import type { WorkUnitCandidate } from './aggregator';
 
 /**
- * Parse the `size_metrics` out of a push event payload.
+ * Extract commit messages from all events in a candidate.
+ * Push events store messages inside payload.commits[].message.
+ */
+export function extractCommitMessages(
+  events: Array<Record<string, unknown>>
+): string[] {
+  const messages: string[] = [];
+  for (const event of events) {
+    const payload = (event.payload || {}) as Record<string, unknown>;
+    const commits = Array.isArray(payload.commits) ? payload.commits : [];
+    for (const c of commits) {
+      if (c && typeof c === 'object') {
+        const msg = (c as Record<string, unknown>).message;
+        if (typeof msg === 'string' && msg.trim()) {
+          messages.push(msg.trim());
+        }
+      }
+    }
+  }
+  return messages;
+}
+
+/**
+ * Find the best title across all events in a candidate.
+ * PR events carry a descriptive title; push events only have commit messages.
+ */
+export function extractBestTitle(
+  events: Array<Record<string, unknown>>,
+  eventType: string
+): string {
+  for (const event of events) {
+    const payload = (event.payload || {}) as Record<string, unknown>;
+    if (typeof payload.title === 'string' && payload.title.trim()) {
+      return payload.title.trim();
+    }
+  }
+  // For push events, fall back to the first commit message
+  const commitMessages = extractCommitMessages(events);
+  if (commitMessages.length > 0) {
+    return commitMessages[0];
+  }
+  return eventType;
+}
+
+/**
+ * Merge size metrics from ALL events in a candidate.
+ * The pr_merged event usually carries the real additions/deletions/changed_files,
+ * but extraction previously only looked at firstEvent (pr_opened) which lacks them.
+ */
+export function extractMergedSizeMetrics(
+  events: Array<Record<string, unknown>>,
+  eventType: string
+): { additions: number; deletions: number; changedFiles: number; commitCount: number } {
+  let bestAdditions = 0;
+  let bestDeletions = 0;
+  let bestChangedFiles = 0;
+  let bestCommitCount = 0;
+
+  for (const event of events) {
+    const payload = (event.payload || {}) as Record<string, unknown>;
+    const additions = typeof payload.additions === 'number' ? payload.additions : 0;
+    const deletions = typeof payload.deletions === 'number' ? payload.deletions : 0;
+    const changedFiles = typeof payload.changed_files === 'number' ? payload.changed_files : 0;
+    const commitCount =
+      typeof payload.commit_count === 'number'
+        ? payload.commit_count
+        : Array.isArray(payload.commits)
+          ? payload.commits.length
+          : 0;
+
+    bestAdditions = Math.max(bestAdditions, additions);
+    bestDeletions = Math.max(bestDeletions, deletions);
+    bestChangedFiles = Math.max(bestChangedFiles, changedFiles);
+    bestCommitCount = Math.max(bestCommitCount, commitCount);
+  }
+
+  return {
+    additions: bestAdditions,
+    deletions: bestDeletions,
+    changedFiles: bestChangedFiles,
+    commitCount: bestCommitCount,
+  };
+}
+
+/**
+ * Extract PR body text if available across any event in the candidate.
+ */
+export function extractPrBody(
+  events: Array<Record<string, unknown>>
+): string | null {
+  for (const event of events) {
+    const payload = (event.payload || {}) as Record<string, unknown>;
+    if (typeof payload.body === 'string' && payload.body.trim()) {
+      return payload.body.trim();
+    }
+  }
+  return null;
+}
+
+/**
+ * Parse the `size_metrics` out of a single push event payload.
  * Push events store an array of commits; we sum their additions/deletions
  * if present, otherwise we fall back to top-level payload fields.
  */
@@ -123,13 +223,16 @@ export async function extractAndPersistWorkUnits(
 
     const rationale = buildRationale(reviewFacts, 'Review');
 
+    const reviewSummary = `${substantiveness} code review${blockingIssueFound ? ' that raised a blocking issue' : ''}`;
+
     const inserted = await sql`
       INSERT INTO work_units (
-        repo_id, candidate_id, work_type, facts, derived, derivation_ruleset_version,
+        repo_id, candidate_id, work_type, summary, facts, derived, derivation_ruleset_version,
         extraction_confidence, extraction_source, flagged_for_review, shipped,
         rationale, size_metrics, shipped_at, source_event_ids
       ) VALUES (
         ${repoId}, ${candidate.id}, 'Review',
+        ${reviewSummary},
         ${JSON.stringify(reviewFacts)}, ${JSON.stringify(derived)},
         ${config.version}, 1.0, 'heuristic_fallback', false, true,
         ${JSON.stringify(rationale)}, NULL,
@@ -156,18 +259,24 @@ export async function extractAndPersistWorkUnits(
   }
 
   // ─── PR / Push / Issue candidates ─────────────────────────────────────────
-  const titleOrMessage = String(
-    payload.title || payload.message || eventType
-  );
-
+  // Scan ALL events in the candidate for the best available data:
+  // - PR title (from pr_opened or pr_merged)
+  // - Commit messages (from push events — previously ignored entirely)
+  // - Size stats (from pr_merged, which carries additions/deletions/changed_files
+  //   but was missed because only firstEvent/pr_opened was used)
+  // - PR body (from pr_opened if present)
+  const titleOrMessage = extractBestTitle(events as Array<Record<string, unknown>>, eventType);
+  const commitMessages = extractCommitMessages(events as Array<Record<string, unknown>>);
+  const prBody = extractPrBody(events as Array<Record<string, unknown>>);
   const { additions, deletions, changedFiles, commitCount } =
-    parseSizeMetricsFromPayload(eventType, payload);
+    extractMergedSizeMetrics(events as Array<Record<string, unknown>>, eventType);
 
   // Use total lines for scope — for pushes we also use commit count as a
   // rough proxy if no line stats are available.
   const totalLines = additions + deletions || commitCount * 30; // 30 avg lines/commit heuristic
 
-  const contentToHash = `${candidate.correlation_key}:${titleOrMessage}:${config.version}`;
+  // Include prompt version in hash so prompt improvements invalidate the cache
+  const contentToHash = `${candidate.correlation_key}:${titleOrMessage}:${config.version}:${EXTRACTION_PROMPT_VERSION}`;
   const contentHash = createHash('sha256').update(contentToHash).digest('hex');
 
   let extractedItems: Array<{
@@ -205,11 +314,16 @@ export async function extractAndPersistWorkUnits(
         changedFiles,
         additions,
         deletions,
-        commitCount
+        commitCount,
+        commitMessages,
+        prBody
       );
 
       const aiResponse = await callStructured(
-        [{ role: 'user', content: prompt }],
+        [
+          { role: 'system', content: EXTRACTION_SYSTEM_MESSAGE },
+          { role: 'user', content: prompt },
+        ],
         EXTRACTION_SCHEMA,
         'work_unit_extraction'
       );
@@ -252,10 +366,19 @@ export async function extractAndPersistWorkUnits(
       heuristicFacts.scope = determineScope(commitCount, totalLines);
     }
 
+    // Build a better fallback summary: if we have commit messages, use them
+    // (joined if multiple). Otherwise fall back to the title.
+    let fallbackSummary: string;
+    if (commitMessages.length > 1) {
+      fallbackSummary = commitMessages.slice(0, 3).join('; ').slice(0, 200);
+    } else {
+      fallbackSummary = titleOrMessage.slice(0, 200);
+    }
+
     extractedItems = [
       {
         work_type: workType,
-        summary: titleOrMessage.slice(0, 200),
+        summary: fallbackSummary,
         facts: heuristicFacts,
         confidence: 0.5,
       },
@@ -283,11 +406,12 @@ export async function extractAndPersistWorkUnits(
 
     const inserted = await sql`
       INSERT INTO work_units (
-        repo_id, candidate_id, work_type, facts, derived, derivation_ruleset_version,
+        repo_id, candidate_id, work_type, summary, facts, derived, derivation_ruleset_version,
         extraction_confidence, extraction_source, flagged_for_review, shipped,
         rationale, size_metrics, shipped_at, source_event_ids
       ) VALUES (
         ${repoId}, ${candidate.id}, ${item.work_type},
+        ${item.summary},
         ${JSON.stringify(finalFacts)}, ${JSON.stringify(derived)},
         ${config.version}, ${item.confidence}, ${itemSource}, false, ${isShipped},
         ${JSON.stringify(rationale)}, ${sizeMetrics},
@@ -318,32 +442,61 @@ export async function extractAndPersistWorkUnits(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function buildExtractionPrompt(
+const EXTRACTION_PROMPT_VERSION = 'v2';
+
+export const EXTRACTION_SYSTEM_MESSAGE = `You are an expert engineering work classifier for a GitHub repository analytics platform called GitRanked. Your job is to analyze GitHub events (pull requests, pushes, issues) and extract distinct, specific work items that describe what was actually accomplished.
+
+Critical rules for summaries:
+1. Each summary MUST be SPECIFIC and DESCRIPTIVE — mention the actual technologies, components, files, or systems involved.
+2. BAD summaries (never do this): "Small scope feature", "Infrastructure change", "Added feature", "Updated code"
+3. GOOD summaries: "Add RBAC permission models with role-based access control", "Implement Stripe payment integration with fallback", "Set up CI/CD pipeline with GitHub Actions and Docker"
+4. Derive the summary from commit messages and PR title, not just the event type.
+5. If a push contains multiple commits about different topics, extract separate work items for each distinct topic.
+6. Base your facts (scope, testing_added, touches_auth, etc.) on the actual content of the commit messages and title, not just keywords.
+7. For merge commits that just say "Merge pull request #N", look at the PR title and body for the real work description.`;
+
+export function buildExtractionPrompt(
   title: string,
   eventType: string,
   changedFiles: number,
   additions: number,
   deletions: number,
-  commitCount: number
+  commitCount: number,
+  commitMessages: string[],
+  prBody: string | null
 ): string {
   const eventLabel =
     eventType === 'pr_merged'
-      ? 'pull request'
-      : eventType === 'push'
-        ? 'push/commit'
-        : eventType === 'issue_closed'
-          ? 'closed issue'
-          : eventType;
+      ? 'pull request (merged)'
+      : eventType === 'pr_opened'
+        ? 'pull request (opened)'
+        : eventType === 'push'
+          ? 'push/commit'
+          : eventType === 'issue_closed'
+            ? 'closed issue'
+            : eventType;
 
-  return `You are an engineering work classifier. Analyze this GitHub ${eventLabel} and extract 1-3 distinct work items.
+  let prompt = `Analyze this GitHub ${eventLabel} and extract 1-3 distinct work items.
 
-Title/Message: "${title}"
+Title: "${title}"
 Event type: ${eventType}
 Stats: ${changedFiles} files changed, +${additions}/-${deletions} lines${commitCount > 1 ? `, ${commitCount} commits` : ''}
+`;
 
-For each work item return:
+  if (commitMessages.length > 0) {
+    const limited = commitMessages.slice(0, 15);
+    prompt += `\nCommit messages:\n${limited.map((m, i) => `${i + 1}. ${m}`).join('\n')}\n`;
+  }
+
+  if (prBody) {
+    prompt += `\nPR description:\n${prBody.slice(0, 1200)}\n`;
+  }
+
+  prompt += `
+
+For each work item return JSON with these fields:
 - work_type: exactly one of Feature | BugFix | Refactor | Performance | Security | Documentation | Testing | Infrastructure
-- summary: concise one-line description of what was done (max 150 chars)
+- summary: specific description of what was done — mention technologies, components, or systems affected (max 200 chars). Be concrete, not generic.
 - facts: {
     scope: trivial | small | medium | large | system_wide,
     user_visible: bool,
@@ -358,16 +511,32 @@ For each work item return:
     touches_distributed_state: bool,
     touches_architecture: bool
   }
-- confidence: 0.0-1.0
+- confidence: 0.0-1.0 (how sure you are about the work_type and facts)
 
 Scope guidance:
 - trivial: ≤2 files, ≤20 lines
-- small: ≤5 files, ≤100 lines  
+- small: ≤5 files, ≤100 lines
 - medium: ≤15 files, ≤400 lines
 - large: ≤35 files, ≤1000 lines
 - system_wide: 35+ files or 1000+ lines
 
+If the stats show 0 files and 0 lines (common for push events where stats aren't available), infer scope from the commit messages and their apparent complexity.
+
+Example response:
+{
+  "items": [
+    {
+      "work_type": "Feature",
+      "summary": "Add RBAC models with role-based permission system and database migrations",
+      "facts": { "scope": "medium", "user_visible": false, "breaking_change": false, "cross_cutting": true, "testing_added": false, "documentation_updated": false, "new_algorithm_or_subsystem": true, "boilerplate": false, "touches_auth": true, "touches_data_migration": true, "touches_distributed_state": false, "touches_architecture": true },
+      "confidence": 0.85
+    }
+  ]
+}
+
 Respond with JSON: { "items": [...] }`;
+
+  return prompt;
 }
 
 const EXTRACTION_SCHEMA = {
@@ -378,9 +547,25 @@ const EXTRACTION_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          work_type: { type: 'string' },
+          work_type: { type: 'string', enum: ['Feature', 'BugFix', 'Refactor', 'Performance', 'Security', 'Documentation', 'Testing', 'Infrastructure'] },
           summary: { type: 'string' },
-          facts: { type: 'object' },
+          facts: {
+            type: 'object',
+            properties: {
+              scope: { type: 'string', enum: ['trivial', 'small', 'medium', 'large', 'system_wide'] },
+              user_visible: { type: 'boolean' },
+              breaking_change: { type: 'boolean' },
+              cross_cutting: { type: 'boolean' },
+              testing_added: { type: 'boolean' },
+              documentation_updated: { type: 'boolean' },
+              new_algorithm_or_subsystem: { type: 'boolean' },
+              boilerplate: { type: 'boolean' },
+              touches_auth: { type: 'boolean' },
+              touches_data_migration: { type: 'boolean' },
+              touches_distributed_state: { type: 'boolean' },
+              touches_architecture: { type: 'boolean' },
+            },
+          },
           confidence: { type: 'number' },
         },
         required: ['work_type', 'summary', 'facts', 'confidence'],
