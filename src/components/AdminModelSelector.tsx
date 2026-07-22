@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Cpu, CheckCircle2, Loader2, Sparkles, Server } from 'lucide-react';
-import { RECOMMENDED_AI_MODELS } from '@/lib/ai/openrouter';
+import { RECOMMENDED_AI_MODELS } from '@/lib/ai/models';
 
 export function AdminModelSelector({ initialModel }: { initialModel?: string }) {
   const [currentModel, setCurrentModel] = useState<string>(initialModel || 'tencent/hy3:free');

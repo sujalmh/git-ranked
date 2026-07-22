@@ -10,7 +10,7 @@ import {
   getRepoContext,
   tasks,
 } from '@/lib/ai';
-import { telemetryStorage, type ApiTelemetryEvent } from '@/lib/ai/openrouter';
+import { setTelemetryListener, type ApiTelemetryEvent } from '@/lib/ai/telemetry';
 
 type ProgressEvent = {
   step: string;
@@ -82,7 +82,8 @@ export async function POST(
         );
       };
 
-      await telemetryStorage.run(listener, async () => {
+      setTelemetryListener(listener);
+      try {
         controller.enqueue(
           encodeEvent({
             step: 'init',
@@ -205,7 +206,9 @@ export async function POST(
 
         controller.enqueue(encodeEvent({ step: 'analysis', status: 'complete', message: 'Analysis complete' }));
         controller.close();
-      });
+      } finally {
+        setTelemetryListener(null);
+      }
     },
   });
 

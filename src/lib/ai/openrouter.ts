@@ -1,49 +1,12 @@
-import { AsyncLocalStorage } from 'async_hooks';
 import { sql } from '../db';
+import { emitTelemetry, type ApiTelemetryEvent } from './telemetry';
+export { DEFAULT_AI_MODEL, RECOMMENDED_AI_MODELS } from './models';
+export { emitTelemetry, setTelemetryListener, type ApiTelemetryEvent, type TelemetryListener } from './telemetry';
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const APP_REFERER = process.env.OPENROUTER_REFERER || 'https://gitranked.dev';
 const APP_TITLE = process.env.OPENROUTER_TITLE || 'GitRanked';
-
-export const DEFAULT_AI_MODEL = process.env.OPENROUTER_MODEL || 'tencent/hy3:free';
-
-export const RECOMMENDED_AI_MODELS = [
-  { id: 'tencent/hy3:free', name: 'Tencent Hunyuan 3 (Free)', provider: 'Tencent', badge: 'Default' },
-  { id: 'google/gemini-2.0-flash-lite-preview-02-05:free', name: 'Gemini 2.0 Flash Lite (Free)', provider: 'Google', badge: 'Fast' },
-  { id: 'deepseek/deepseek-r1:free', name: 'DeepSeek R1 (Free)', provider: 'DeepSeek', badge: 'Reasoning' },
-  { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B (Free)', provider: 'Meta', badge: 'Powerful' },
-  { id: 'qwen/qwen-2.5-coder-32b-instruct:free', name: 'Qwen 2.5 Coder 32B (Free)', provider: 'Qwen', badge: 'Code' },
-  { id: 'mistralai/mistral-small-24b-instruct-2501:free', name: 'Mistral Small 24B (Free)', provider: 'Mistral', badge: 'Balanced' },
-  { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'Anthropic', badge: 'Flagship' },
-  { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', badge: 'Popular' },
-] as const;
-
-export type ApiTelemetryEvent = {
-  type: 'api_request' | 'api_response' | 'api_error';
-  provider: 'openrouter' | 'github';
-  endpoint: string;
-  model?: string;
-  task?: string;
-  status?: number;
-  latencyMs?: number;
-  summary: string;
-};
-
-export type TelemetryListener = (event: ApiTelemetryEvent) => void;
-
-export const telemetryStorage = new AsyncLocalStorage<TelemetryListener>();
-
-export function emitTelemetry(event: ApiTelemetryEvent) {
-  const listener = telemetryStorage.getStore();
-  if (listener) {
-    try {
-      listener(event);
-    } catch {
-      // ignore
-    }
-  }
-}
 
 let cachedModel: { model: string; fetchedAt: number } | null = null;
 
@@ -99,7 +62,7 @@ export async function setAiModel(model: string): Promise<string> {
 }
 
 // Backward compatibility export
-export const AI_MODEL = DEFAULT_AI_MODEL;
+export const AI_MODEL = process.env.OPENROUTER_MODEL || 'tencent/hy3:free';
 
 type OpenRouterResponse = {
   choices?: Array<{
