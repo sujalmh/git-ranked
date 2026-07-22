@@ -226,3 +226,42 @@ export async function getDiffFacts(params: GetDiffFactsParams): Promise<DiffFact
     return undefined;
   }
 }
+
+export async function getPushDiffFacts(
+  repoOwner: string,
+  repoName: string,
+  repoId: number,
+  beforeSha: string,
+  afterSha: string
+): Promise<DiffFacts | undefined> {
+  if (!beforeSha || !afterSha || beforeSha === afterSha) return undefined;
+
+  try {
+    const repoQuery = await sql`
+      SELECT i.github_installation_id
+      FROM repositories r
+      JOIN installations i ON r.installation_id = i.id
+      WHERE r.id = ${repoId}
+    `;
+    if (repoQuery.length === 0) return undefined;
+
+    const installationId = repoQuery[0].github_installation_id;
+    const token = await getInstallationAccessToken(installationId);
+    if (!token) return undefined;
+
+    const owner = encodeURIComponent(repoOwner);
+    const name = encodeURIComponent(repoName);
+    const compareRes = await githubInstallationApi<{ files?: GitHubPullRequestFile[] }>(
+      `/repos/${owner}/${name}/compare/${beforeSha}...${afterSha}`,
+      token,
+      DIFF_FETCH_TIMEOUT_MS
+    );
+
+    if (!compareRes.files) return undefined;
+    return deriveDiffFactsFromFiles(compareRes.files.slice(0, MAX_FILES_PER_PR));
+  } catch (error) {
+    console.error(`Failed to fetch push diff facts for ${beforeSha}...${afterSha}:`, error);
+    return undefined;
+  }
+}
+

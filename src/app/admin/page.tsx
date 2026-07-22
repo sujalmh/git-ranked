@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { Users, Database, Package } from "lucide-react";
 import Link from "next/link";
+import { AdminProfileSelector } from "@/components/AdminProfileSelector";
 
 export const dynamic = "force-dynamic";
 
@@ -23,15 +24,17 @@ export default async function AdminDashboardPage() {
   }
 
   // Fetch metrics
-  const [usersRes, reposRes, installsRes] = await Promise.all([
+  const [usersRes, reposRes, installsRes, reposListRes] = await Promise.all([
     sql`SELECT count(*) as count FROM app_users`,
     sql`SELECT count(*) as count FROM repositories WHERE is_active = true`,
     sql`SELECT count(*) as count FROM installations WHERE status = 'active'`,
+    sql`SELECT id, owner, name, scoring_profile FROM repositories WHERE is_active = true ORDER BY name ASC LIMIT 50`,
   ]);
 
   const totalUsers = parseInt(usersRes[0]?.count || "0", 10);
   const totalRepos = parseInt(reposRes[0]?.count || "0", 10);
   const activeInstalls = parseInt(installsRes[0]?.count || "0", 10);
+  const activeReposList = reposListRes as unknown as Array<{ id: number; owner: string; name: string; scoring_profile: any }>;
 
   return (
     <div className="min-h-screen bg-black text-white p-8 md:p-16">
@@ -76,6 +79,11 @@ export default async function AdminDashboardPage() {
             gradient="from-amber-500/20 to-amber-500/0"
           />
         </div>
+
+        {/* Repository Profiles Selector */}
+        {activeReposList.length > 0 && (
+          <AdminProfileSelector repos={activeReposList} />
+        )}
         
         {/* Further Extensions */}
         <div className="p-8 rounded-2xl bg-zinc-950 border border-zinc-900">

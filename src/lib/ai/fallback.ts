@@ -182,7 +182,7 @@ export function impactAnalysisFallback(ctx: TaskContext): ImpactAnalysis {
 
   const role = deriveRole(stats);
   const topDimension = breakdown
-    ? Object.entries(breakdown).sort((a, b) => b[1] - a[1])[0]
+    ? Object.entries(breakdown).sort((a, b) => (b[1] as number) - (a[1] as number))[0]
     : null;
 
   const explanation = stats

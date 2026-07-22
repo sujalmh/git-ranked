@@ -53,13 +53,14 @@ function prNumberOf(payload: Record<string, unknown>): number | undefined {
 
 export function toEvidenceItem(event: RawEvent, actor = 'contributor'): EvidenceItem | null {
   const payload = asPayload(event.payload);
-  const title = titleFromPayload(event.type, payload) || event.type;
+  const type = event.event_type || event.type || '';
+  const title = titleFromPayload(type, payload) || type;
   const prNumber = prNumberOf(payload);
   const additions = asNumber(payload.additions) || undefined;
   const deletions = asNumber(payload.deletions) || undefined;
   return {
-    id: `ev-${event.id ?? `${event.type}-${event.created_at}-${actor}`}`,
-    kind: kindFor(event.type),
+    id: `ev-${event.id ?? `${type}-${event.created_at}-${actor}`}`,
+    kind: kindFor(type),
     title,
     actor,
     date: eventDate(event.created_at).toISOString(),

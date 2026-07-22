@@ -164,6 +164,116 @@ export async function initSchema() {
   await sql`ALTER TABLE repositories ADD COLUMN IF NOT EXISTS share_token VARCHAR(32) UNIQUE`.catch(() => {});
   await sql`ALTER TABLE repositories ADD COLUMN IF NOT EXISTS share_enabled BOOLEAN DEFAULT false`.catch(() => {});
 
+  // --- Scoring System v3 migrations ---
+  await sql`ALTER TABLE repositories ADD COLUMN IF NOT EXISTS scoring_profile VARCHAR(24)`.catch(() => {});
+  await sql`ALTER TABLE github_events ADD COLUMN IF NOT EXISTS before_sha VARCHAR(40)`.catch(() => {});
+  await sql`ALTER TABLE github_events ADD COLUMN IF NOT EXISTS after_sha VARCHAR(40)`.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS work_unit_candidates (
+      id BIGSERIAL PRIMARY KEY,
+      repo_id INTEGER NOT NULL REFERENCES repositories(id),
+      correlation_key VARCHAR(160) NOT NULL,
+      status VARCHAR(24) NOT NULL DEFAULT 'pending',
+      source_event_ids BIGINT[] NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      classified_at TIMESTAMPTZ,
+      UNIQUE (repo_id, correlation_key)
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS wuc_repo_status_idx ON work_unit_candidates(repo_id, status);`.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS work_units (
+      id BIGSERIAL PRIMARY KEY,
+      repo_id INTEGER NOT NULL REFERENCES repositories(id),
+      candidate_id BIGINT NOT NULL REFERENCES work_unit_candidates(id),
+      work_type VARCHAR(24) NOT NULL,
+      facts JSONB NOT NULL,
+      derived JSONB NOT NULL,
+      derivation_ruleset_version VARCHAR(24) NOT NULL,
+      extraction_confidence REAL NOT NULL DEFAULT 0,
+      extraction_source VARCHAR(24) NOT NULL,
+      flagged_for_review BOOLEAN NOT NULL DEFAULT false,
+      shipped BOOLEAN NOT NULL DEFAULT false,
+      outcome JSONB,
+      outcome_updated_at TIMESTAMPTZ,
+      size_metrics JSONB,
+      rationale JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      shipped_at TIMESTAMPTZ,
+      source_event_ids BIGINT[] NOT NULL DEFAULT '{}'
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS wu_repo_contrib_idx ON work_units(repo_id);`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS wu_shipped_idx ON work_units(repo_id, shipped_at) WHERE shipped = true;`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS wu_review_queue_idx ON work_units(repo_id, flagged_for_review) WHERE flagged_for_review = true;`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS wu_outcome_idx ON work_units(repo_id, shipped_at) WHERE shipped = true AND outcome IS NULL;`.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS work_unit_contributors (
+      work_unit_id BIGINT NOT NULL REFERENCES work_units(id) ON DELETE CASCADE,
+      contributor_id INTEGER NOT NULL REFERENCES github_contributors(id),
+      attribution_weight REAL NOT NULL,
+      PRIMARY KEY (work_unit_id, contributor_id)
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS wuc_contrib_idx ON work_unit_contributors(contributor_id);`.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS work_unit_overrides (
+      id BIGSERIAL PRIMARY KEY,
+      work_unit_id BIGINT NOT NULL REFERENCES work_units(id),
+      field VARCHAR(40) NOT NULL,
+      value JSONB NOT NULL,
+      overridden_by INTEGER REFERENCES app_users(id),
+      reason TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS wuo_unit_idx ON work_unit_overrides(work_unit_id);`.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS scoring_config (
+      id BIGSERIAL PRIMARY KEY,
+      version VARCHAR(24) NOT NULL,
+      repo_id INTEGER REFERENCES repositories(id),
+      profile VARCHAR(24) NOT NULL,
+      derivation_weights JSONB NOT NULL,
+      value_weights JSONB NOT NULL,
+      caps JSONB NOT NULL,
+      decay_half_life_days INTEGER NOT NULL DEFAULT 60,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (version, profile, repo_id)
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS dimension_scores (
+      contributor_id INTEGER NOT NULL REFERENCES github_contributors(id),
+      repo_id INTEGER NOT NULL REFERENCES repositories(id),
+      window_start TIMESTAMPTZ,
+      window_end TIMESTAMPTZ,
+      decay_profile VARCHAR(16) NOT NULL,
+      impact REAL NOT NULL DEFAULT 0,
+      quality REAL NOT NULL DEFAULT 0,
+      collaboration REAL NOT NULL DEFAULT 0,
+      consistency REAL NOT NULL DEFAULT 0,
+      composite REAL NOT NULL DEFAULT 0,
+      scoring_config_version VARCHAR(24) NOT NULL,
+      computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (contributor_id, repo_id, decay_profile, scoring_config_version)
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS classification_cache (
+      content_hash VARCHAR(64) PRIMARY KEY,
+      response JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
   console.log('Database schema initialized.');
 }
 

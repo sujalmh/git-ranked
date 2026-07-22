@@ -31,9 +31,11 @@ export async function fetchEvents(
   const rows = contributorId
     ? await sql`
         SELECT e.id, e.event_type, e.payload, e.created_at, e.contributor_id,
-               c.username, e.classification, e.classified_at, e.diff_facts
+               c.username, e.classification, e.classified_at, e.diff_facts,
+               wu.work_type as unit_work_type, wu.facts as unit_facts
         FROM github_events e
         JOIN github_contributors c ON e.contributor_id = c.id
+        LEFT JOIN work_units wu ON e.id = ANY(wu.source_event_ids)
         WHERE e.repo_id = ${repoId}
           AND e.contributor_id = ${contributorId}
           AND e.created_at >= ${dateFrom}::date
@@ -42,9 +44,11 @@ export async function fetchEvents(
       `
     : await sql`
         SELECT e.id, e.event_type, e.payload, e.created_at, e.contributor_id,
-               c.username, e.classification, e.classified_at, e.diff_facts
+               c.username, e.classification, e.classified_at, e.diff_facts,
+               wu.work_type as unit_work_type, wu.facts as unit_facts
         FROM github_events e
         JOIN github_contributors c ON e.contributor_id = c.id
+        LEFT JOIN work_units wu ON e.id = ANY(wu.source_event_ids)
         WHERE e.repo_id = ${repoId}
           AND c.username NOT ILIKE '%[bot]%'
           AND e.created_at >= ${dateFrom}::date
@@ -84,7 +88,18 @@ export async function normalizeEvents(
       diffFacts = row.diff_facts as DiffFacts;
     }
 
-    const classification = parseClassification(row.classification);
+    let classification = parseClassification(row.classification);
+    if ((row as any).unit_work_type) {
+      classification = {
+        event_id: row.id,
+        work_type: (row as any).unit_work_type,
+        categories: [(row as any).unit_work_type],
+        work_areas: [(row as any).unit_work_type],
+        technologies: [],
+        confidence: 1.0,
+        reasoning: title,
+      };
+    }
 
     events.push({
       id: row.id,

@@ -1,5 +1,5 @@
 import { sql } from './db';
-import { computeContributionScore, type ClassificationMap } from './scoring';
+import { type ClassificationMap } from './scoring';
 import { getRepoInsights } from './insights';
 import { runTaskById, getCachedContributorResults } from './ai';
 import type { AiResult, ContributorProfile, ImpactAnalysis, RepositorySummary, TeamInsights, ClassificationItem } from './ai/types';
@@ -134,7 +134,15 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
     categoryCountsByContributor.set(row.contributor_id, categoryCounts);
 
     if (!contributor.lastActive || createdAt > contributor.lastActive) contributor.lastActive = createdAt;
-    contributor.events.push({ id: row.id, type: row.type, payload, created_at: createdAt.toISOString() });
+    contributor.events.push({
+      id: row.id,
+      event_type: row.type,
+      type: row.type,
+      payload,
+      created_at: createdAt.toISOString(),
+      contributor_id: row.contributor_id,
+      username: row.username,
+    });
 
     const highlightText = describeEvent(row.type, payload);
     contributor.highlights.push(highlightText);
@@ -154,10 +162,22 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
     contributors.set(row.contributor_id, contributor);
   }
 
-  const scored = Array.from(contributors.values()).map(contributor => ({
-    ...contributor,
-    score: computeContributionScore(contributor.events, { classifications }),
-  }));
+  const scored = Array.from(contributors.values()).map(contributor => {
+    const featureDelivery = contributor.prsMerged * 15 + contributor.commits * 2;
+    const codeQuality = contributor.fixes * 10;
+    const reviews = contributor.reviews * 10;
+    const collaboration = contributor.issues * 5 + contributor.releases * 10;
+    const consistency = Math.min(50, contributor.events.length * 2);
+    const total = featureDelivery + codeQuality + reviews + collaboration + consistency;
+
+    return {
+      ...contributor,
+      score: {
+        total,
+        breakdown: { featureDelivery, codeQuality, reviews, collaboration, consistency },
+      },
+    };
+  });
 
   const ranked = scored.map(contributor => {
     const nextContributor = {
@@ -225,7 +245,52 @@ export async function fetchRepoEvents(repoId: number): Promise<RepoEventRow[]> {
 
 export async function getRepoAnalysisData(repoId: number): Promise<RepoAnalysisData> {
   const eventsQuery = await fetchRepoEvents(repoId);
-  const { contributors, highlights, activityFeed, reviewGraph } = buildContributorInsights(eventsQuery);
+  const { contributors: rawContributors, highlights, activityFeed, reviewGraph } = buildContributorInsights(eventsQuery);
+
+  // Fetch v3 dimension scores
+  let dimensionRows = await sql`
+    SELECT contributor_id, decay_profile, impact, quality, collaboration, consistency, composite,
+           window_start, window_end, scoring_config_version, computed_at
+    FROM dimension_scores
+    WHERE repo_id = ${repoId}
+  `;
+
+  if (dimensionRows.length === 0) {
+    const { scoreRepo } = await import('./scoring');
+    const computed = await scoreRepo(repoId);
+    dimensionRows = computed as unknown as typeof dimensionRows;
+  }
+
+  const dimMap = new Map<number, { current?: any; all_time?: any }>();
+  for (const row of dimensionRows) {
+    const cid = row.contributor_id as number;
+    const existing = dimMap.get(cid) ?? {};
+    if (row.decay_profile === 'current') existing.current = row;
+    else existing.all_time = row;
+    dimMap.set(cid, existing);
+  }
+
+  const contributors = rawContributors.map((c) => {
+    const ds = dimMap.get(c.id);
+    if (!ds?.current) return c;
+    const currentComp = Math.max(1, Math.min(100, Math.round(ds.current.composite)));
+    return {
+      ...c,
+      impactScore: currentComp,
+      dimensionScores: ds,
+      score: {
+        total: currentComp,
+        breakdown: {
+          featureDelivery: ds.current.impact,
+          codeQuality: ds.current.quality,
+          reviews: ds.current.collaboration,
+          collaboration: ds.current.collaboration,
+          consistency: ds.current.consistency,
+        },
+      },
+    };
+  }).sort((a, b) => b.impactScore - a.impactScore);
+
   const topContributor = contributors[0];
   const topReviewer = topBy(contributors, contributor => contributor.reviews);
   const topFixer = topBy(contributors, contributor => contributor.fixes);

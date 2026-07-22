@@ -9,12 +9,14 @@ export function ImpactExplanation({
   total,
 }: {
   result: AiResult<ImpactAnalysis> | null;
-  breakdown: ScoreDetails['breakdown'];
-  total: number;
+  breakdown?: ScoreDetails['breakdown'];
+  total?: number;
 }) {
   return (
     <div className="space-y-5">
-      <ExplainableScore total={total} breakdown={breakdown} />
+      {total !== undefined && breakdown !== undefined && (
+        <ExplainableScore total={total} breakdown={breakdown} />
+      )}
 
       {result ? (
         <>

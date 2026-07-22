@@ -14,7 +14,6 @@ import {
 } from '../lib/ai/schemas';
 import { classifyEventsFallback, contributorProfileFallback, repositorySummaryFallback, impactAnalysisFallback, teamInsightsFallback, weeklyReportFallback, monthlyReportFallback } from '../lib/ai/fallback';
 import type { TaskContext, NormalizedEvent } from '../lib/ai/types';
-import { computeContributionScore } from '../lib/scoring';
 
 function makeFixtureEvents(): NormalizedEvent[] {
   return [
@@ -112,10 +111,10 @@ function makeFixtureContext(): TaskContext {
       changedLines: 450,
       activeDays: 5,
     },
-    scoreBreakdown: computeContributionScore(
-      events.map(e => ({ type: e.type, payload: {}, created_at: e.createdAt, id: e.id })),
-      { classifications: new Map(events.filter(e => e.classification).map(e => [e.id, e.classification!])) }
-    ),
+    scoreBreakdown: {
+      total: 85,
+      breakdown: { featureDelivery: 40, codeQuality: 20, reviews: 15, collaboration: 5, consistency: 5 }
+    },
   };
 }
 

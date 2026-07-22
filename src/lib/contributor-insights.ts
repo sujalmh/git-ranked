@@ -10,7 +10,20 @@ export type ContributorInsight = {
   id: number;
   username: string;
   avatarUrl: string | null;
-  score: ReturnType<typeof import('./scoring').computeContributionScore>;
+  score: {
+    total: number;
+    breakdown: {
+      featureDelivery: number;
+      codeQuality: number;
+      reviews: number;
+      collaboration: number;
+      consistency: number;
+    };
+  };
+  dimensionScores?: {
+    current?: import('./scoring/types').DimensionScores;
+    all_time?: import('./scoring/types').DimensionScores;
+  };
   impactScore: number;
   commits: number;
   prsOpened: number;

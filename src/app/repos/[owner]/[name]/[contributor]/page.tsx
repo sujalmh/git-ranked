@@ -1,26 +1,30 @@
 import { auth } from '@/lib/auth';
 import { Navbar } from '@/components/Navbar';
-import { ArrowLeft, Crown } from 'lucide-react';
+import { ArrowLeft, Crown, Star, CheckCircle, AlertTriangle, ShieldCheck, Flame, GitMerge, FileText, Cpu, Shield } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { sql } from '@/lib/db';
-import { redirect } from 'next/navigation';
-import { computeScoreBaseline, normalizeScoreToImpact, type ClassificationMap, type RawEvent } from '@/lib/scoring';
+import { getRepoScoringConfig, scoreRepo, type DimensionScores, type WorkUnit } from '@/lib/scoring';
 import { runTaskById } from '@/lib/ai';
 import type { AiResult, ContributorProfile, ImpactAnalysis } from '@/lib/ai/types';
 import { ContributorProfileCard, ImpactExplanation } from '@/components/ai';
-import { describeEvent, asPayload, eventDate, formatRelativeDate } from '@/lib/contributor-insights';
-import type { ClassificationItem } from '@/lib/ai/types';
+import { formatRelativeDate } from '@/lib/contributor-insights';
 
-type EventRow = {
-  id: number;
-  event_type: string;
-  payload: unknown;
-  created_at: Date | string;
-  classification?: unknown;
-  contributor_id: number;
-  username: string;
-};
+function StarRating({ count }: { count: number }) {
+  const stars = Math.min(5, Math.max(1, Math.round(count)));
+  return (
+    <div className="flex items-center gap-0.5" title={`Score: ${stars}/5`}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star
+          key={i}
+          className={`w-3.5 h-3.5 ${
+            i <= stars ? 'text-amber-400 fill-amber-400' : 'text-zinc-700'
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default async function ContributorDetail(
   props: { params: Promise<{ owner: string; name: string; contributor: string }> }
@@ -31,7 +35,6 @@ export default async function ContributorDetail(
 
   const { owner, name, contributor } = params;
 
-  // Verify repo access
   const repoQuery = await sql`
     SELECT r.id
     FROM repositories r
@@ -40,9 +43,10 @@ export default async function ContributorDetail(
       AND (i.linked_user_id = ${userId} OR r.installation_id IS NULL)
   `;
 
-  if (repoQuery.length === 0) return <div>Repository not found.</div>;
+  if (repoQuery.length === 0) return <div className="p-8">Repository not found.</div>;
 
   const repoId = repoQuery[0].id;
+  const config = await getRepoScoringConfig(repoId);
 
   const dbData = await sql`
     SELECT c.id as contributor_id, c.username, c.avatar_url
@@ -51,188 +55,184 @@ export default async function ContributorDetail(
     LIMIT 1
   `;
 
-  if (dbData.length === 0) return <div>Contributor not found.</div>;
+  if (dbData.length === 0) return <div className="p-8">Contributor not found.</div>;
 
   const contributorId = dbData[0].contributor_id;
   const avatarUrl = dbData[0].avatar_url;
 
-  // 30-day window — matches the AI impact-analysis window so the deterministic
-  // 0-100 score and the AI explanation use the same normalized scale.
-  const dateTo = new Date().toISOString().split('T')[0];
-  // eslint-disable-next-line react-hooks/purity
-  const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  // Fetch v3 dimension scores for contributor
+  let scoreRows = await sql`
+    SELECT contributor_id, decay_profile, impact, quality, collaboration, consistency, composite
+    FROM dimension_scores
+    WHERE repo_id = ${repoId} AND contributor_id = ${contributorId} AND scoring_config_version = ${config.version}
+  `;
 
-  // Fetch all contributors' events for the 30-day window so we can compute a
-  // repo-wide topScore and normalize this contributor's score to 0-100.
-  const eventRows = (await sql`
-    SELECT e.id, e.event_type, e.payload, e.created_at, e.classification, e.contributor_id, c.username
-    FROM github_events e
-    JOIN github_contributors c ON e.contributor_id = c.id
-    WHERE e.repo_id = ${repoId}
-      AND c.username NOT ILIKE '%[bot]%'
-      AND e.created_at >= ${dateFrom}::date
-      AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
-    ORDER BY e.created_at DESC
-  `) as EventRow[];
-
-  // Build classifications map and group events by contributor
-  const classifications: ClassificationMap = new Map();
-  const eventsByContributor = new Map<number, RawEvent[]>();
-  for (const row of eventRows) {
-    if (row.classification && typeof row.classification === 'object') {
-      classifications.set(row.id, row.classification as ClassificationItem);
-    }
-    const list = eventsByContributor.get(row.contributor_id) ?? [];
-    list.push({
-      id: row.id,
-      type: row.event_type,
-      payload: asPayload(row.payload),
-      created_at: eventDate(row.created_at).toISOString(),
-    });
-    eventsByContributor.set(row.contributor_id, list);
+  if (scoreRows.length === 0) {
+    const computed = await scoreRepo(repoId);
+    scoreRows = computed.filter((s) => s.contributor_id === contributorId) as unknown as typeof scoreRows;
   }
 
-  // Compute the absolute 0-100 impact score (comparable across repos and
-  // consistent with the leaderboard).
-  const { scoresByContributor } = computeScoreBaseline(eventsByContributor, classifications);
-  const rawScore = scoresByContributor.get(contributorId);
-  const normalized = rawScore
-    ? normalizeScoreToImpact(rawScore)
-    : { total: 0, breakdown: { featureDelivery: 0, codeQuality: 0, reviews: 0, collaboration: 0, consistency: 0 } };
+  const currentScore: DimensionScores = (scoreRows as unknown as DimensionScores[]).find((s) => s.decay_profile === 'current') ?? {
+    contributor_id: contributorId,
+    repo_id: repoId,
+    decay_profile: 'current',
+    impact: 0,
+    quality: 0,
+    collaboration: 0,
+    consistency: 0,
+    composite: 0,
+    scoring_config_version: config.version,
+  };
 
-  // Calculate leaderboard rank for top 3 gold/silver/bronze styling
-  const sortedContributors = Array.from(scoresByContributor.entries()).sort((a, b) => b[1].total - a[1].total);
-  const rankIndex = sortedContributors.findIndex(([id]) => id === contributorId);
-  const rank = rankIndex !== -1 ? rankIndex + 1 : null;
+  // Fetch contributor work units
+  const workUnitsQuery = await sql`
+    SELECT wu.id, wu.work_type, wu.facts, wu.derived, wu.extraction_confidence,
+           wu.extraction_source, wu.shipped, wu.outcome, wu.size_metrics, wu.rationale,
+           wu.shipped_at, wu.created_at
+    FROM work_units wu
+    JOIN work_unit_contributors wuc ON wu.id = wuc.work_unit_id
+    WHERE wu.repo_id = ${repoId} AND wuc.contributor_id = ${contributorId}
+    ORDER BY wu.created_at DESC
+  `;
 
-  const recentEvents = (eventsByContributor.get(contributorId) ?? []).slice(0, 50);
+  const workUnits = workUnitsQuery as WorkUnit[];
 
-  // Fetch AI results (cache only)
+  const dateTo = new Date().toISOString().split('T')[0];
+  const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
   let profileResult: AiResult<ContributorProfile> | null = null;
   let impactResult: AiResult<ImpactAnalysis> | null = null;
   try {
-    profileResult = await runTaskById('contributor_profile', repoId, dateFrom, dateTo, contributorId) as AiResult<ContributorProfile> | null;
-    impactResult = await runTaskById('impact_analysis', repoId, dateFrom, dateTo, contributorId) as AiResult<ImpactAnalysis> | null;
+    profileResult = (await runTaskById('contributor_profile', repoId, dateFrom, dateTo, contributorId)) as AiResult<ContributorProfile> | null;
+    impactResult = (await runTaskById('impact_analysis', repoId, dateFrom, dateTo, contributorId)) as AiResult<ImpactAnalysis> | null;
   } catch (err) {
-    console.error("AI fetch failed", err);
+    console.error('AI fetch failed', err);
   }
 
   return (
     <div className="flex flex-col min-h-screen relative">
       <Navbar />
-      
+
       <main className="flex-1 w-full px-6 py-8">
-        <Link href={`/repos/${owner}/${name}`} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-6 w-fit text-base font-medium">
-          <ArrowLeft className="w-5 h-5" /> Back to Repo
+        <Link
+          href={`/repos/${owner}/${name}`}
+          className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-6 w-fit text-sm"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to Repo
         </Link>
 
-        <div className="flex items-center justify-between mb-8">
+        {/* Contributor Header */}
+        <div className="flex items-center justify-between mb-8 p-6 sleek-panel">
           <div className="flex items-center gap-4">
-            {avatarUrl && (
-              <Image
-                src={avatarUrl}
-                className={`rounded-full ${
-                  rank === 1 ? 'border-2 border-[#ffd700] shadow-[0_0_15px_rgba(255,215,0,0.4)]' :
-                  rank === 2 ? 'border-2 border-[#c0c0c0] shadow-[0_0_15px_rgba(192,192,192,0.4)]' :
-                  rank === 3 ? 'border-2 border-[#cd7f32] shadow-[0_0_15px_rgba(205,127,50,0.4)]' :
-                  'border border-white/10'
-                }`}
-                alt={contributor}
-                width={64}
-                height={64}
-              />
+            {avatarUrl ? (
+              <Image src={avatarUrl} width={64} height={64} className="rounded-full border border-white/10" alt={contributor} />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-zinc-800 border border-white/10" />
             )}
             <div>
-              <div className="flex items-center gap-3 mb-1">
-                <h1 className={`text-3xl md:text-4xl font-black ${
-                  rank === 1 ? 'text-[#ffd700]' :
-                  rank === 2 ? 'text-[#c0c0c0]' :
-                  rank === 3 ? 'text-[#cd7f32]' :
-                  'text-white'
-                }`}>
-                  {contributor}
-                </h1>
-                {rank && rank <= 3 && (
-                  <span className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-sm font-bold uppercase tracking-wider ${
-                    rank === 1 ? 'bg-[#ffd700]/10 border border-[#ffd700]/40 text-[#ffd700]' :
-                    rank === 2 ? 'bg-[#c0c0c0]/10 border border-[#c0c0c0]/40 text-[#c0c0c0]' :
-                    'bg-[#cd7f32]/10 border border-[#cd7f32]/40 text-[#cd7f32]'
-                  }`}>
-                    {rank === 1 && <Crown className="w-4 h-4 text-[#ffd700]" />}
-                    #{rank} Contributor
-                  </span>
-                )}
-              </div>
-              <p className="text-base text-zinc-400">Deep dive into impact and code velocity.</p>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                {contributor}
+              </h1>
+              <p className="text-xs text-zinc-400 mt-1">Profile: {config.profile} profile active</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <div className="text-3xl font-black text-indigo-400 leading-none">{Math.round(currentScore.composite)}</div>
+              <div className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider mt-1">Composite Score</div>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* AI Contributor Profile */}
-          <div className="sleek-panel p-6 border-t-2 border-t-[#00ffff]">
-            <h2 className="text-xl uppercase tracking-wider font-bold mb-4 text-white">AI Contributor Profile</h2>
-            {profileResult ? (
-              <ContributorProfileCard result={profileResult} />
-            ) : (
-              <div className="text-center py-6">
-                <p className="text-base text-zinc-400 mb-3">No AI profile generated yet.</p>
-                <Link
-                  href={`/repos/${owner}/${name}`}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 transition-colors font-semibold text-base"
-                >
-                  Analyse repository to generate
-                </Link>
-              </div>
-            )}
+        {/* 5 Dimension Breakdown Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          <div className="sleek-panel p-4">
+            <div className="text-xs text-zinc-400 mb-1">Impact</div>
+            <div className="text-2xl font-bold text-amber-400">{currentScore.impact}</div>
           </div>
-
-          {/* AI Impact Analysis */}
-          <div className="sleek-panel p-6 border-t-2 border-t-[#ccff00]">
-            <h2 className="text-xl uppercase tracking-wider font-bold mb-4 text-white">Impact Analysis</h2>
-            <ImpactExplanation
-              result={impactResult}
-              breakdown={normalized.breakdown}
-              total={normalized.total}
-            />
+          <div className="sleek-panel p-4">
+            <div className="text-xs text-zinc-400 mb-1">Quality</div>
+            <div className="text-2xl font-bold text-emerald-400">{currentScore.quality}</div>
+          </div>
+          <div className="sleek-panel p-4">
+            <div className="text-xs text-zinc-400 mb-1">Collaboration</div>
+            <div className="text-2xl font-bold text-blue-400">{currentScore.collaboration}</div>
+          </div>
+          <div className="sleek-panel p-4">
+            <div className="text-xs text-zinc-400 mb-1">Consistency</div>
+            <div className="text-2xl font-bold text-purple-400">{currentScore.consistency}</div>
           </div>
         </div>
 
-        {/* Recent Events */}
-        <div className="sleek-panel p-6 border-t-2 border-t-[#ff00ff]">
-          <h2 className="text-xl uppercase tracking-wider font-bold mb-4 text-white">Recent Events</h2>
-          {recentEvents.length === 0 ? (
-            <p className="text-base text-zinc-400">No recent activity found.</p>
+        {/* Work Units Section */}
+        <div className="mb-8">
+          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <Cpu className="w-5 h-5 text-indigo-400" />
+            Extracted Work Units & Explainable Scores ({workUnits.length})
+          </h2>
+
+          {workUnits.length === 0 ? (
+            <div className="sleek-panel p-6 text-center text-sm text-zinc-400">
+              No work units extracted yet. Run repository classification to generate work items.
+            </div>
           ) : (
             <div className="space-y-3">
-              {recentEvents.map((row) => {
-                const createdAt = eventDate(row.created_at);
-                const description = describeEvent(row.type, row.payload);
-                const classification = row.id !== undefined ? classifications.get(row.id) : undefined;
-                return (
-                  <div key={row.id} className="flex items-start gap-4 py-3 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors -mx-2 px-2 rounded-lg">
-                    <div className="text-xs font-bold uppercase tracking-wider text-zinc-500 mt-1 w-24 shrink-0">
-                      {formatRelativeDate(createdAt)}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-base text-zinc-200 font-medium">{description}</p>
-                      {classification && (
-                        <div className="flex items-center gap-3 mt-2">
-                          <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border border-[#ff00ff]/30 text-[#ff00ff] bg-[#ff00ff]/10">
-                            {classification.work_type}
-                          </span>
-                          <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">
-                            {Math.round(classification.confidence * 100)}% conf
-                          </span>
-                        </div>
+              {workUnits.map((unit) => (
+                <div key={unit.id} className="sleek-panel p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1 max-w-2xl">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                        {unit.work_type}
+                      </span>
+                      {unit.shipped && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" /> Shipped
+                        </span>
                       )}
+                      <span className="text-[10px] text-zinc-500" title={`Extraction Source: ${unit.extraction_source}`}>
+                        {Math.round(unit.extraction_confidence * 100)}% confidence ({unit.extraction_source})
+                      </span>
+                    </div>
+
+                    <div className="text-sm font-medium text-zinc-200 mt-1">
+                      {unit.rationale?.impact_reason}
+                    </div>
+
+                    <div className="text-xs text-zinc-400">
+                      Quality: {unit.rationale?.quality_reason}
                     </div>
                   </div>
-                );
-              })}
+
+                  <div className="flex items-center gap-6 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-zinc-800">
+                    <div className="text-right">
+                      <div className="text-xs text-zinc-500 mb-0.5">Difficulty</div>
+                      <StarRating count={unit.derived?.difficulty ?? 1} />
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-zinc-500 mb-0.5">Execution</div>
+                      <StarRating count={unit.derived?.execution_quality ?? 1} />
+                    </div>
+                    <div className="text-right pl-2 border-l border-zinc-800">
+                      <div className="text-xs text-zinc-500">Value</div>
+                      <div className="text-base font-bold text-indigo-400">
+                        {((unit.derived?.value ?? 0) * 10).toFixed(1)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
+
+        {/* AI Profile & Impact Sections */}
+        {(profileResult || impactResult) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {profileResult && <ContributorProfileCard result={profileResult} />}
+            {impactResult && <ImpactExplanation result={impactResult} />}
+          </div>
+        )}
       </main>
     </div>
   );

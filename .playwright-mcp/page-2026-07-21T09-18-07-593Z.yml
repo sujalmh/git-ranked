@@ -1,0 +1,233 @@
+- generic [active] [ref=f6e1]:
+  - generic [ref=f6e2]:
+    - banner [ref=f6e3]:
+      - generic [ref=f6e4]:
+        - link "GitRanked Logo GitRanked" [ref=f6e5] [cursor=pointer]:
+          - /url: /
+          - img "GitRanked Logo" [ref=f6e6]
+          - generic [ref=f6e7]: GitRanked
+        - generic [ref=f6e9]:
+          - button "Log In" [ref=f6e11]
+          - link "CONNECT TO GITHUB" [ref=f6e12] [cursor=pointer]:
+            - /url: https://github.com/apps/git-ranked-dev/installations/new
+    - main [ref=f6e13]:
+      - generic [ref=f6e14]: Shared read-only view — analysis cannot be triggered or modified here.
+      - generic [ref=f6e19]:
+        - link "View on GitRanked" [ref=f6e21] [cursor=pointer]:
+          - /url: /repos/sujalmh/restaurant-bot
+        - heading "sujalmh / restaurant-bot" [level=1] [ref=f6e22]
+        - paragraph [ref=f6e27]: "AI Engineering Intelligence: Understand what shipped, where bottlenecks are, and how your team collaborates."
+      - generic [ref=f6e28]:
+        - generic [ref=f6e36]:
+          - generic [ref=f6e37]: Collaborators
+          - generic [ref=f6e38]: "2"
+          - generic [ref=f6e39]: ranked this period
+        - generic [ref=f6e44]:
+          - generic [ref=f6e45]: Total Impact
+          - generic [ref=f6e46]: "66"
+          - generic [ref=f6e47]: sum of impact scores
+        - generic [ref=f6e53]:
+          - generic [ref=f6e54]: Team Health
+          - generic [ref=f6e55]: 62/100
+          - generic [ref=f6e56]: bottleneck
+        - generic [ref=f6e61]:
+          - generic [ref=f6e62]: Active Streaks
+          - generic [ref=f6e63]: "0"
+          - generic [ref=f6e64]: contributors on a streak
+      - generic [ref=f6e65]:
+        - generic [ref=f6e66]:
+          - generic [ref=f6e67]:
+            - generic [ref=f6e68]:
+              - heading "Leaderboard" [level=2] [ref=f6e71]
+              - generic [ref=f6e72]: Top 3 of 2 · ranked by impact
+            - button "Share Leaderboard" [ref=f6e73] [cursor=pointer]
+          - paragraph [ref=f6e81]: Search and sort the full list below the podium.
+          - generic [ref=f6e82]:
+            - generic [ref=f6e83]:
+              - link "#1 gold sujnankumar sujnankumar Generalist 37/100" [ref=f6e84] [cursor=pointer]:
+                - /url: /repos/sujalmh/restaurant-bot/sujnankumar
+                - generic [ref=f6e85]:
+                  - generic [ref=f6e86]: "#1 gold"
+                  - img "sujnankumar" [ref=f6e91]
+                  - generic [ref=f6e92]: sujnankumar
+                  - generic [ref=f6e93]: Generalist
+                  - generic [ref=f6e94]: 37/100
+              - link "#2 silver sujalmh sujalmh Generalist 29/100" [ref=f6e96] [cursor=pointer]:
+                - /url: /repos/sujalmh/restaurant-bot/sujalmh
+                - generic [ref=f6e97]:
+                  - generic [ref=f6e98]: "#2 silver"
+                  - img "sujalmh" [ref=f6e101]
+                  - generic [ref=f6e102]: sujalmh
+                  - generic [ref=f6e103]: Generalist
+                  - generic [ref=f6e104]: 29/100
+            - generic [ref=f6e106]:
+              - generic [ref=f6e107]: Rising this week
+              - generic [ref=f6e112]:
+                - generic [ref=f6e113]:
+                  - generic [ref=f6e118]: sujalmh
+                  - generic [ref=f6e119]: +10 events vs last week
+                  - generic [ref=f6e120]: 29/100
+                - generic [ref=f6e121]:
+                  - generic [ref=f6e126]: sujnankumar
+                  - generic [ref=f6e127]: +4 events vs last week
+                  - generic [ref=f6e128]: 37/100
+        - generic [ref=f6e129]:
+          - generic [ref=f6e130]:
+            - generic [ref=f6e131]:
+              - heading "Team Health" [level=2] [ref=f6e134]
+              - generic [ref=f6e135]: /100
+            - generic [ref=f6e136]:
+              - generic [ref=f6e138]:
+                - generic [ref=f6e139]: 37/100
+                - generic [ref=f6e140]: Team Health · Bottleneck
+              - generic [ref=f6e141]:
+                - application [ref=f6e145]:
+                  - generic [ref=f6e161]:
+                    - generic [ref=f6e162]: Delivery
+                    - generic [ref=f6e164]: Collab
+                    - generic [ref=f6e167]: Quality
+                    - generic [ref=f6e170]: Reviews
+                    - generic [ref=f6e173]: Knowledge
+                - generic [ref=f6e176]:
+                  - button "Delivery 93" [ref=f6e177]:
+                    - generic [ref=f6e178]: Delivery
+                    - generic [ref=f6e181]: "93"
+                  - button "Collab 70" [ref=f6e182]:
+                    - generic [ref=f6e183]: Collab
+                    - generic [ref=f6e186]: "70"
+                  - button "Quality 75" [ref=f6e187]:
+                    - generic [ref=f6e188]: Quality
+                    - generic [ref=f6e191]: "75"
+                  - button "Reviews 0" [ref=f6e192]:
+                    - generic [ref=f6e193]: Reviews
+                    - generic [ref=f6e195]: "0"
+                  - button "Knowledge 33" [ref=f6e196]:
+                    - generic [ref=f6e197]: Knowledge
+                    - generic [ref=f6e200]: "33"
+          - generic [ref=f6e201]:
+            - generic [ref=f6e202]:
+              - heading "Activity Feed" [level=2] [ref=f6e207]
+              - generic [ref=f6e208]: most recent first
+            - generic [ref=f6e209]:
+              - generic [ref=f6e218]:
+                - generic [ref=f6e219]: sujnankumar Completed Refactor migrations and enhance frontend authentication and backend features
+                - generic [ref=f6e220]: Yesterday
+              - generic [ref=f6e229]:
+                - generic [ref=f6e230]: sujnankumar Proposed Refactor migrations and enhance frontend authentication and backend features
+                - generic [ref=f6e231]: Yesterday
+              - generic [ref=f6e240]:
+                - generic [ref=f6e241]: sujalmh Completed implement RBAC models, add order schemas, and update database m…
+                - generic [ref=f6e242]: Yesterday
+              - generic [ref=f6e250]:
+                - generic [ref=f6e251]: sujnankumar Proposed implement RBAC models, add order schemas, and update database m…
+                - generic [ref=f6e252]: Yesterday
+      - generic [ref=f6e253]:
+        - generic [ref=f6e254]:
+          - heading "Contributor Profiles" [level=2] [ref=f6e259]
+          - generic [ref=f6e260]: Top 2 of 2 — open a profile for full detail
+        - generic [ref=f6e261]:
+          - generic [ref=f6e262]:
+            - 'link "sujnankumar sujnankumar Tier · Builder 37/100 sujnankumar contributed across 1 day(s). Strongest dimension: codeQuality. Key signals: 1 merged PR(s), 1 commit(s)." [ref=f6e263] [cursor=pointer]':
+              - /url: /repos/sujalmh/restaurant-bot/sujnankumar
+              - generic [ref=f6e264]:
+                - img "sujnankumar" [ref=f6e265]
+                - generic [ref=f6e266]:
+                  - heading "sujnankumar" [level=3] [ref=f6e267]
+                  - text: Tier · Builder
+                - generic [ref=f6e268]: 37/100
+              - paragraph [ref=f6e270]: "sujnankumar contributed across 1 day(s). Strongest dimension: codeQuality. Key signals: 1 merged PR(s), 1 commit(s)."
+            - generic [ref=f6e271]:
+              - generic "16 commits" [ref=f6e272]: "16"
+              - generic "2 PRs opened" [ref=f6e277]: "2"
+              - generic "1 PRs merged" [ref=f6e284]: "1"
+              - generic "1 fixes" [ref=f6e291]: "1"
+            - generic [ref=f6e303]:
+              - generic [ref=f6e304]: backend
+              - generic [ref=f6e305]: backend/alembic
+              - generic [ref=f6e306]: backend/app
+            - generic [ref=f6e307]:
+              - generic [ref=f6e308]: Database
+              - generic [ref=f6e309]: Refactor
+              - generic [ref=f6e310]: Infrastructure
+            - generic [ref=f6e311]:
+              - button "Why this score?" [ref=f6e312]
+              - link "Full profile →" [ref=f6e316] [cursor=pointer]:
+                - /url: /repos/sujalmh/restaurant-bot/sujnankumar
+          - generic [ref=f6e317]:
+            - 'link "sujalmh sujalmh Tier · Builder 29/100 sujalmh contributed across 1 day(s). Strongest dimension: featureDelivery. Key signals: 1 merged PR(s), 9 commit(s)." [ref=f6e318] [cursor=pointer]':
+              - /url: /repos/sujalmh/restaurant-bot/sujalmh
+              - generic [ref=f6e319]:
+                - img "sujalmh" [ref=f6e320]
+                - generic [ref=f6e321]:
+                  - heading "sujalmh" [level=3] [ref=f6e322]
+                  - text: Tier · Builder
+                - generic [ref=f6e323]: 29/100
+              - paragraph [ref=f6e325]: "sujalmh contributed across 1 day(s). Strongest dimension: featureDelivery. Key signals: 1 merged PR(s), 9 commit(s)."
+            - generic [ref=f6e326]:
+              - generic "11 commits" [ref=f6e327]: "11"
+              - generic "1 PRs merged" [ref=f6e332]: "1"
+            - generic [ref=f6e339]:
+              - generic [ref=f6e340]: AI
+              - generic [ref=f6e341]: backend/alembic
+              - generic [ref=f6e342]: backend/app
+            - generic [ref=f6e343]:
+              - generic [ref=f6e344]: Infrastructure
+              - generic [ref=f6e345]: Feature
+              - generic [ref=f6e346]: Testing
+              - generic [ref=f6e347]: Frontend
+            - generic [ref=f6e348]:
+              - button "Why this score?" [ref=f6e349]
+              - link "Full profile →" [ref=f6e353] [cursor=pointer]:
+                - /url: /repos/sujalmh/restaurant-bot/sujalmh
+      - generic [ref=f6e355]:
+        - generic [ref=f6e356]:
+          - heading "Work Areas Treemap" [level=2] [ref=f6e361]
+          - generic [ref=f6e362]: Hover a block to see contributors
+        - generic [ref=f6e363]:
+          - img [ref=f6e367]:
+            - generic [ref=f6e368]:
+              - generic [ref=f6e372] [cursor=pointer]:
+                - generic:
+                  - generic: backend/alembic
+                  - generic: 33%
+              - generic [ref=f6e377] [cursor=pointer]:
+                - generic:
+                  - generic: backend/app
+                  - generic: 33%
+              - generic [ref=f6e382] [cursor=pointer]:
+                - generic:
+                  - generic: backend
+                  - generic: 25%
+              - generic [ref=f6e387] [cursor=pointer]:
+                - generic:
+                  - generic: AI
+                  - generic: 8%
+          - paragraph [ref=f6e394]: Hover any block to see who worked in that area
+      - generic [ref=f6e396]:
+        - generic [ref=f6e397]:
+          - heading "AI Insights" [level=2] [ref=f6e401]
+          - generic [ref=f6e402]: Team-distribution patterns
+        - paragraph [ref=f6e403]: Repository sujalmh/restaurant-bot had 14 events from 2 contributor(s) between 2026-06-21 and 2026-07-21. 2 PR(s) merged, 0 review(s) submitted.
+        - generic [ref=f6e404]:
+          - generic [ref=f6e405]: Completed implement RBAC models, add order…
+          - generic [ref=f6e408]: Completed Refactor migrations and enhance frontend…
+        - generic [ref=f6e411]:
+          - generic [ref=f6e412]:
+            - generic [ref=f6e416]:
+              - generic [ref=f6e417]: Single-Owner Risk
+              - paragraph [ref=f6e418]: sujalmh accounts for 71% of all activity — potential bus factor risk.
+            - button "See supporting evidence" [ref=f6e419]
+          - generic [ref=f6e423]:
+            - generic [ref=f6e427]:
+              - generic [ref=f6e428]: Review Bottleneck
+              - paragraph [ref=f6e429]: "Low review coverage: 0 reviews for 4 pull requests."
+            - button "See supporting evidence" [ref=f6e430]
+          - generic [ref=f6e434]:
+            - generic [ref=f6e438]:
+              - generic [ref=f6e439]: Quiet Area
+              - paragraph [ref=f6e440]: No code reviews observed in this period.
+            - button "See supporting evidence" [ref=f6e441]
+          - button "Show 1 more finding" [ref=f6e445]
+      - generic:
+        - complementary
+  - alert [ref=f6e446]

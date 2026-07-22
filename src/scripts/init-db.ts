@@ -7,8 +7,10 @@ config({ path: resolve(process.cwd(), '.env.local') });
 async function main() {
   try {
     const { initSchema } = await import('../lib/db');
+    const { seedScoringConfigs } = await import('../lib/scoring/seed');
     await initSchema();
-    console.log('Successfully initialized schema.');
+    await seedScoringConfigs();
+    console.log('Successfully initialized schema and seeded scoring configs.');
     process.exit(0);
   } catch (error) {
     console.error('Failed to initialize schema:', error);

@@ -83,7 +83,56 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
         </div>
 
         {/* Content Sections */}
-        <div className="max-w-4xl mx-auto px-6 py-16">
+        <div className="max-w-4xl mx-auto px-6 py-12">
+          {/* About GitRanked Section */}
+          <div className="mb-20 p-8 sm:p-10 border-2 border-white/10 bg-zinc-950/80 relative">
+            <div className="inline-block px-3 py-1 mb-4 border border-[#ccff00] bg-[#ccff00]/10 text-[#ccff00] text-xs font-black uppercase tracking-widest">
+              ABOUT GITRANKED
+            </div>
+            <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tight mb-4 text-white">
+              AI-Powered GitHub Engineering Analytics
+            </h2>
+            <p className="text-zinc-300 text-lg leading-relaxed mb-8">
+              GitRanked is an engineering insights and analytics platform designed for software teams, tech leaders, and maintainers. By analyzing real-time GitHub activity—including pull requests, code reviews, commit histories, and contributor patterns—GitRanked delivers objective visibility into repository health, review bottlenecks, and true developer impact.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="p-5 border border-white/10 bg-black/60">
+                <div className="text-[#ccff00] text-2xl font-black mb-2">01</div>
+                <h3 className="text-white font-bold uppercase text-base mb-1">Instant Setup</h3>
+                <p className="text-zinc-400 text-sm">Connect your GitHub organization or repositories with a single click via GitHub App.</p>
+              </div>
+              <div className="p-5 border border-white/10 bg-black/60">
+                <div className="text-[#ccff00] text-2xl font-black mb-2">02</div>
+                <h3 className="text-white font-bold uppercase text-base mb-1">PR & Review Insights</h3>
+                <p className="text-zinc-400 text-sm">Identify cycle time delays, review burdens, and code churn before bottlenecks impact delivery.</p>
+              </div>
+              <div className="p-5 border border-white/10 bg-black/60">
+                <div className="text-[#ccff00] text-2xl font-black mb-2">03</div>
+                <h3 className="text-white font-bold uppercase text-base mb-1">AI Health Scoring</h3>
+                <p className="text-zinc-400 text-sm">Automated impact scoring and repository health metrics powered by advanced AI models.</p>
+              </div>
+            </div>
+
+            {/* Connect to GitHub Card */}
+            <div className="p-6 sm:p-8 bg-[#ccff00] text-black flex flex-col md:flex-row items-center justify-between gap-6">
+              <div>
+                <h3 className="text-2xl font-black uppercase tracking-tight mb-2">
+                  Connect to GitHub & Start Using GitRanked
+                </h3>
+                <p className="text-black/80 font-medium text-sm sm:text-base">
+                  Connect your GitHub repositories in less than a minute to generate real-time metrics and AI insights.
+                </p>
+              </div>
+              <a
+                href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
+                className="px-6 py-4 bg-black text-white font-black uppercase tracking-wider hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 shrink-0 w-full md:w-auto text-center"
+              >
+                Connect to GitHub <ArrowRight className="w-5 h-5 text-[#ccff00]" />
+              </a>
+            </div>
+          </div>
+
           <div className="prose prose-invert prose-lg mx-auto w-full">
             {data.sections.map((section, index) => (
               <div key={index} className="mb-16">
@@ -123,9 +172,9 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
           </p>
           <a
             href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
-            className="inline-flex px-8 py-4 bg-black text-white font-black uppercase tracking-wider hover:bg-zinc-800 transition-colors items-center justify-center"
+            className="inline-flex px-8 py-4 bg-black text-white font-black uppercase tracking-wider hover:bg-zinc-800 transition-colors items-center justify-center gap-3"
           >
-            Get Started For Free
+            Connect to GitHub & Start Free <ArrowRight className="w-5 h-5 text-[#ccff00]" />
           </a>
         </div>
       </main>

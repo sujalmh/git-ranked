@@ -79,6 +79,8 @@ type GitHubWebhookPayload = {
   sender?: GitHubSenderPayload | null;
   commits?: GitHubCommitPayload[];
   head_commit?: GitHubCommitPayload | null;
+  before?: string;
+  after?: string;
   ref?: string;
   pull_request?: GitHubPullRequestPayload;
   review?: GitHubReviewPayload;
@@ -311,9 +313,11 @@ export async function handleWebhookEvent(eventName: string, payload: GitHubWebho
     // Use the real GitHub event timestamp when available; fall back to now so
     // real-time webhook deliveries still record a sane time.
     const createdAt = eventCreatedAt ?? new Date().toISOString();
+    const beforeSha = payload.before || null;
+    const afterSha = payload.after || null;
     await sql`
-      INSERT INTO github_events (repo_id, contributor_id, event_type, payload, github_event_id, created_at)
-      VALUES (${internalRepoId}, ${contributorId}, ${mappedEventType}, ${JSON.stringify(extractPayload)}, ${eventId}, ${createdAt})
+      INSERT INTO github_events (repo_id, contributor_id, event_type, payload, github_event_id, created_at, before_sha, after_sha)
+      VALUES (${internalRepoId}, ${contributorId}, ${mappedEventType}, ${JSON.stringify(extractPayload)}, ${eventId}, ${createdAt}, ${beforeSha}, ${afterSha})
       ON CONFLICT (github_event_id) DO NOTHING
     `;
   }
