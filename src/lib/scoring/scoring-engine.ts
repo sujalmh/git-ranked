@@ -135,8 +135,9 @@ export function scoreContributor(
   const window_start = Number.isFinite(minShippedTime) ? new Date(minShippedTime).toISOString() : null;
   const window_end = Number.isFinite(maxShippedTime) ? new Date(maxShippedTime).toISOString() : null;
 
-  const contributor_id = workUnits[0]?.repo_id ? 0 : 0; // fallback default
-  const repo_id = workUnits[0]?.repo_id ?? 0;
+  const contributor_id = 0; // overwritten by caller in scoring/index.ts
+  const repo_id = workUnits[0]?.repo_id ?? rawEvents[0]?.id ?? 0;
+
 
   return {
     contributor_id,
