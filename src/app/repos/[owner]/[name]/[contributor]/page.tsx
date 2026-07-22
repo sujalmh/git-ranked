@@ -39,8 +39,7 @@ export default async function ContributorDetail(
     SELECT r.id
     FROM repositories r
     LEFT JOIN installations i ON r.installation_id = i.id
-    WHERE r.owner = ${owner} AND r.name = ${name} 
-      AND (i.linked_user_id = ${userId} OR r.installation_id IS NULL)
+    WHERE r.owner = ${owner} AND r.name = ${name}
   `;
 
   if (repoQuery.length === 0) return <div className="p-8">Repository not found.</div>;

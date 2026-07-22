@@ -32,8 +32,7 @@ export default async function ComparePage(
     SELECT r.id, r.github_repo_id
     FROM repositories r
     LEFT JOIN installations i ON r.installation_id = i.id
-    WHERE r.owner = ${owner} AND r.name = ${name} 
-      AND (i.linked_user_id = ${userId} OR r.installation_id IS NULL)
+    WHERE r.owner = ${owner} AND r.name = ${name}
   `;
 
   if (repoQuery.length === 0) return <div>Repository not found.</div>;

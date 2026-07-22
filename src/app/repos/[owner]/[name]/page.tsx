@@ -25,8 +25,7 @@ export default async function RepoAnalysisBoard(
     SELECT r.id, r.github_repo_id, r.default_branch, i.github_installation_id, i.status as install_status, r.installation_id
     FROM repositories r
     LEFT JOIN installations i ON r.installation_id = i.id
-    WHERE r.owner = ${owner} AND r.name = ${name} 
-      AND (i.linked_user_id = ${userId} OR r.installation_id IS NULL)
+    WHERE r.owner = ${owner} AND r.name = ${name}
   `;
 
   if (repoQuery.length === 0) return <div>Repository not found or access denied.</div>;

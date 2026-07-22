@@ -38,7 +38,7 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
   const config = await getRepoScoringConfig(repoId);
 
   const rawEventsQuery = await sql`
-    SELECT id, repo_id, contributor_id, event_type, payload, created_at, before_sha, after_sha, c.username
+    SELECT e.id, e.repo_id, e.contributor_id, e.event_type, e.payload, e.created_at, e.before_sha, e.after_sha, c.username
     FROM github_events e
     JOIN github_contributors c ON e.contributor_id = c.id
     WHERE e.repo_id = ${repoId}
