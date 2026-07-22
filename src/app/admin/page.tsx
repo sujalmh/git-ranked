@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { sql } from "@/lib/db";
+import { getAiModel } from "@/lib/ai/openrouter";
 import { Users, Database, Package } from "lucide-react";
 import Link from "next/link";
 import { AdminProfileSelector } from "@/components/AdminProfileSelector";
+import { AdminModelSelector } from "@/components/AdminModelSelector";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +25,13 @@ export default async function AdminDashboardPage() {
     redirect("/");
   }
 
-  // Fetch metrics
-  const [usersRes, reposRes, installsRes, reposListRes] = await Promise.all([
+  // Fetch metrics and current AI model
+  const [usersRes, reposRes, installsRes, reposListRes, currentModel] = await Promise.all([
     sql`SELECT count(*) as count FROM app_users`,
     sql`SELECT count(*) as count FROM repositories WHERE is_active = true`,
     sql`SELECT count(*) as count FROM installations WHERE status = 'active'`,
     sql`SELECT id, owner, name, scoring_profile FROM repositories WHERE is_active = true ORDER BY name ASC LIMIT 50`,
+    getAiModel(),
   ]);
 
   const totalUsers = parseInt(usersRes[0]?.count || "0", 10);
@@ -79,6 +82,9 @@ export default async function AdminDashboardPage() {
             gradient="from-amber-500/20 to-amber-500/0"
           />
         </div>
+
+        {/* AI Model Selector */}
+        <AdminModelSelector initialModel={currentModel} />
 
         {/* Repository Profiles Selector */}
         {activeReposList.length > 0 && (

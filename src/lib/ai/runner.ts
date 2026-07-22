@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { sql } from '../db';
-import { AI_MODEL, callStructured, hasApiKey } from './openrouter';
+import { getAiModel, callStructured, hasApiKey } from './openrouter';
 import { getPreviousSummary } from './memory';
 import type { AiResult, AiTask, TaskContext } from './types';
 
@@ -46,7 +46,7 @@ export async function getCachedResult<T>(
         `;
 
     if (rows.length === 0) return null;
-    return rowToResult<T>(rows[0]);
+    return await rowToResult<T>(rows[0]);
   }
 
   const cacheRows = contributorId
@@ -77,21 +77,23 @@ export async function getCachedResult<T>(
 
   if (cacheRows.length === 0) return null;
   const row = cacheRows[0];
+  const activeModel = await getAiModel();
   return {
     payload: row.payload as T,
     confidence: typeof row.confidence === 'number' ? row.confidence : 0.5,
     source: (row.source as 'ai' | 'fallback') ?? 'ai',
-    modelUsed: AI_MODEL,
+    modelUsed: activeModel,
     generatedAt: new Date(row.generated_at as string),
   };
 }
 
-function rowToResult<T>(row: Record<string, unknown>): AiResult<T> {
+async function rowToResult<T>(row: Record<string, unknown>): Promise<AiResult<T>> {
+  const activeModel = await getAiModel();
   return {
     payload: row.payload as T,
     confidence: typeof row.confidence === 'number' ? row.confidence : 0.5,
     source: (row.source as 'ai' | 'fallback') ?? 'ai',
-    modelUsed: (row.model_used as string) ?? AI_MODEL,
+    modelUsed: (row.model_used as string) ?? activeModel,
     generatedAt: new Date(row.generated_at as string),
   };
 }
@@ -254,7 +256,7 @@ async function attemptStructuredCall<T>(
           payload: validated.data,
           confidence,
           source: 'ai',
-          modelUsed: AI_MODEL,
+          modelUsed: await getAiModel(),
           generatedAt: new Date(),
         };
       }

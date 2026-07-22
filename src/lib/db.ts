@@ -274,6 +274,14 @@ export async function initSchema() {
     );
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS system_settings (
+      key VARCHAR(64) PRIMARY KEY,
+      value JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
   console.log('Database schema initialized.');
 }
 

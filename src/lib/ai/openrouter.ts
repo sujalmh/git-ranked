@@ -1,9 +1,64 @@
+import { sql } from '../db';
+
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const APP_REFERER = process.env.OPENROUTER_REFERER || 'https://gitranked.dev';
 const APP_TITLE = process.env.OPENROUTER_TITLE || 'GitRanked';
 
-export const AI_MODEL = process.env.OPENROUTER_MODEL || 'tencent/hy3:free';
+export const DEFAULT_AI_MODEL = process.env.OPENROUTER_MODEL || 'tencent/hy3:free';
+
+export const RECOMMENDED_AI_MODELS = [
+  { id: 'tencent/hy3:free', name: 'Tencent Hunyuan 3 (Free)', provider: 'Tencent', badge: 'Default' },
+  { id: 'google/gemini-2.0-flash-lite-preview-02-05:free', name: 'Gemini 2.0 Flash Lite (Free)', provider: 'Google', badge: 'Fast' },
+  { id: 'deepseek/deepseek-r1:free', name: 'DeepSeek R1 (Free)', provider: 'DeepSeek', badge: 'Reasoning' },
+  { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B (Free)', provider: 'Meta', badge: 'Powerful' },
+  { id: 'qwen/qwen-2.5-coder-32b-instruct:free', name: 'Qwen 2.5 Coder 32B (Free)', provider: 'Qwen', badge: 'Code' },
+  { id: 'mistralai/mistral-small-24b-instruct-2501:free', name: 'Mistral Small 24B (Free)', provider: 'Mistral', badge: 'Balanced' },
+  { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'Anthropic', badge: 'Flagship' },
+  { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', badge: 'Popular' },
+] as const;
+
+let cachedModel: { model: string; fetchedAt: number } | null = null;
+
+export async function getAiModel(): Promise<string> {
+  const now = Date.now();
+  if (cachedModel && now - cachedModel.fetchedAt < 5_000) {
+    return cachedModel.model;
+  }
+  try {
+    const rows = await sql`SELECT value FROM system_settings WHERE key = 'ai_model'`;
+    if (rows.length > 0 && rows[0].value) {
+      const val = typeof rows[0].value === 'string' ? rows[0].value : JSON.parse(JSON.stringify(rows[0].value));
+      if (typeof val === 'string' && val.trim()) {
+        cachedModel = { model: val.trim(), fetchedAt: now };
+        return val.trim();
+      }
+    }
+  } catch {
+    // fallback if table does not exist yet
+  }
+  const fallback = process.env.OPENROUTER_MODEL || 'tencent/hy3:free';
+  cachedModel = { model: fallback, fetchedAt: now };
+  return fallback;
+}
+
+export async function setAiModel(model: string): Promise<string> {
+  const cleanModel = model.trim();
+  if (!cleanModel) {
+    throw new Error('Model name cannot be empty');
+  }
+  await sql`
+    INSERT INTO system_settings (key, value, updated_at)
+    VALUES ('ai_model', ${JSON.stringify(cleanModel)}, NOW())
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value, updated_at = NOW()
+  `;
+  cachedModel = { model: cleanModel, fetchedAt: Date.now() };
+  return cleanModel;
+}
+
+// Backward compatibility export
+export const AI_MODEL = DEFAULT_AI_MODEL;
 
 type OpenRouterResponse = {
   choices?: Array<{
@@ -42,8 +97,10 @@ async function callOpenRouter(request: CompletionRequest): Promise<string | null
     throw new Error('OPENROUTER_API_KEY is not configured');
   }
 
+  const activeModel = await getAiModel();
+
   const body: Record<string, unknown> = {
-    model: AI_MODEL,
+    model: activeModel,
     messages: request.messages,
   };
 
