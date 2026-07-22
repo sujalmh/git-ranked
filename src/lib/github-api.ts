@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import githubAppJwt from 'universal-github-app-jwt';
 import { isBotUsername } from './contributor-insights';
+import { emitTelemetry } from './ai/openrouter';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
@@ -122,6 +123,15 @@ export async function getInstallationAccessToken(installationId: number | string
 }
 
 export async function githubInstallationApi<T>(path: string, token: string | null, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const startTime = Date.now();
+  const cleanPath = path.split('?')[0];
+  emitTelemetry({
+    type: 'api_request',
+    provider: 'github',
+    endpoint: `GET ${cleanPath}`,
+    summary: `[API_REQ] GET api.github.com${cleanPath}`,
+  });
+
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
@@ -131,14 +141,47 @@ export async function githubInstallationApi<T>(path: string, token: string | nul
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`https://api.github.com${path}`, {
-    signal: AbortSignal.timeout(timeoutMs),
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`https://api.github.com${path}`, {
+      signal: AbortSignal.timeout(timeoutMs),
+      headers,
+    });
+  } catch (netErr) {
+    const latencyMs = Date.now() - startTime;
+    const errStr = netErr instanceof Error ? netErr.message : String(netErr);
+    emitTelemetry({
+      type: 'api_error',
+      provider: 'github',
+      endpoint: `GET ${cleanPath}`,
+      latencyMs,
+      summary: `[API_ERR] GitHub API request failed (${latencyMs}ms): ${errStr}`,
+    });
+    throw netErr;
+  }
+
+  const latencyMs = Date.now() - startTime;
 
   if (!response.ok) {
+    emitTelemetry({
+      type: 'api_error',
+      provider: 'github',
+      endpoint: `GET ${cleanPath}`,
+      status: response.status,
+      latencyMs,
+      summary: `[API_ERR] GitHub API HTTP ${response.status} (${latencyMs}ms)`,
+    });
     throw new Error(`GitHub API request failed for ${path}: ${response.status}`);
   }
+
+  emitTelemetry({
+    type: 'api_response',
+    provider: 'github',
+    endpoint: `GET ${cleanPath}`,
+    status: 200,
+    latencyMs,
+    summary: `[API_RES] GitHub API 200 OK (${latencyMs}ms)`,
+  });
 
   return (await response.json()) as T;
 }

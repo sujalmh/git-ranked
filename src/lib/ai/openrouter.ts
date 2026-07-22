@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'async_hooks';
 import { sql } from '../db';
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
@@ -18,20 +19,60 @@ export const RECOMMENDED_AI_MODELS = [
   { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', badge: 'Popular' },
 ] as const;
 
+export type ApiTelemetryEvent = {
+  type: 'api_request' | 'api_response' | 'api_error';
+  provider: 'openrouter' | 'github';
+  endpoint: string;
+  model?: string;
+  task?: string;
+  status?: number;
+  latencyMs?: number;
+  summary: string;
+};
+
+export type TelemetryListener = (event: ApiTelemetryEvent) => void;
+
+export const telemetryStorage = new AsyncLocalStorage<TelemetryListener>();
+
+export function emitTelemetry(event: ApiTelemetryEvent) {
+  const listener = telemetryStorage.getStore();
+  if (listener) {
+    try {
+      listener(event);
+    } catch {
+      // ignore
+    }
+  }
+}
+
 let cachedModel: { model: string; fetchedAt: number } | null = null;
 
 export async function getAiModel(): Promise<string> {
   const now = Date.now();
-  if (cachedModel && now - cachedModel.fetchedAt < 5_000) {
+  if (cachedModel && now - cachedModel.fetchedAt < 2_000) {
     return cachedModel.model;
   }
   try {
     const rows = await sql`SELECT value FROM system_settings WHERE key = 'ai_model'`;
-    if (rows.length > 0 && rows[0].value) {
-      const val = typeof rows[0].value === 'string' ? rows[0].value : JSON.parse(JSON.stringify(rows[0].value));
-      if (typeof val === 'string' && val.trim()) {
-        cachedModel = { model: val.trim(), fetchedAt: now };
-        return val.trim();
+    if (rows.length > 0 && rows[0].value !== undefined && rows[0].value !== null) {
+      let raw: unknown = rows[0].value;
+      if (typeof raw === 'object' && raw !== null) {
+        raw = JSON.stringify(raw);
+      }
+      if (typeof raw === 'string') {
+        let clean = raw.trim();
+        if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+          try {
+            clean = JSON.parse(clean);
+          } catch {
+            clean = clean.slice(1, -1);
+          }
+        }
+        if (clean && typeof clean === 'string' && clean.trim()) {
+          const finalModel = clean.trim();
+          cachedModel = { model: finalModel, fetchedAt: now };
+          return finalModel;
+        }
       }
     }
   } catch {
@@ -49,7 +90,7 @@ export async function setAiModel(model: string): Promise<string> {
   }
   await sql`
     INSERT INTO system_settings (key, value, updated_at)
-    VALUES ('ai_model', ${JSON.stringify(cleanModel)}, NOW())
+    VALUES ('ai_model', ${JSON.stringify(cleanModel)}::jsonb, NOW())
     ON CONFLICT (key) DO UPDATE
     SET value = EXCLUDED.value, updated_at = NOW()
   `;
@@ -92,12 +133,22 @@ function isApiKeyConfigured() {
   return Boolean(OPENROUTER_API_KEY);
 }
 
-async function callOpenRouter(request: CompletionRequest): Promise<string | null> {
+async function callOpenRouter(request: CompletionRequest, taskName = 'inference'): Promise<string | null> {
   if (!isApiKeyConfigured()) {
     throw new Error('OPENROUTER_API_KEY is not configured');
   }
 
   const activeModel = await getAiModel();
+  const startTime = Date.now();
+
+  emitTelemetry({
+    type: 'api_request',
+    provider: 'openrouter',
+    endpoint: 'POST /v1/chat/completions',
+    model: activeModel,
+    task: taskName,
+    summary: `[API_REQ] POST /v1/chat/completions (${activeModel} · ${taskName})`,
+  });
 
   const body: Record<string, unknown> = {
     model: activeModel,
@@ -111,24 +162,62 @@ async function callOpenRouter(request: CompletionRequest): Promise<string | null
     body.temperature = request.temperature;
   }
 
-  const response = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': APP_REFERER,
-      'X-Title': APP_TITLE,
-    },
-    body: JSON.stringify(body),
-  });
+  let response: Response;
+  try {
+    response = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': APP_REFERER,
+        'X-Title': APP_TITLE,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (netErr) {
+    const latencyMs = Date.now() - startTime;
+    const errStr = netErr instanceof Error ? netErr.message : String(netErr);
+    emitTelemetry({
+      type: 'api_error',
+      provider: 'openrouter',
+      endpoint: 'POST /v1/chat/completions',
+      model: activeModel,
+      task: taskName,
+      latencyMs,
+      summary: `[API_ERR] OpenRouter request failed (${latencyMs}ms): ${errStr}`,
+    });
+    throw netErr;
+  }
+
+  const latencyMs = Date.now() - startTime;
 
   if (!response.ok) {
     const errText = await response.text();
+    emitTelemetry({
+      type: 'api_error',
+      provider: 'openrouter',
+      endpoint: 'POST /v1/chat/completions',
+      model: activeModel,
+      task: taskName,
+      status: response.status,
+      latencyMs,
+      summary: `[API_ERR] OpenRouter HTTP ${response.status} ${response.statusText} (${latencyMs}ms)`,
+    });
     throw new OpenRouterError(response.status, errText);
   }
 
   const data = (await response.json()) as OpenRouterResponse;
   if (data.error) {
+    emitTelemetry({
+      type: 'api_error',
+      provider: 'openrouter',
+      endpoint: 'POST /v1/chat/completions',
+      model: activeModel,
+      task: taskName,
+      status: data.error.code ?? 500,
+      latencyMs,
+      summary: `[API_ERR] OpenRouter API error ${data.error.code ?? 500}: ${data.error.message ?? 'Unknown'}`,
+    });
     throw new OpenRouterError(data.error.code ?? 500, data.error.message ?? 'Unknown OpenRouter error');
   }
 
@@ -136,6 +225,17 @@ async function callOpenRouter(request: CompletionRequest): Promise<string | null
   if (!content) {
     throw new Error('OpenRouter returned an empty response');
   }
+
+  emitTelemetry({
+    type: 'api_response',
+    provider: 'openrouter',
+    endpoint: 'POST /v1/chat/completions',
+    model: activeModel,
+    task: taskName,
+    status: 200,
+    latencyMs,
+    summary: `[API_RES] 200 OK (${latencyMs}ms) — received response (${content.length} chars)`,
+  });
 
   return content;
 }
@@ -181,7 +281,7 @@ export async function callStructured(
           : { type: 'none' };
 
     try {
-      const content = await callOpenRouter({ messages, responseFormat, temperature: 0.2 });
+      const content = await callOpenRouter({ messages, responseFormat, temperature: 0.2 }, schemaName);
       if (content) return content;
     } catch (error) {
       if (mode === 'json_schema' && isStructuredModeUnsupported(error) && modes.indexOf(mode) < modes.length - 1) {
@@ -194,8 +294,8 @@ export async function callStructured(
   return null;
 }
 
-export async function callUnstructured(messages: ChatMessage[]): Promise<string | null> {
-  return callOpenRouter({ messages, responseFormat: { type: 'none' }, temperature: 0.3 });
+export async function callUnstructured(messages: ChatMessage[], taskName = 'unstructured'): Promise<string | null> {
+  return callOpenRouter({ messages, responseFormat: { type: 'none' }, temperature: 0.3 }, taskName);
 }
 
 export function hasApiKey() {

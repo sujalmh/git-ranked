@@ -12,11 +12,26 @@ export function AdminModelSelector({ initialModel }: { initialModel?: string }) 
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
+    if (!initialModel) {
+      fetch('/api/admin/model')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.currentModel) {
+            setCurrentModel(data.currentModel);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [initialModel]);
+
+  useEffect(() => {
     // If initial model isn't in recommended list, turn on custom mode
     const isPreset = RECOMMENDED_AI_MODELS.some((m) => m.id === currentModel);
     if (!isPreset && currentModel) {
       setIsCustomMode(true);
       setCustomModel(currentModel);
+    } else {
+      setIsCustomMode(false);
     }
   }, [currentModel]);
 

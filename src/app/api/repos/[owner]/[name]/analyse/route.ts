@@ -10,6 +10,7 @@ import {
   getRepoContext,
   tasks,
 } from '@/lib/ai';
+import { telemetryStorage, type ApiTelemetryEvent } from '@/lib/ai/openrouter';
 
 type ProgressEvent = {
   step: string;
@@ -58,122 +59,153 @@ export async function POST(
 
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {
-      controller.enqueue(encodeEvent({ step: 'init', status: 'info', message: `Initializing pipeline for ${repoInfo.owner}/${repoInfo.name} (Repo ID: ${repoId})` }));
+      const listener = (event: ApiTelemetryEvent) => {
+        const statusMap: Record<string, ProgressEvent['status']> = {
+          api_request: 'running',
+          api_response: 'done',
+          api_error: 'error',
+        };
+        controller.enqueue(
+          encodeEvent({
+            step: event.task || event.provider,
+            status: statusMap[event.type] || 'info',
+            message: event.summary,
+            detail: {
+              provider: event.provider,
+              endpoint: event.endpoint,
+              model: event.model,
+              task: event.task,
+              status: event.status,
+              latencyMs: event.latencyMs,
+            },
+          })
+        );
+      };
 
-      const steps: Array<{ step: string; message: string; fn: () => Promise<unknown> }> = [
-        {
-          step: 'classifying',
-          message: 'Classifying unclassified events',
-          fn: () => classifyEvents(repoId, repoInfo.owner, repoInfo.name),
-        },
-        {
-          step: 'work_units',
-          message: 'Extracting work units from events',
-          fn: () => classifyRepo(repoId),
-        },
-        {
-          step: 'scoring',
-          message: 'Computing contributor dimension scores',
-          fn: () => scoreRepo(repoId),
-        },
-        {
-          step: 'health_metrics',
-          message: 'Computing repository health metrics',
-          fn: () => generateRepoInsights(repoId),
-        },
-        {
-          step: 'repository_summary',
-          message: 'Generating AI repository summary',
-          fn: async () => {
-            const ctx = await buildTaskContext(repoId, repoInfo.owner, repoInfo.name, dateFrom, dateTo);
-            return getOrGenerateTask(tasks.repositorySummary, ctx, true);
-          },
-        },
-        {
-          step: 'team_insights',
-          message: 'Generating AI team insights',
-          fn: async () => {
-            const ctx = await buildTaskContext(repoId, repoInfo.owner, repoInfo.name, dateFrom, dateTo);
-            return getOrGenerateTask(tasks.teamInsights, ctx, true);
-          },
-        },
-        {
-          step: 'contributor_profiles',
-          message: 'Profiling top contributors',
-          fn: async () => {
-            const topContributors = await sql`
-              SELECT c.id, c.username
-              FROM github_contributors c
-              JOIN github_events e ON e.contributor_id = c.id
-              WHERE e.repo_id = ${repoId}
-                AND e.created_at >= ${dateFrom}::date
-                AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
-                AND c.username NOT ILIKE '%[bot]%'
-              GROUP BY c.id, c.username
-              ORDER BY COUNT(e.id) DESC
-              LIMIT 5
-            `;
-            for (const contributor of topContributors) {
-              const ctx = await buildTaskContext(
-                repoId,
-                repoInfo.owner,
-                repoInfo.name,
-                dateFrom,
-                dateTo,
-                contributor.id,
-                contributor.username
-              );
-              await getOrGenerateTask(tasks.contributorProfile, ctx, true);
-            }
-            return { count: topContributors.length };
-          },
-        },
-        {
-          step: 'impact_analysis',
-          message: 'Analyzing contributor impact',
-          fn: async () => {
-            const topContributors = await sql`
-              SELECT c.id, c.username
-              FROM github_contributors c
-              JOIN github_events e ON e.contributor_id = c.id
-              WHERE e.repo_id = ${repoId}
-                AND e.created_at >= ${dateFrom}::date
-                AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
-                AND c.username NOT ILIKE '%[bot]%'
-              GROUP BY c.id, c.username
-              ORDER BY COUNT(e.id) DESC
-              LIMIT 5
-            `;
-            for (const contributor of topContributors) {
-              const ctx = await buildTaskContext(
-                repoId,
-                repoInfo.owner,
-                repoInfo.name,
-                dateFrom,
-                dateTo,
-                contributor.id,
-                contributor.username
-              );
-              await getOrGenerateTask(tasks.impactAnalysis, ctx, true);
-            }
-            return { count: topContributors.length };
-          },
-        },
-      ];
+      await telemetryStorage.run(listener, async () => {
+        controller.enqueue(
+          encodeEvent({
+            step: 'init',
+            status: 'info',
+            message: `Initializing pipeline for ${repoInfo.owner}/${repoInfo.name} (Repo ID: ${repoId})`,
+          })
+        );
 
-      for (const { step, message, fn } of steps) {
-        controller.enqueue(encodeEvent({ step, status: 'running', message }));
-        try {
-          const detail = await fn();
-          controller.enqueue(encodeEvent({ step, status: 'done', message: `${message} — complete`, detail }));
-        } catch (err) {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          controller.enqueue(encodeEvent({ step, status: 'error', message: `${message} — failed: ${errMsg}` }));
+        const steps: Array<{ step: string; message: string; fn: () => Promise<unknown> }> = [
+          {
+            step: 'classifying',
+            message: 'Classifying unclassified events',
+            fn: () => classifyEvents(repoId, repoInfo.owner, repoInfo.name),
+          },
+          {
+            step: 'work_units',
+            message: 'Extracting work units from events',
+            fn: () => classifyRepo(repoId),
+          },
+          {
+            step: 'scoring',
+            message: 'Computing contributor dimension scores',
+            fn: () => scoreRepo(repoId),
+          },
+          {
+            step: 'health_metrics',
+            message: 'Computing repository health metrics',
+            fn: () => generateRepoInsights(repoId),
+          },
+          {
+            step: 'repository_summary',
+            message: 'Generating AI repository summary',
+            fn: async () => {
+              const ctx = await buildTaskContext(repoId, repoInfo.owner, repoInfo.name, dateFrom, dateTo);
+              return getOrGenerateTask(tasks.repositorySummary, ctx, true);
+            },
+          },
+          {
+            step: 'team_insights',
+            message: 'Generating AI team insights',
+            fn: async () => {
+              const ctx = await buildTaskContext(repoId, repoInfo.owner, repoInfo.name, dateFrom, dateTo);
+              return getOrGenerateTask(tasks.teamInsights, ctx, true);
+            },
+          },
+          {
+            step: 'contributor_profiles',
+            message: 'Profiling top contributors',
+            fn: async () => {
+              const topContributors = await sql`
+                SELECT c.id, c.username
+                FROM github_contributors c
+                JOIN github_events e ON e.contributor_id = c.id
+                WHERE e.repo_id = ${repoId}
+                  AND e.created_at >= ${dateFrom}::date
+                  AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
+                  AND c.username NOT ILIKE '%[bot]%'
+                GROUP BY c.id, c.username
+                ORDER BY COUNT(e.id) DESC
+                LIMIT 5
+              `;
+              for (const contributor of topContributors) {
+                const ctx = await buildTaskContext(
+                  repoId,
+                  repoInfo.owner,
+                  repoInfo.name,
+                  dateFrom,
+                  dateTo,
+                  contributor.id,
+                  contributor.username
+                );
+                await getOrGenerateTask(tasks.contributorProfile, ctx, true);
+              }
+              return { count: topContributors.length };
+            },
+          },
+          {
+            step: 'impact_analysis',
+            message: 'Analyzing contributor impact',
+            fn: async () => {
+              const topContributors = await sql`
+                SELECT c.id, c.username
+                FROM github_contributors c
+                JOIN github_events e ON e.contributor_id = c.id
+                WHERE e.repo_id = ${repoId}
+                  AND e.created_at >= ${dateFrom}::date
+                  AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
+                  AND c.username NOT ILIKE '%[bot]%'
+                GROUP BY c.id, c.username
+                ORDER BY COUNT(e.id) DESC
+                LIMIT 5
+              `;
+              for (const contributor of topContributors) {
+                const ctx = await buildTaskContext(
+                  repoId,
+                  repoInfo.owner,
+                  repoInfo.name,
+                  dateFrom,
+                  dateTo,
+                  contributor.id,
+                  contributor.username
+                );
+                await getOrGenerateTask(tasks.impactAnalysis, ctx, true);
+              }
+              return { count: topContributors.length };
+            },
+          },
+        ];
+
+        for (const { step, message, fn } of steps) {
+          controller.enqueue(encodeEvent({ step, status: 'running', message }));
+          try {
+            const detail = await fn();
+            controller.enqueue(encodeEvent({ step, status: 'done', message: `${message} — complete`, detail }));
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            controller.enqueue(encodeEvent({ step, status: 'error', message: `${message} — failed: ${errMsg}` }));
+          }
         }
-      }
 
-      controller.enqueue(encodeEvent({ step: 'analysis', status: 'complete', message: 'Analysis complete' }));
-      controller.close();
+        controller.enqueue(encodeEvent({ step: 'analysis', status: 'complete', message: 'Analysis complete' }));
+        controller.close();
+      });
     },
   });
 
