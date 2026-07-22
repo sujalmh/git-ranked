@@ -15,6 +15,8 @@ type Step = {
 
 const STEP_LABELS: Record<string, string> = {
   classifying: 'Classifying events',
+  work_units: 'Extracting work units',
+  scoring: 'Computing impact scores',
   health_metrics: 'Health metrics',
   repository_summary: 'Repository summary',
   team_insights: 'Team insights',

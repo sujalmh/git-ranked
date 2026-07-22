@@ -320,8 +320,50 @@ export async function getRepoAnalysisData(repoId: number): Promise<RepoAnalysisD
     });
   }
 
+  // Fetch work unit type distribution per contributor and merge into categories
+  // so the WorkAreasHeatmap reflects scored work units, not just event heuristics.
+  const workUnitRows = await sql`
+    SELECT wuc.contributor_id, wu.work_type, COUNT(*) as cnt
+    FROM work_units wu
+    JOIN work_unit_contributors wuc ON wu.id = wuc.work_unit_id
+    WHERE wu.repo_id = ${repoId}
+      AND wu.shipped = true
+    GROUP BY wuc.contributor_id, wu.work_type
+  `;
+
+  // Build a map: contributorId -> { workType -> count }
+  const workUnitsByContributor = new Map<number, Map<string, number>>();
+  for (const row of workUnitRows) {
+    const cid = row.contributor_id as number;
+    const wt = row.work_type as string;
+    const cnt = Number(row.cnt);
+    const existing = workUnitsByContributor.get(cid) ?? new Map<string, number>();
+    existing.set(wt, (existing.get(wt) ?? 0) + cnt);
+    workUnitsByContributor.set(cid, existing);
+  }
+
+  // Enrich contributors: if work units exist, prefer them for categories
+  const enrichedContributors = contributors.map((c) => {
+    const wuTypes = workUnitsByContributor.get(c.id);
+    if (!wuTypes || wuTypes.size === 0) return c;
+
+    // Merge work unit types as additional area categories (prefixed to make them distinct)
+    const wuCategories = Array.from(wuTypes.entries())
+      .map(([label, value]) => ({ label, value, detail: `${value} shipped work unit${value !== 1 ? 's' : ''}` }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+
+    // Use work unit categories if richer than heuristic ones, else combine top entries
+    const existingCats = c.categories ?? [];
+    const mergedLabels = new Set(existingCats.map((cat) => cat.label));
+    const newCats = wuCategories.filter((wu) => !mergedLabels.has(wu.label));
+    const categories = [...wuCategories, ...newCats].slice(0, 6);
+
+    return { ...c, categories };
+  });
+
   return {
-    contributors,
+    contributors: enrichedContributors,
     highlights,
     activityFeed,
     topContributor,

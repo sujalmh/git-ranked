@@ -73,7 +73,7 @@ export default async function Home() {
       <main className="flex-1 w-full z-10 mt-6 mb-16 relative">
         <AnimatedHeroContent isSignedIn={isSignedIn} />
 
-        <div className="max-w-7xl mx-auto px-6 w-full">
+        <div className="w-full px-6 md:px-12 lg:px-16">
           <AnimatedFeatures />
 
           {/* How it Works Section */}

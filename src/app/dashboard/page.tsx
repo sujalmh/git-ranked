@@ -97,37 +97,37 @@ export default async function Dashboard() {
               <Link 
                 href={`/repos/${repo.owner}/${repo.name}`} 
                 key={repo.id}
-                className="sleek-panel sleek-panel-hover p-6 flex flex-col gap-4 group cursor-pointer border-2 border-white/10"
+                className="sleek-panel p-6 flex flex-col gap-4 group cursor-pointer border-2 border-white/10 hover:bg-[#ccff00] hover:border-[#ccff00] hover:text-black transition-all duration-200"
               >
                 <div className="flex items-center gap-4">
-                  <div className="p-2 bg-white/5 border border-white/20">
-                    <GitBranch className="w-5 h-5 text-white group-hover:text-accent transition-colors" />
+                  <div className="p-2 bg-white/5 border border-white/20 group-hover:bg-black group-hover:border-black transition-colors">
+                    <GitBranch className="w-5 h-5 text-white group-hover:text-[#ccff00] transition-colors" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-lg font-bold break-all">{repo.owner} / {repo.name}</h3>
-                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mt-0.5">Branch: {repo.default_branch}</p>
+                    <h3 className="text-lg font-bold break-all text-white group-hover:text-black transition-colors">{repo.owner} / {repo.name}</h3>
+                    <p className="text-xs font-medium text-zinc-500 group-hover:text-black/80 uppercase tracking-wider mt-0.5 transition-colors">Branch: {repo.default_branch}</p>
                   </div>
                   {repo.healthMetrics && repo.event_count > 0 ? (
                     <div className="text-right shrink-0">
-                      <div className="text-3xl font-black text-accent leading-none">{repo.healthMetrics.overallScore}</div>
-                      <div className="text-[10px] font-bold uppercase text-zinc-500 tracking-wider mt-1">HEALTH</div>
+                      <div className="text-3xl font-black text-accent group-hover:text-black leading-none transition-colors">{repo.healthMetrics.overallScore}</div>
+                      <div className="text-[10px] font-bold uppercase text-zinc-500 group-hover:text-black/80 tracking-wider mt-1 transition-colors">HEALTH</div>
                     </div>
                   ) : repo.event_count === 0 ? (
                     <div className="text-right shrink-0">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-black bg-accent px-2 py-1">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-black bg-accent group-hover:bg-black group-hover:text-[#ccff00] px-2 py-1 transition-colors">
                         INITIALIZE
                       </div>
                     </div>
                   ) : null}
                 </div>
                 
-                <div className="mt-auto pt-4 border-t-2 border-white/10 flex items-center justify-between">
-                  <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                <div className="mt-auto pt-4 border-t-2 border-white/10 group-hover:border-black/20 flex items-center justify-between transition-colors">
+                  <span className="text-xs font-bold text-zinc-500 group-hover:text-black/80 uppercase tracking-wider transition-colors">
                     {repo.event_count > 0
                       ? `${repo.event_count} EVENTS`
                       : `ADDED ${new Date(repo.added_at).toLocaleDateString()}`}
                   </span>
-                  <div className="flex items-center gap-2 text-accent text-sm font-bold uppercase tracking-wider group-hover:translate-x-1 transition-transform">
+                  <div className="flex items-center gap-2 text-accent group-hover:text-black text-sm font-bold uppercase tracking-wider group-hover:translate-x-1 transition-all">
                     {repo.event_count > 0 ? 'VIEW INSIGHTS' : 'SET UP'} <ArrowRight className="w-4 h-4" />
                   </div>
                 </div>

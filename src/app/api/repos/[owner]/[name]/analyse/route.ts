@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { generateRepoInsights } from '@/lib/insights';
+import { classifyRepo, scoreRepo } from '@/lib/scoring';
 import {
   buildTaskContext,
   classifyEvents,
@@ -62,6 +63,16 @@ export async function POST(
           step: 'classifying',
           message: 'Classifying unclassified events',
           fn: () => classifyEvents(repoId, repoInfo.owner, repoInfo.name),
+        },
+        {
+          step: 'work_units',
+          message: 'Extracting work units from events',
+          fn: () => classifyRepo(repoId),
+        },
+        {
+          step: 'scoring',
+          message: 'Computing contributor dimension scores',
+          fn: () => scoreRepo(repoId),
         },
         {
           step: 'health_metrics',
