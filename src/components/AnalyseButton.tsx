@@ -1,8 +1,18 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Brain, RefreshCw, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import {
+  Brain,
+  RefreshCw,
+  CheckCircle2,
+  Loader2,
+  AlertCircle,
+  Terminal,
+  ChevronDown,
+  Copy,
+  Check,
+} from 'lucide-react';
 
 type StepStatus = 'pending' | 'running' | 'done' | 'error';
 
@@ -11,6 +21,14 @@ type Step = {
   label: string;
   status: StepStatus;
   message?: string;
+};
+
+export type LogEntry = {
+  id: string;
+  timestamp: string;
+  stepKey: string;
+  status: 'running' | 'done' | 'error' | 'info' | 'complete';
+  text: string;
 };
 
 const STEP_LABELS: Record<string, string> = {
@@ -32,6 +50,15 @@ const INITIAL_STEPS: Step[] = STEP_ORDER.map((key) => ({
   status: 'pending',
 }));
 
+function formatTimestamp(): string {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  const ms = String(now.getMilliseconds()).padStart(3, '0');
+  return `${hh}:${mm}:${ss}.${ms}`;
+}
+
 export function AnalyseButton({
   owner,
   name,
@@ -43,17 +70,42 @@ export function AnalyseButton({
 }) {
   const [loading, setLoading] = useState(false);
   const [steps, setSteps] = useState<Step[]>(INITIAL_STEPS);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showProgress, setShowProgress] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [copiedLogs, setCopiedLogs] = useState(false);
+
+  const logsEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // Auto-scroll terminal container when new logs stream in
+  useEffect(() => {
+    if (showProgress && logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs, showProgress]);
+
+  const addLog = useCallback((stepKey: string, status: LogEntry['status'], text: string) => {
+    const newEntry: LogEntry = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      timestamp: formatTimestamp(),
+      stepKey,
+      status,
+      text,
+    };
+    setLogs((prev) => [...prev, newEntry]);
+  }, []);
 
   const handleAnalyse = useCallback(async () => {
     setLoading(true);
     setShowProgress(true);
     setHasError(false);
     setIsComplete(false);
+    setLogs([]);
     setSteps(INITIAL_STEPS.map((s) => ({ ...s, status: 'pending' as StepStatus })));
+
+    addLog('system', 'info', `[INIT] Starting pipeline analysis for repository ${owner}/${name}...`);
 
     try {
       const res = await fetch(`/api/repos/${owner}/${name}/analyse`, {
@@ -61,12 +113,14 @@ export function AnalyseButton({
       });
 
       if (!res.ok) {
-        throw new Error(`Analysis failed: ${res.status}`);
+        throw new Error(`HTTP ${res.status}: ${res.statusText || 'Analysis request failed'}`);
       }
 
       if (!res.body) {
-        throw new Error('No response stream');
+        throw new Error('No readable response stream received');
       }
+
+      addLog('system', 'info', `[STREAM] Connection established. Processing pipeline tasks...`);
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -86,13 +140,14 @@ export function AnalyseButton({
           try {
             const event = JSON.parse(line) as {
               step: string;
-              status: string;
+              status: 'running' | 'done' | 'error' | 'complete';
               message: string;
               detail?: unknown;
             };
 
             if (event.step === 'analysis' && event.status === 'complete') {
               setIsComplete(true);
+              addLog('system', 'complete', `[SUCCESS] Pipeline execution finished successfully. All tasks complete.`);
               setSteps((prev) =>
                 prev.map((s) =>
                   s.status === 'pending' || s.status === 'running'
@@ -100,19 +155,11 @@ export function AnalyseButton({
                     : s
                 )
               );
-              // Refresh the page data, then close the modal so the user
-              // sees the results. The refresh is triggered first, then we
-              // wait a bit for the server components to re-render before
-              // hiding the overlay.
               router.refresh();
-              setTimeout(() => {
-                router.refresh();
-                setShowProgress(false);
-                setLoading(false);
-              }, 1500);
               continue;
             }
 
+            // Update step status
             setSteps((prev) =>
               prev.map((s) => {
                 if (s.key === event.step) {
@@ -126,6 +173,13 @@ export function AnalyseButton({
               })
             );
 
+            // Log output line
+            let detailStr = '';
+            if (event.detail && typeof event.detail === 'object') {
+              detailStr = ` (${JSON.stringify(event.detail)})`;
+            }
+            addLog(event.step, event.status, `${event.message}${detailStr}`);
+
             if (event.status === 'error') {
               setHasError(true);
             }
@@ -135,30 +189,42 @@ export function AnalyseButton({
         }
       }
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
       console.error('Analysis failed:', err);
       setHasError(true);
+      addLog('system', 'error', `[FAIL] Pipeline aborted with error: ${errorMsg}`);
       setSteps((prev) =>
-        prev.map((s) => (s.status === 'running' ? { ...s, status: 'error' as StepStatus, message: 'Connection lost' } : s))
+        prev.map((s) => (s.status === 'running' ? { ...s, status: 'error' as StepStatus, message: 'Execution failed' } : s))
       );
     } finally {
       setLoading(false);
     }
-  }, [owner, name, router]);
+  }, [owner, name, router, addLog]);
+
+  const copyTerminalLogs = () => {
+    const rawText = logs
+      .map((l) => `[${l.timestamp}] [${l.status.toUpperCase()}] [${l.stepKey}] ${l.text}`)
+      .join('\n');
+    navigator.clipboard.writeText(rawText);
+    setCopiedLogs(true);
+    setTimeout(() => setCopiedLogs(false), 2000);
+  };
 
   const completedCount = steps.filter((s) => s.status === 'done').length;
   const progressPct = Math.round((completedCount / steps.length) * 100);
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Trigger Button */}
       <button
         onClick={handleAnalyse}
         disabled={loading}
-        className={`flex items-center gap-2 rounded-xl px-6 py-3 text-base font-semibold transition-colors ${
+        className={`flex items-center gap-2.5 rounded-xl px-6 py-3 text-base font-semibold transition-all shadow-lg ${
           loading
             ? 'bg-indigo-600/50 text-indigo-200 cursor-not-allowed'
             : isComplete
-              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/30'
+              : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-900/30'
         }`}
       >
         {loading ? (
@@ -170,95 +236,178 @@ export function AnalyseButton({
         ) : (
           <Brain className="w-5 h-5" />
         )}
-        {loading ? 'Analyzing...' : isComplete ? 'Done' : isReanalyse ? 'Re-analyse' : 'Analyse Repository'}
+        {loading ? 'Analyzing Pipeline...' : isComplete ? 'Done' : isReanalyse ? 'Re-analyse' : 'Analyse Repository'}
       </button>
 
+      {/* Terminal Progress Overlay Modal */}
       {showProgress && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => !loading && setShowProgress(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-6"
+          onClick={() => !loading && setShowProgress(false)}
+        >
           <div
-            className="sleek-panel p-6 w-full max-w-md mx-4 space-y-4"
+            className="w-full max-w-2xl bg-zinc-950 border border-zinc-800/90 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-2 mb-2">
-              {hasError ? (
-                <AlertCircle className="w-5 h-5 text-amber-400" />
-              ) : isComplete ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-              ) : (
-                <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
-              )}
-              <h3 className="text-lg font-bold text-white">
-                {hasError ? 'Analysis issues' : isComplete ? 'Analysis complete' : 'Analyzing repository'}
-              </h3>
-            </div>
-
-            {/* Progress bar */}
-            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  hasError ? 'bg-amber-500' : isComplete ? 'bg-emerald-500' : 'bg-indigo-500'
-                }`}
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <div className="text-xs text-zinc-500 text-right">
-              {completedCount} / {steps.length} steps
-            </div>
-
-            {/* Step list */}
-            <div className="space-y-2.5">
-              {steps.map((step) => (
-                <div key={step.key} className="flex items-start gap-3">
-                  <div className="mt-0.5 shrink-0">
-                    {step.status === 'done' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    ) : step.status === 'running' ? (
-                      <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
-                    ) : step.status === 'error' ? (
-                      <AlertCircle className="w-4 h-4 text-amber-400" />
-                    ) : (
-                      <div className="w-4 h-4 rounded-full border border-white/10 flex items-center justify-center">
-                        <div className="w-1 h-1 rounded-full bg-white/20" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className={`text-sm font-medium ${
-                      step.status === 'done' ? 'text-zinc-300' :
-                      step.status === 'running' ? 'text-white' :
-                      step.status === 'error' ? 'text-amber-300' :
-                      'text-zinc-500'
-                    }`}>
-                      {step.label}
-                    </div>
-                    {step.message && step.status !== 'pending' && (
-                      <div className="text-xs text-zinc-500 truncate">{step.message}</div>
-                    )}
-                  </div>
+            {/* Terminal Top Window Bar */}
+            <div className="px-4 py-3 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-red-500/80 border border-red-600/40" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500/80 border border-yellow-600/40" />
+                  <div className="w-3 h-3 rounded-full bg-emerald-500/80 border border-emerald-600/40" />
                 </div>
-              ))}
+                <div className="h-4 w-px bg-zinc-800 mx-1" />
+                <Terminal className="w-4 h-4 text-zinc-400" />
+                <span className="font-mono text-xs font-semibold text-zinc-300">
+                  gitranked-pipeline ~ {owner}/{name}
+                </span>
+              </div>
+
+              {/* Status Indicator */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={copyTerminalLogs}
+                  title="Copy log text"
+                  className="p-1.5 text-zinc-400 hover:text-zinc-200 bg-zinc-800/60 hover:bg-zinc-800 rounded-lg text-xs font-mono transition-colors flex items-center gap-1"
+                >
+                  {copiedLogs ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">{copiedLogs ? 'Copied' : 'Copy'}</span>
+                </button>
+                <div
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-medium flex items-center gap-1.5 ${
+                    hasError
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : isComplete
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      hasError
+                        ? 'bg-amber-400'
+                        : isComplete
+                          ? 'bg-emerald-400'
+                          : 'bg-indigo-400 animate-pulse'
+                    }`}
+                  />
+                  {hasError ? 'ERROR' : isComplete ? 'COMPLETE' : 'RUNNING'}
+                </div>
+              </div>
             </div>
 
-            {isComplete && (
-              <button
-                onClick={() => {
-                  setShowProgress(false);
-                  router.refresh();
-                }}
-                className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 text-sm transition-colors"
-              >
-                View Results
-              </button>
-            )}
+            {/* Step Summary Bar */}
+            <div className="px-5 py-3 bg-black/60 border-b border-zinc-900 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-zinc-400">
+                  Progress: <strong className="text-zinc-200">{completedCount}</strong>/{steps.length} tasks
+                </span>
+                <span className="font-mono text-indigo-400 font-bold">{progressPct}%</span>
+              </div>
 
-            {hasError && !loading && (
-              <button
-                onClick={() => setShowProgress(false)}
-                className="w-full rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 font-medium py-2.5 text-sm transition-colors"
-              >
-                Close
-              </button>
-            )}
+              {/* Progress bar */}
+              <div className="flex-1 max-w-xs h-2 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800/80">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    hasError ? 'bg-amber-500' : isComplete ? 'bg-emerald-500' : 'bg-indigo-500'
+                  }`}
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Terminal Scrolling Log View */}
+            <div className="p-4 bg-black font-mono text-xs overflow-y-auto flex-1 space-y-2 min-h-[260px] max-h-[400px] select-text scrollbar-thin scrollbar-thumb-zinc-800">
+              {logs.map((log) => {
+                let badgeColor = 'text-zinc-400 border-zinc-800 bg-zinc-900/40';
+                let textColor = 'text-zinc-300';
+
+                if (log.status === 'running') {
+                  badgeColor = 'text-cyan-400 border-cyan-500/30 bg-cyan-950/40';
+                  textColor = 'text-cyan-200';
+                } else if (log.status === 'done') {
+                  badgeColor = 'text-emerald-400 border-emerald-500/30 bg-emerald-950/40';
+                  textColor = 'text-zinc-200';
+                } else if (log.status === 'complete') {
+                  badgeColor = 'text-emerald-300 border-emerald-400/40 bg-emerald-900/50 font-bold';
+                  textColor = 'text-emerald-300 font-semibold';
+                } else if (log.status === 'error') {
+                  badgeColor = 'text-amber-400 border-amber-500/30 bg-amber-950/40';
+                  textColor = 'text-amber-300';
+                } else if (log.status === 'info') {
+                  badgeColor = 'text-indigo-400 border-indigo-500/30 bg-indigo-950/40';
+                  textColor = 'text-zinc-400';
+                }
+
+                return (
+                  <div key={log.id} className="flex items-start gap-2.5 leading-relaxed hover:bg-zinc-900/40 rounded px-1 py-0.5 transition-colors">
+                    <span className="text-zinc-600 shrink-0 select-none">{log.timestamp}</span>
+                    <span className={`px-1.5 py-0.5 text-[10px] uppercase rounded border shrink-0 font-semibold ${badgeColor}`}>
+                      {log.status === 'running' ? 'RUN' : log.status === 'done' ? 'OK' : log.status.toUpperCase()}
+                    </span>
+                    <span className={`break-words ${textColor}`}>{log.text}</span>
+                  </div>
+                );
+              })}
+
+              {/* Blinking prompt line */}
+              <div className="flex items-center gap-2 pt-1 text-zinc-500">
+                <span className="text-indigo-400 font-bold">❯</span>
+                {loading ? (
+                  <span className="animate-pulse text-cyan-400">Processing stream data...</span>
+                ) : isComplete ? (
+                  <span className="text-emerald-400">Pipeline ready. Click View Results to inspect analysis.</span>
+                ) : (
+                  <span className="text-zinc-600">Idle</span>
+                )}
+                <span className="w-2 h-4 bg-indigo-400 animate-pulse inline-block" />
+              </div>
+
+              {/* Dummy element for smooth auto-scroll */}
+              <div ref={logsEndRef} />
+            </div>
+
+            {/* Modal Bottom Footer */}
+            <div className="p-4 bg-zinc-900/80 border-t border-zinc-800 flex items-center justify-between gap-3 shrink-0">
+              <div className="text-xs text-zinc-400 truncate">
+                {isComplete ? (
+                  <span className="text-emerald-400 font-medium">✓ Analysis finished. Visuals updated.</span>
+                ) : hasError ? (
+                  <span className="text-amber-400 font-medium">⚠ Pipeline hit errors during execution.</span>
+                ) : (
+                  <span className="text-zinc-500">Real-time log stream connected</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {isComplete && (
+                  <button
+                    onClick={() => {
+                      setShowProgress(false);
+                      router.refresh();
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-all shadow-lg shadow-emerald-900/40 flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    View Results
+                  </button>
+                )}
+
+                {!loading && (
+                  <button
+                    onClick={() => {
+                      setShowProgress(false);
+                      if (isComplete) router.refresh();
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium text-xs transition-colors"
+                  >
+                    Close
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

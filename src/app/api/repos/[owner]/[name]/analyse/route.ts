@@ -13,7 +13,7 @@ import {
 
 type ProgressEvent = {
   step: string;
-  status: 'running' | 'done' | 'error' | 'complete';
+  status: 'running' | 'done' | 'error' | 'complete' | 'info';
   message: string;
   detail?: unknown;
 };
@@ -58,6 +58,8 @@ export async function POST(
 
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {
+      controller.enqueue(encodeEvent({ step: 'init', status: 'info', message: `Initializing pipeline for ${repoInfo.owner}/${repoInfo.name} (Repo ID: ${repoId})` }));
+
       const steps: Array<{ step: string; message: string; fn: () => Promise<unknown> }> = [
         {
           step: 'classifying',
