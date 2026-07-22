@@ -49,6 +49,10 @@ export async function initSchema() {
     );
   `;
 
+  await sql`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS openrouter_api_key TEXT`;
+  await sql`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS ai_model VARCHAR(255)`;
+  await sql`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS use_custom_key BOOLEAN DEFAULT FALSE`;
+
   await sql`
     CREATE TABLE IF NOT EXISTS github_contributors (
         id SERIAL PRIMARY KEY,

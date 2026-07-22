@@ -19,6 +19,9 @@ export async function Navbar() {
               <Link href="/dashboard" className="px-5 py-2 accent-panel text-sm">
                 DASHBOARD
               </Link>
+              <Link href="/settings" className="text-sm font-bold tracking-wider hover:text-[#ccff00] transition-colors uppercase text-zinc-300">
+                SETTINGS
+              </Link>
               <div className="h-6 w-px bg-white/20" />
               <div className="flex items-center gap-3">
                 {session.user?.image ? (

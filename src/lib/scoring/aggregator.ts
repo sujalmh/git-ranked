@@ -83,47 +83,70 @@ export async function aggregateRepoCandidates(repoId: number): Promise<WorkUnitC
     grouped.set(key, existing);
   }
 
+  const keys = Array.from(grouped.keys());
+  if (keys.length === 0) return [];
+
+  // Fetch all existing candidates in one query
+  const existingRows = (await sql`
+    SELECT id, repo_id, correlation_key, status, source_event_ids, created_at, classified_at
+    FROM work_unit_candidates
+    WHERE repo_id = ${repoId} AND correlation_key = ANY(${keys}::text[])
+  `) as WorkUnitCandidate[];
+
+  const existingMap = new Map<string, WorkUnitCandidate>();
+  for (const row of existingRows) {
+    existingMap.set(row.correlation_key, row);
+  }
+
+  const toInsert: Array<{ repo_id: number; correlation_key: string; status: string; source_event_ids: number[] }> = [];
+  const toUpdate: Array<{ id: number; source_event_ids: number[] }> = [];
   const resultCandidates: WorkUnitCandidate[] = [];
 
   for (const [correlation_key, eventIds] of grouped.entries()) {
-    const existing = await sql`
-      SELECT id, repo_id, correlation_key, status, source_event_ids, created_at, classified_at
-      FROM work_unit_candidates
-      WHERE repo_id = ${repoId} AND correlation_key = ${correlation_key}
-    `;
-
-    if (existing.length > 0) {
-      const candidate = existing[0] as WorkUnitCandidate;
-
-      // Always update event IDs (new events may have arrived) and mark as
-      // needs_reclassification so extraction runs again on re-analyse.
-      await sql`
-        UPDATE work_unit_candidates
-        SET source_event_ids = ${eventIds},
-            status = CASE
-              WHEN status = 'classified' THEN 'needs_reclassification'
-              ELSE status
-            END
-        WHERE id = ${candidate.id}
-      `;
-
+    const candidate = existingMap.get(correlation_key);
+    if (candidate) {
+      toUpdate.push({ id: candidate.id, source_event_ids: eventIds });
       resultCandidates.push({
         ...candidate,
         source_event_ids: eventIds,
-        // If it was classified, treat it as needs_reclassification for the
-        // current run (so classifyRepo picks it up).
         status: candidate.status === 'classified' ? 'needs_reclassification' : candidate.status,
       });
     } else {
-      const inserted = await sql`
-        INSERT INTO work_unit_candidates (repo_id, correlation_key, status, source_event_ids)
-        VALUES (${repoId}, ${correlation_key}, 'pending', ${eventIds})
-        RETURNING id, repo_id, correlation_key, status, source_event_ids, created_at, classified_at
-      `;
-      if (inserted.length > 0) {
-        resultCandidates.push(inserted[0] as WorkUnitCandidate);
-      }
+      toInsert.push({
+        repo_id: repoId,
+        correlation_key,
+        status: 'pending',
+        source_event_ids: eventIds,
+      });
     }
+  }
+
+  // Bulk UPDATE existing candidates
+  if (toUpdate.length > 0) {
+    const updateJson = JSON.stringify(toUpdate);
+    await sql`
+      UPDATE work_unit_candidates AS w
+      SET source_event_ids = v.source_event_ids,
+          status = CASE
+            WHEN w.status = 'classified' THEN 'needs_reclassification'
+            ELSE w.status
+          END
+      FROM jsonb_to_recordset(${updateJson}::jsonb) AS v(id int, source_event_ids bigint[])
+      WHERE w.id = v.id
+    `;
+  }
+
+  // Bulk INSERT new candidates
+  if (toInsert.length > 0) {
+    const insertJson = JSON.stringify(toInsert);
+    const insertedRows = (await sql`
+      INSERT INTO work_unit_candidates (repo_id, correlation_key, status, source_event_ids)
+      SELECT repo_id, correlation_key, status, source_event_ids
+      FROM jsonb_to_recordset(${insertJson}::jsonb) AS t(repo_id int, correlation_key text, status text, source_event_ids bigint[])
+      RETURNING id, repo_id, correlation_key, status, source_event_ids, created_at, classified_at
+    `) as WorkUnitCandidate[];
+
+    resultCandidates.push(...insertedRows);
   }
 
   return resultCandidates;

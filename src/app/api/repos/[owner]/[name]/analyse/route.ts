@@ -11,6 +11,7 @@ import {
   tasks,
 } from '@/lib/ai';
 import { setTelemetryListener, type ApiTelemetryEvent } from '@/lib/ai/telemetry';
+import { getUserAiConfig } from '@/lib/ai/openrouter';
 
 type ProgressEvent = {
   step: string;
@@ -54,6 +55,9 @@ export async function POST(
     return NextResponse.json({ error: 'Repository metadata not found' }, { status: 404 });
   }
 
+  const userId = Number(session.user.id);
+  const userAiConfig = await getUserAiConfig(userId);
+
   const dateTo = new Date().toISOString().split('T')[0];
   const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
@@ -96,12 +100,12 @@ export async function POST(
           {
             step: 'classifying',
             message: 'Classifying unclassified events',
-            fn: () => classifyEvents(repoId, repoInfo.owner, repoInfo.name),
+            fn: () => classifyEvents(repoId, repoInfo.owner, repoInfo.name, undefined, undefined, undefined, userAiConfig),
           },
           {
             step: 'work_units',
             message: 'Extracting work units from events',
-            fn: () => classifyRepo(repoId),
+            fn: () => classifyRepo(repoId, userAiConfig),
           },
           {
             step: 'scoring',
@@ -118,7 +122,7 @@ export async function POST(
             message: 'Generating AI repository summary',
             fn: async () => {
               const ctx = await buildTaskContext(repoId, repoInfo.owner, repoInfo.name, dateFrom, dateTo);
-              return getOrGenerateTask(tasks.repositorySummary, ctx, true);
+              return getOrGenerateTask(tasks.repositorySummary, ctx, true, userAiConfig);
             },
           },
           {
@@ -126,7 +130,7 @@ export async function POST(
             message: 'Generating AI team insights',
             fn: async () => {
               const ctx = await buildTaskContext(repoId, repoInfo.owner, repoInfo.name, dateFrom, dateTo);
-              return getOrGenerateTask(tasks.teamInsights, ctx, true);
+              return getOrGenerateTask(tasks.teamInsights, ctx, true, userAiConfig);
             },
           },
           {
@@ -155,7 +159,7 @@ export async function POST(
                   contributor.id,
                   contributor.username
                 );
-                await getOrGenerateTask(tasks.contributorProfile, ctx, true);
+                await getOrGenerateTask(tasks.contributorProfile, ctx, true, userAiConfig);
               }
               return { count: topContributors.length };
             },
@@ -186,7 +190,7 @@ export async function POST(
                   contributor.id,
                   contributor.username
                 );
-                await getOrGenerateTask(tasks.impactAnalysis, ctx, true);
+                await getOrGenerateTask(tasks.impactAnalysis, ctx, true, userAiConfig);
               }
               return { count: topContributors.length };
             },

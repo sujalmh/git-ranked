@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { sql } from '../../db';
-import { callStructured, hasApiKey } from '../openrouter';
+import { callStructured, hasApiKey, type AiCallOptions } from '../openrouter';
 import { classifyEventsFallback } from '../fallback';
 import { ClassificationSchema } from '../schemas';
 import { asPayload, titleFromPayload } from '../../contributor-insights';
@@ -154,7 +154,8 @@ export async function classifyEvents(
   repoName: string,
   dateFrom?: string,
   dateTo?: string,
-  contributorId?: number
+  contributorId?: number,
+  aiOptions?: AiCallOptions
 ): Promise<{ classified: number; fallback: number }> {
   const unclassified = await fetchUnclassifiedEvents(repoId, dateFrom, dateTo, contributorId);
 
@@ -172,7 +173,7 @@ export async function classifyEvents(
     const batch = normalized.slice(i, i + BATCH_SIZE);
     let handled = false;
 
-    if (hasApiKey()) {
+    if (hasApiKey(aiOptions)) {
       const { system, user } = buildClassificationPrompt(batch, repoOwner, repoName);
 
       try {
@@ -182,7 +183,8 @@ export async function classifyEvents(
             { role: 'user', content: user },
           ],
           jsonSchema,
-          'work_classification'
+          'work_classification',
+          aiOptions
         );
 
         if (content) {

@@ -1,3 +1,4 @@
+import pLimit from 'p-limit';
 import { sql } from '../db';
 import { aggregateRepoCandidates } from './aggregator';
 import { getRepoScoringConfig } from './config';
@@ -19,16 +20,37 @@ export * from './extract';
 export * from './outcome';
 export * from './scoring-engine';
 
-export async function classifyRepo(repoId: number): Promise<number> {
+import type { AiCallOptions } from '../ai/openrouter';
+
+export async function classifyRepo(repoId: number, aiOptions?: AiCallOptions): Promise<number> {
   const candidates = await aggregateRepoCandidates(repoId);
   const config = await getRepoScoringConfig(repoId);
 
+  const pendingCandidates = candidates.filter(
+    (c) => c.status === 'pending' || c.status === 'needs_reclassification'
+  );
+
+  const limit = pLimit(6);
+  const results = await Promise.allSettled(
+    pendingCandidates.map((candidate) =>
+      limit(() => extractAndPersistWorkUnits(candidate, config, aiOptions))
+    )
+  );
+
   let totalUnits = 0;
-  for (const candidate of candidates) {
-    if (candidate.status === 'pending' || candidate.status === 'needs_reclassification') {
-      const count = await extractAndPersistWorkUnits(candidate, config);
-      totalUnits += count;
+  let failedCount = 0;
+
+  for (const res of results) {
+    if (res.status === 'fulfilled') {
+      totalUnits += res.value;
+    } else {
+      failedCount++;
+      console.error('Work unit extraction failed for candidate:', res.reason);
     }
+  }
+
+  if (failedCount > 0) {
+    console.warn(`Work unit extraction completed with ${failedCount} failed candidates out of ${pendingCandidates.length}`);
   }
 
   return totalUnits;

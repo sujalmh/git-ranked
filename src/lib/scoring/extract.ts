@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { sql } from '../db';
-import { callStructured, hasApiKey } from '../ai/openrouter';
+import { callStructured, hasApiKey, type AiCallOptions } from '../ai/openrouter';
 import { derive } from './derivation';
 import { correctLowConfidenceFacts, extractHeuristicFacts, classifyWorkTypeFromText, determineScope } from './heuristic-fallback';
 import { buildRationale } from './rationale';
@@ -163,7 +163,8 @@ function deriveWorkType(eventType: string, titleOrMessage: string): WorkType {
 
 export async function extractAndPersistWorkUnits(
   candidate: WorkUnitCandidate,
-  config: ScoringConfig
+  config: ScoringConfig,
+  aiOptions?: AiCallOptions
 ): Promise<number> {
   const events = await sql`
     SELECT id, repo_id, contributor_id, event_type, payload, created_at, before_sha, after_sha
@@ -306,7 +307,7 @@ export async function extractAndPersistWorkUnits(
   }
 
   // ── AI extraction ─────────────────────────────────────────────────────────
-  if (extractedItems.length === 0 && hasApiKey()) {
+  if (extractedItems.length === 0 && hasApiKey(aiOptions)) {
     try {
       const prompt = buildExtractionPrompt(
         titleOrMessage,
@@ -325,7 +326,8 @@ export async function extractAndPersistWorkUnits(
           { role: 'user', content: prompt },
         ],
         EXTRACTION_SCHEMA,
-        'work_unit_extraction'
+        'work_unit_extraction',
+        aiOptions
       );
 
       if (aiResponse) {

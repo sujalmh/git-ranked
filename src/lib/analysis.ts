@@ -11,6 +11,7 @@ import {
   contributorSummary,
   describeEvent,
   eventDate,
+  extractAreasFromWorkUnit,
   formatRelativeDate,
   isFix,
   topBy,
@@ -320,44 +321,58 @@ export async function getRepoAnalysisData(repoId: number): Promise<RepoAnalysisD
     });
   }
 
-  // Fetch work unit type distribution per contributor and merge into categories
-  // so the WorkAreasHeatmap reflects scored work units, not just event heuristics.
+  // Fetch shipped work units for each contributor and extract specific work domain areas
+  // so the WorkAreasHeatmap reflects detailed extracted work areas rather than generic type buckets.
   const workUnitRows = await sql`
-    SELECT wuc.contributor_id, wu.work_type, COUNT(*) as cnt
+    SELECT 
+      wuc.contributor_id, 
+      wu.work_type, 
+      wu.summary, 
+      wu.facts
     FROM work_units wu
     JOIN work_unit_contributors wuc ON wu.id = wuc.work_unit_id
     WHERE wu.repo_id = ${repoId}
       AND wu.shipped = true
-    GROUP BY wuc.contributor_id, wu.work_type
   `;
 
-  // Build a map: contributorId -> { workType -> count }
-  const workUnitsByContributor = new Map<number, Map<string, number>>();
+  // Build a map: contributorId -> { areaLabel -> count }
+  const areaCountsByContributor = new Map<number, Map<string, number>>();
   for (const row of workUnitRows) {
     const cid = row.contributor_id as number;
-    const wt = row.work_type as string;
-    const cnt = Number(row.cnt);
-    const existing = workUnitsByContributor.get(cid) ?? new Map<string, number>();
-    existing.set(wt, (existing.get(wt) ?? 0) + cnt);
-    workUnitsByContributor.set(cid, existing);
+    const summary = row.summary as string | null;
+    const workType = row.work_type as string;
+    const facts = row.facts as Record<string, unknown> | null;
+
+    const areas = extractAreasFromWorkUnit(summary, workType, facts);
+    const existingMap = areaCountsByContributor.get(cid) ?? new Map<string, number>();
+
+    for (const area of areas) {
+      existingMap.set(area, (existingMap.get(area) ?? 0) + 1);
+    }
+    areaCountsByContributor.set(cid, existingMap);
   }
 
-  // Enrich contributors: if work units exist, prefer them for categories
+  const GENERIC_LABELS = new Set(['Other', 'Feature', 'BugFix', 'Refactor', 'Feature Work', 'Maintenance']);
+
+  // Enrich contributors: prefer specific work unit extracted areas over generic event buckets
   const enrichedContributors = contributors.map((c) => {
-    const wuTypes = workUnitsByContributor.get(c.id);
-    if (!wuTypes || wuTypes.size === 0) return c;
+    const areaMap = areaCountsByContributor.get(c.id);
+    if (!areaMap || areaMap.size === 0) return c;
 
-    // Merge work unit types as additional area categories (prefixed to make them distinct)
-    const wuCategories = Array.from(wuTypes.entries())
+    const wuCategories = Array.from(areaMap.entries())
       .map(([label, value]) => ({ label, value, detail: `${value} shipped work unit${value !== 1 ? 's' : ''}` }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6);
+      .sort((a, b) => b.value - a.value);
 
-    // Use work unit categories if richer than heuristic ones, else combine top entries
-    const existingCats = c.categories ?? [];
-    const mergedLabels = new Set(existingCats.map((cat) => cat.label));
-    const newCats = wuCategories.filter((wu) => !mergedLabels.has(wu.label));
-    const categories = [...wuCategories, ...newCats].slice(0, 6);
+    // Filter out generic labels like "Feature" or "Refactor" if specific area tags exist
+    const specificWu = wuCategories.filter((cat) => !GENERIC_LABELS.has(cat.label));
+    const finalWu = specificWu.length > 0 ? specificWu : wuCategories;
+
+    // Combine with existing non-generic event categories
+    const existingCats = (c.categories ?? []).filter((cat) => !GENERIC_LABELS.has(cat.label));
+    const mergedLabels = new Set(finalWu.map((cat) => cat.label));
+    const newCats = existingCats.filter((cat) => !mergedLabels.has(cat.label));
+
+    const categories = [...finalWu, ...newCats].slice(0, 6);
 
     return { ...c, categories };
   });

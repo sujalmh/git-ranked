@@ -104,12 +104,15 @@ export async function buildTaskContext(
   };
 }
 
+import type { AiCallOptions } from './openrouter';
+
 export async function getOrGenerateTask<T>(
   task: AiTask<T>,
   ctx: TaskContext,
-  generateIfMissing: boolean
+  generateIfMissing: boolean,
+  aiOptions?: AiCallOptions
 ): Promise<AiResult<T> | null> {
-  return runTask(task, ctx, { generateIfMissing });
+  return runTask(task, ctx, { generateIfMissing, aiOptions });
 }
 
 async function getCachedResultPublic(

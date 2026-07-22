@@ -277,6 +277,54 @@ export function contributorRole(contributor: ContributorInsight) {
   return categories.sort((a, b) => b.value - a.value)[0]?.label ?? 'Contributor';
 }
 
+export function extractAreasFromWorkUnit(
+  summary?: string | null,
+  workType?: string,
+  facts?: Record<string, unknown> | null
+): string[] {
+  const areas = new Set<string>();
+
+  // 1. Bracketed scope tag in summary (e.g. "[Flight] Implement server component...")
+  if (summary) {
+    const match = summary.match(/^\[([^\]]+)\]/);
+    if (match && match[1].trim()) {
+      areas.add(match[1].trim());
+    }
+  }
+
+  // 2. Keyword & Subsystem extraction from summary
+  if (summary) {
+    const text = summary.toLowerCase();
+    if (/\b(auth|session|jwt|login|password|permission|token|role)\b/.test(text)) areas.add('Auth & Security');
+    if (/\b(db|database|migration|schema|postgres|sql|prisma|drizzle|neon)\b/.test(text)) areas.add('Database & Schema');
+    if (/\b(api|endpoint|route|graphql|rest|fetch|webhook)\b/.test(text)) areas.add('API & Integrations');
+    if (/\b(ui|ux|dashboard|component|page|view|frontend|css|style|layout)\b/.test(text)) areas.add('UI & Dashboard');
+    if (/\b(cache|redis|state|queue|worker|pubsub|stream)\b/.test(text)) areas.add('Cache & Async State');
+    if (/\b(bot|discord|slack|telegram)\b/.test(text)) areas.add('Bots & Integrations');
+    if (/\b(ai|llm|summary|model|insight|prompt|scoring|engine)\b/.test(text)) areas.add('AI Engine & Analytics');
+    if (/\b(cli|script|tool|generator)\b/.test(text)) areas.add('Developer Tools');
+    if (/\b(test|tests|spec|coverage|jest|vitest)\b/.test(text)) areas.add('Testing & QA');
+    if (/\b(ci|cd|infra|infrastructure|docker|k8s|deploy|workflow|actions)\b/.test(text)) areas.add('Infra & DevOps');
+  }
+
+  // 3. Work unit facts boolean flags
+  if (facts && typeof facts === 'object') {
+    if (facts.touches_auth) areas.add('Auth & Security');
+    if (facts.touches_data_migration) areas.add('Database & Schema');
+    if (facts.touches_distributed_state) areas.add('Cache & Async State');
+    if (facts.new_algorithm_or_subsystem) areas.add('Core Subsystems');
+  }
+
+  // Fallback to workType only if no concrete area was derived
+  if (areas.size === 0 && workType) {
+    areas.add(workType);
+  }
+
+  return Array.from(areas);
+}
+
+const GENERIC_LABELS = new Set(['Other', 'Feature', 'BugFix', 'Refactor', 'Feature Work', 'Maintenance']);
+
 export function buildContributionCategories(
   contributor: ContributorInsight,
   categoryCounts: Map<string, number>
@@ -289,12 +337,11 @@ export function buildContributionCategories(
     }))
     .sort((a, b) => b.value - a.value);
 
-  // Prefer concrete work areas over the generic "Other" bucket so the heatmap
-  // surfaces real subsystems (e.g. Flight, react-server) instead of "Other".
-  const concrete = categories.filter((c) => c.label !== 'Other');
+  // Filter out generic buckets when concrete work areas exist
+  const concrete = categories.filter((c) => !GENERIC_LABELS.has(c.label));
   const picked = concrete.length > 0 ? concrete : categories;
 
-  return picked.slice(0, 3);
+  return picked.slice(0, 5);
 }
 
 export function categoryDetail(label: string, contributor: ContributorInsight, value: number) {

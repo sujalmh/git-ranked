@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { sql } from '../db';
-import { getAiModel, callStructured, hasApiKey } from './openrouter';
+import { getAiModel, callStructured, hasApiKey, type AiCallOptions } from './openrouter';
 import { getPreviousSummary } from './memory';
 import type { AiResult, AiTask, TaskContext } from './types';
 
@@ -177,9 +177,9 @@ function parseJsonContent(content: string): unknown {
 export async function runTask<T>(
   task: AiTask<T>,
   ctx: TaskContext,
-  options: { generateIfMissing?: boolean } = {}
+  options: { generateIfMissing?: boolean; aiOptions?: AiCallOptions } = {}
 ): Promise<AiResult<T> | null> {
-  const { generateIfMissing = false } = options;
+  const { generateIfMissing = false, aiOptions } = options;
 
   const cached = await getCachedResult(task, ctx.repoId, ctx.dateFrom, ctx.dateTo, ctx.contributorId);
   if (cached) return cached;
@@ -203,9 +203,9 @@ export async function runTask<T>(
 
   let result: AiResult<T> | null = null;
 
-  if (hasApiKey()) {
+  if (hasApiKey(aiOptions)) {
     const jsonSchema = z.toJSONSchema(task.schema) as Record<string, unknown>;
-    result = await attemptStructuredCall(task, messages, jsonSchema);
+    result = await attemptStructuredCall(task, messages, jsonSchema, aiOptions);
   }
 
   if (!result && task.fallback) {
@@ -230,7 +230,8 @@ export async function runTask<T>(
 async function attemptStructuredCall<T>(
   task: AiTask<T>,
   messages: Array<{ role: 'system' | 'user'; content: string }>,
-  jsonSchema: Record<string, unknown>
+  jsonSchema: Record<string, unknown>,
+  aiOptions?: AiCallOptions
 ): Promise<AiResult<T> | null> {
   const attempts: Array<{ messages: typeof messages; label: string }> = [
     { messages, label: 'initial' },
@@ -245,7 +246,7 @@ async function attemptStructuredCall<T>(
 
   for (const attempt of attempts) {
     try {
-      const content = await callStructured(attempt.messages, jsonSchema, task.id);
+      const content = await callStructured(attempt.messages, jsonSchema, task.id, aiOptions);
       if (!content) continue;
 
       const parsed = parseJsonContent(content);
@@ -256,7 +257,7 @@ async function attemptStructuredCall<T>(
           payload: validated.data,
           confidence,
           source: 'ai',
-          modelUsed: await getAiModel(),
+          modelUsed: aiOptions?.model || (await getAiModel()),
           generatedAt: new Date(),
         };
       }

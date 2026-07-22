@@ -92,16 +92,83 @@ export type CompletionRequest = {
   temperature?: number;
 };
 
-function isApiKeyConfigured() {
-  return Boolean(OPENROUTER_API_KEY);
+export type UserAiConfig = {
+  apiKey: string;
+  model: string;
+  isCustom: boolean;
+};
+
+export type AiCallOptions = {
+  apiKey?: string;
+  model?: string;
+};
+
+export async function getUserAiConfig(userId?: number | null): Promise<UserAiConfig> {
+  const defaultModel = await getAiModel();
+  const defaultApiKey = process.env.OPENROUTER_API_KEY || '';
+
+  if (!userId) {
+    return {
+      apiKey: defaultApiKey,
+      model: defaultModel,
+      isCustom: false,
+    };
+  }
+
+  try {
+    const rows = await sql`
+      SELECT openrouter_api_key, ai_model, use_custom_key
+      FROM app_users
+      WHERE id = ${userId}
+    `;
+
+    if (rows.length > 0) {
+      const user = rows[0];
+      const useCustom = Boolean(user.use_custom_key);
+      const userKey = typeof user.openrouter_api_key === 'string' ? user.openrouter_api_key.trim() : '';
+      const userModel = typeof user.ai_model === 'string' ? user.ai_model.trim() : '';
+
+      if (useCustom && userKey) {
+        return {
+          apiKey: userKey,
+          model: userModel || defaultModel,
+          isCustom: true,
+        };
+      }
+    }
+  } catch (err) {
+    console.error('Failed to fetch user AI config, using default:', err);
+  }
+
+  return {
+    apiKey: defaultApiKey,
+    model: defaultModel,
+    isCustom: false,
+  };
 }
 
-async function callOpenRouter(request: CompletionRequest, taskName = 'inference'): Promise<string | null> {
-  if (!isApiKeyConfigured()) {
+function resolveApiKey(options?: AiCallOptions): string {
+  if (options?.apiKey && options.apiKey.trim()) {
+    return options.apiKey.trim();
+  }
+  return process.env.OPENROUTER_API_KEY || '';
+}
+
+export function hasApiKey(options?: AiCallOptions): boolean {
+  return Boolean(resolveApiKey(options));
+}
+
+async function callOpenRouter(
+  request: CompletionRequest,
+  taskName = 'inference',
+  options?: AiCallOptions
+): Promise<string | null> {
+  const apiKey = resolveApiKey(options);
+  if (!apiKey) {
     throw new Error('OPENROUTER_API_KEY is not configured');
   }
 
-  const activeModel = await getAiModel();
+  const activeModel = options?.model?.trim() || (await getAiModel());
   const startTime = Date.now();
 
   emitTelemetry({
@@ -130,12 +197,13 @@ async function callOpenRouter(request: CompletionRequest, taskName = 'inference'
     response = await fetch(OPENROUTER_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': APP_REFERER,
         'X-Title': APP_TITLE,
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15000),
     });
   } catch (netErr) {
     const latencyMs = Date.now() - startTime;
@@ -231,7 +299,8 @@ export function isStructuredModeUnsupported(error: unknown): boolean {
 export async function callStructured(
   messages: ChatMessage[],
   jsonSchema: Record<string, unknown>,
-  schemaName: string
+  schemaName: string,
+  options?: AiCallOptions
 ): Promise<string | null> {
   const modes: StructuredOutputMode[] = ['json_schema', 'json_object', 'none'];
 
@@ -244,7 +313,7 @@ export async function callStructured(
           : { type: 'none' };
 
     try {
-      const content = await callOpenRouter({ messages, responseFormat, temperature: 0.2 }, schemaName);
+      const content = await callOpenRouter({ messages, responseFormat, temperature: 0.2 }, schemaName, options);
       if (content) return content;
     } catch (error) {
       if (mode === 'json_schema' && isStructuredModeUnsupported(error) && modes.indexOf(mode) < modes.length - 1) {
@@ -257,10 +326,10 @@ export async function callStructured(
   return null;
 }
 
-export async function callUnstructured(messages: ChatMessage[], taskName = 'unstructured'): Promise<string | null> {
-  return callOpenRouter({ messages, responseFormat: { type: 'none' }, temperature: 0.3 }, taskName);
-}
-
-export function hasApiKey() {
-  return isApiKeyConfigured();
+export async function callUnstructured(
+  messages: ChatMessage[],
+  taskName = 'unstructured',
+  options?: AiCallOptions
+): Promise<string | null> {
+  return callOpenRouter({ messages, responseFormat: { type: 'none' }, temperature: 0.3 }, taskName, options);
 }
