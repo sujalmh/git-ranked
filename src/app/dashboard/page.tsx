@@ -2,9 +2,10 @@ import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
-import { GitBranch, ArrowRight, LayoutDashboard, Settings, Globe } from 'lucide-react';
+import { GitBranch, ArrowRight, LayoutDashboard, Settings } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { AddPublicRepo } from '@/components/AddPublicRepo';
+import { RemoveRepoButton } from '@/components/RemoveRepoButton';
 
 import { getRepoInsights, HealthMetrics } from '@/lib/insights';
 
@@ -100,8 +101,12 @@ export default async function Dashboard() {
                 className="sleek-panel p-6 flex flex-col gap-4 group cursor-pointer border-2 border-white/10 hover:bg-[#ccff00] hover:border-[#ccff00] hover:text-black transition-all duration-200"
               >
                 <div className="flex items-center gap-4">
-                  <div className="p-2 bg-white/5 border border-white/20 group-hover:bg-black group-hover:border-black transition-colors">
-                    <GitBranch className="w-5 h-5 text-white group-hover:text-[#ccff00] transition-colors" />
+                  <div className="w-10 h-10 bg-white/5 border border-white/20 group-hover:bg-black group-hover:border-black transition-colors shrink-0 flex items-center justify-center overflow-hidden">
+                    <img
+                      src={`https://github.com/${repo.owner}.png`}
+                      alt={repo.owner}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="text-lg font-bold break-all text-white group-hover:text-black transition-colors">{repo.owner} / {repo.name}</h3>
@@ -119,6 +124,7 @@ export default async function Dashboard() {
                       </div>
                     </div>
                   ) : null}
+                  <RemoveRepoButton repoId={repo.id} repoName={`${repo.owner}/${repo.name}`} />
                 </div>
                 
                 <div className="mt-auto pt-4 border-t-2 border-white/10 group-hover:border-black/20 flex items-center justify-between transition-colors">

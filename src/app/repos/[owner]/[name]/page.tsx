@@ -113,9 +113,13 @@ export default async function RepoAnalysisBoard(
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
-            <h1 className="text-3xl font-black flex items-center gap-2.5 uppercase tracking-tighter">
-              <GitBranch className="w-8 h-8 text-[#ccff00]" />
-              {owner} / {name}
+            <h1 className="text-3xl font-black flex items-center gap-3 tracking-tighter text-white">
+              <img
+                src={`https://github.com/${owner}.png`}
+                alt={owner}
+                className="w-9 h-9 border-2 border-white/20 object-cover shrink-0"
+              />
+              <span>{owner} / {name}</span>
             </h1>
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 shrink-0 self-start sm:self-auto">
               <Calendar className="w-3.5 h-3.5 text-[#ccff00]" />
