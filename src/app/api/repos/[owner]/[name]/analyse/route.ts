@@ -12,6 +12,7 @@ import {
 } from '@/lib/ai';
 import { setTelemetryListener, type ApiTelemetryEvent } from '@/lib/ai/telemetry';
 import { getUserAiConfig } from '@/lib/ai/openrouter';
+import { enqueueClassifyRepo } from '@/lib/queue';
 
 type ProgressEvent = {
   step: string;
@@ -105,7 +106,65 @@ export async function POST(
           {
             step: 'work_units',
             message: 'Extracting work units from events',
-            fn: () => classifyRepo(repoId, userAiConfig),
+            fn: async () => {
+              const jobId = await enqueueClassifyRepo(repoId, userAiConfig);
+
+              controller.enqueue(
+                encodeEvent({
+                  step: 'work_units',
+                  status: 'running',
+                  message: 'Enqueued work unit classification job',
+                  detail: { jobId },
+                })
+              );
+
+              const startTime = Date.now();
+              const TIMEOUT_MS = 60 * 60 * 1000;
+
+              while (true) {
+                if (Date.now() - startTime > TIMEOUT_MS) {
+                  throw new Error(`Classification job ${jobId} timed out after 60 minutes`);
+                }
+
+                const rows = await sql<{
+                  job_id: string;
+                  status: string;
+                  done: number;
+                  total: number;
+                  result_units: number | null;
+                  error: string | null;
+                }>`
+                  SELECT job_id, status, done, total, result_units, error
+                  FROM job_progress
+                  WHERE job_id = ${jobId}
+                `;
+
+                if (rows.length > 0) {
+                  const job = rows[0];
+                  const done = Number(job.done || 0);
+                  const total = Number(job.total || 0);
+
+                  controller.enqueue(
+                    encodeEvent({
+                      step: 'work_units',
+                      status: 'running',
+                      message: `Extracting work units: ${done}/${total}`,
+                      detail: { jobId, done, total, status: job.status },
+                    })
+                  );
+
+                  if (job.status === 'completed') {
+                    return { jobId, totalUnits: job.result_units ?? 0, done, total };
+                  }
+
+                  if (job.status === 'failed') {
+                    throw new Error(job.error || `Classification job ${jobId} failed`);
+                  }
+                }
+
+                await new Promise((r) => setTimeout(r, 1500));
+              }
+            },
           },
           {
             step: 'scoring',

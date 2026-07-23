@@ -193,31 +193,49 @@ async function callOpenRouter(
   }
 
   let response: Response;
-  try {
-    response = await fetch(OPENROUTER_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': APP_REFERER,
-        'X-Title': APP_TITLE,
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(15000),
-    });
-  } catch (netErr) {
-    const latencyMs = Date.now() - startTime;
-    const errStr = netErr instanceof Error ? netErr.message : String(netErr);
-    emitTelemetry({
-      type: 'api_error',
-      provider: 'openrouter',
-      endpoint: 'POST /v1/chat/completions',
-      model: activeModel,
-      task: taskName,
-      latencyMs,
-      summary: `[API_ERR] OpenRouter request failed (${latencyMs}ms): ${errStr}`,
-    });
-    throw netErr;
+  let attemptCount = 0;
+
+  while (true) {
+    attemptCount++;
+    try {
+      response = await fetch(OPENROUTER_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': APP_REFERER,
+          'X-Title': APP_TITLE,
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(45000),
+      });
+
+      if ((response.status === 429 || response.status === 503) && attemptCount < 2) {
+        const retryAfter = Number(response.headers.get('Retry-After'));
+        const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 2000;
+        console.warn(`[OpenRouter] Received HTTP ${response.status}. Retrying after ${waitMs}ms...`);
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+      break;
+    } catch (netErr) {
+      if (attemptCount < 2 && netErr instanceof Error && netErr.name === 'TimeoutError') {
+        console.warn(`[OpenRouter] Request timed out. Retrying once...`);
+        continue;
+      }
+      const latencyMs = Date.now() - startTime;
+      const errStr = netErr instanceof Error ? netErr.message : String(netErr);
+      emitTelemetry({
+        type: 'api_error',
+        provider: 'openrouter',
+        endpoint: 'POST /v1/chat/completions',
+        model: activeModel,
+        task: taskName,
+        latencyMs,
+        summary: `[API_ERR] OpenRouter request failed (${latencyMs}ms): ${errStr}`,
+      });
+      throw netErr;
+    }
   }
 
   const latencyMs = Date.now() - startTime;

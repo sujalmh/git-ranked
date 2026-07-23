@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { GithubIcon } from '@/components/icons/GithubIcon';
 import { AnimatedHeroContent } from '@/components/AnimatedHeroContent';
 import { AnimatedFeatures } from '@/components/AnimatedFeatures';
 import { VisualPipeline } from '@/components/VisualPipeline';
@@ -60,8 +61,9 @@ export default async function Home() {
                 </a>
                 <a 
                   href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`} 
-                  className="px-5 py-2 accent-panel text-sm"
+                  className="px-5 py-2 accent-panel text-sm flex items-center gap-2"
                 >
+                  <GithubIcon className="w-4 h-4" />
                   CONNECT TO GITHUB
                 </a>
               </div>

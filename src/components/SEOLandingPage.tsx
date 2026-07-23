@@ -7,7 +7,6 @@ import { ContributionGrid } from '@/components/ContributionGrid';
 import type { SEOPageData } from '@/lib/seo-content';
 import { ChevronRight, ArrowRight } from 'lucide-react';
 import { Footer } from '@/components/Footer';
-import { AppSnapshots } from '@/components/AppSnapshots';
 
 export function SEOLandingPage({ data }: { data: SEOPageData }) {
   return (
@@ -81,8 +80,6 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
               Analyze Your Repo <ArrowRight className="w-5 h-5" />
             </a>
           </motion.div>
-
-          <AppSnapshots />
         </div>
 
         {/* Content Sections */}

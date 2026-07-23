@@ -11,7 +11,7 @@ export default async function SettingsPage() {
     <div className="min-h-screen bg-black text-white flex flex-col">
       <Navbar />
 
-      <main className="flex-1 max-w-4xl w-full mx-auto px-6 py-12 space-y-8">
+      <main className="flex-1 w-full px-6 py-12 space-y-8">
         <div className="border-b border-zinc-800 pb-6">
           <h1 className="text-3xl font-black tracking-tight uppercase flex items-center gap-3">
             <Sparkles className="w-7 h-7 text-[#ccff00]" />

@@ -90,6 +90,14 @@ export async function POST(req: Request) {
       }
     }
 
+    const hasKeySet = Boolean(typeof newKey === 'string' && newKey.trim());
+    if (newModel !== currentModel && (!newUseCustom || !hasKeySet)) {
+      return NextResponse.json(
+        { error: 'An OpenRouter API key must be set and enabled to change your AI model preference.' },
+        { status: 400 }
+      );
+    }
+
     await sql`
       UPDATE app_users
       SET use_custom_key = ${newUseCustom},

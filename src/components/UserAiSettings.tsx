@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Key, Cpu, Check, AlertCircle, Eye, EyeOff, Loader2, Sparkles } from 'lucide-react';
+import { Key, Cpu, Check, AlertCircle, Eye, EyeOff, Loader2, Sparkles, Lock } from 'lucide-react';
 
 interface PresetModel {
   id: string;
@@ -22,6 +22,7 @@ export function UserAiSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [useCustomKey, setUseCustomKey] = useState(false);
+  const [hasCustomKeySet, setHasCustomKeySet] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [selectedModel, setSelectedModel] = useState('');
@@ -43,6 +44,7 @@ export function UserAiSettings() {
       const data: UserAiSettingsData = await res.json();
 
       setUseCustomKey(data.useCustomKey);
+      setHasCustomKeySet(data.hasCustomKeySet);
       setApiKeyInput(data.apiKeyMasked);
       setSelectedModel(data.aiModel);
       setDefaultModel(data.defaultModel);
@@ -60,6 +62,8 @@ export function UserAiSettings() {
       setLoading(false);
     }
   };
+
+  const isApiKeySet = useCustomKey && (hasCustomKeySet || apiKeyInput.trim().length > 0);
 
   const handleSave = async () => {
     setSaving(true);
@@ -82,6 +86,7 @@ export function UserAiSettings() {
       if (!res.ok) throw new Error(data.error || 'Failed to save settings');
 
       setUseCustomKey(data.settings.useCustomKey);
+      setHasCustomKeySet(data.settings.hasCustomKeySet);
       setApiKeyInput(data.settings.apiKeyMasked);
       setSelectedModel(data.settings.aiModel);
 
@@ -206,28 +211,39 @@ export function UserAiSettings() {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              disabled={!isApiKeySet}
               onClick={() => setIsCustomMode(false)}
               className={`text-xs px-3 py-1 font-bold border transition-colors ${
                 !isCustomMode
                   ? 'bg-[#ccff00] text-black border-[#ccff00]'
                   : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
-              }`}
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
               PRESETS
             </button>
             <button
               type="button"
+              disabled={!isApiKeySet}
               onClick={() => setIsCustomMode(true)}
               className={`text-xs px-3 py-1 font-bold border transition-colors ${
                 isCustomMode
                   ? 'bg-[#ccff00] text-black border-[#ccff00]'
                   : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
-              }`}
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
               CUSTOM SLUG
             </button>
           </div>
         </div>
+
+        {!isApiKeySet && (
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium flex items-center gap-2">
+            <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <span>
+              Model selection is locked. You must enable and set your personal OpenRouter API key above to change your AI model.
+            </span>
+          </div>
+        )}
 
         {!isCustomMode ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -237,12 +253,13 @@ export function UserAiSettings() {
                 <button
                   key={preset.id}
                   type="button"
+                  disabled={!isApiKeySet}
                   onClick={() => setSelectedModel(preset.id)}
                   className={`p-4 text-left border transition-all flex items-center justify-between ${
                     isSelected
                       ? 'bg-[#ccff00]/10 border-[#ccff00] text-white'
                       : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
-                  }`}
+                  } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   <div>
                     <div className="font-bold text-sm">{preset.name}</div>
@@ -257,10 +274,11 @@ export function UserAiSettings() {
           <div className="space-y-2">
             <input
               type="text"
+              disabled={!isApiKeySet}
               value={customModelInput}
               onChange={(e) => setCustomModelInput(e.target.value)}
               placeholder="e.g. google/gemini-2.0-flash-lite-001 or nvidia/nemotron-3-super-120b-a12b:free"
-              className="w-full bg-black border border-zinc-700 px-4 py-3 text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-[#ccff00]"
+              className="w-full bg-black border border-zinc-700 px-4 py-3 text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-[#ccff00] disabled:opacity-40 disabled:cursor-not-allowed disabled:border-zinc-800"
             />
             <p className="text-xs text-zinc-500">
               Enter any supported OpenRouter model slug.

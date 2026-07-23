@@ -122,7 +122,14 @@ export async function getInstallationAccessToken(installationId: number | string
   return data.token;
 }
 
-export async function githubInstallationApi<T>(path: string, token: string | null, timeoutMs = DEFAULT_TIMEOUT_MS) {
+const etagCache = new Map<string, { etag: string; data: unknown }>();
+
+export async function githubInstallationApi<T>(
+  path: string,
+  token: string | null,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  useEtag = false
+): Promise<T> {
   const startTime = Date.now();
   const cleanPath = path.split('?')[0];
   emitTelemetry({
@@ -139,6 +146,11 @@ export async function githubInstallationApi<T>(path: string, token: string | nul
   
   if (token) {
     headers.Authorization = `Bearer ${token}`;
+  }
+
+  const cached = useEtag ? etagCache.get(path) : undefined;
+  if (cached?.etag) {
+    headers['If-None-Match'] = cached.etag;
   }
 
   let response: Response;
@@ -162,6 +174,18 @@ export async function githubInstallationApi<T>(path: string, token: string | nul
 
   const latencyMs = Date.now() - startTime;
 
+  if (response.status === 304 && cached) {
+    emitTelemetry({
+      type: 'api_response',
+      provider: 'github',
+      endpoint: `GET ${cleanPath}`,
+      status: 304,
+      latencyMs,
+      summary: `[API_RES] GitHub API 304 Not Modified (${latencyMs}ms)`,
+    });
+    return cached.data as T;
+  }
+
   if (!response.ok) {
     emitTelemetry({
       type: 'api_error',
@@ -183,7 +207,97 @@ export async function githubInstallationApi<T>(path: string, token: string | nul
     summary: `[API_RES] GitHub API 200 OK (${latencyMs}ms)`,
   });
 
-  return (await response.json()) as T;
+  const data = (await response.json()) as T;
+
+  if (useEtag) {
+    const etag = response.headers.get('etag');
+    if (etag) {
+      etagCache.set(path, { etag, data });
+    }
+  }
+
+  return data;
+}
+
+export async function githubGraphQLApi<T>(
+  query: string,
+  variables: Record<string, unknown>,
+  token: string | null,
+  timeoutMs = DEFAULT_TIMEOUT_MS
+): Promise<T> {
+  const startTime = Date.now();
+  emitTelemetry({
+    type: 'api_request',
+    provider: 'github',
+    endpoint: 'POST /graphql',
+    summary: '[API_REQ] POST api.github.com/graphql',
+  });
+
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'Content-Type': 'application/json',
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch('https://api.github.com/graphql', {
+      method: 'POST',
+      signal: AbortSignal.timeout(timeoutMs),
+      headers,
+      body: JSON.stringify({ query, variables }),
+    });
+  } catch (netErr) {
+    const latencyMs = Date.now() - startTime;
+    const errStr = netErr instanceof Error ? netErr.message : String(netErr);
+    emitTelemetry({
+      type: 'api_error',
+      provider: 'github',
+      endpoint: 'POST /graphql',
+      latencyMs,
+      summary: `[API_ERR] GitHub GraphQL request failed (${latencyMs}ms): ${errStr}`,
+    });
+    throw netErr;
+  }
+
+  const latencyMs = Date.now() - startTime;
+
+  if (!response.ok) {
+    emitTelemetry({
+      type: 'api_error',
+      provider: 'github',
+      endpoint: 'POST /graphql',
+      status: response.status,
+      latencyMs,
+      summary: `[API_ERR] GitHub GraphQL HTTP ${response.status} (${latencyMs}ms)`,
+    });
+    throw new Error(`GitHub GraphQL request failed: ${response.status}`);
+  }
+
+  const result = (await response.json()) as { data?: T; errors?: Array<{ message: string }> };
+
+  if (result.errors && result.errors.length > 0) {
+    const msg = result.errors.map((e) => e.message).join('; ');
+    throw new Error(`GitHub GraphQL query returned errors: ${msg}`);
+  }
+
+  if (!result.data) {
+    throw new Error('GitHub GraphQL query returned no data');
+  }
+
+  emitTelemetry({
+    type: 'api_response',
+    provider: 'github',
+    endpoint: 'POST /graphql',
+    status: 200,
+    latencyMs,
+    summary: `[API_RES] GitHub GraphQL 200 OK (${latencyMs}ms)`,
+  });
+
+  return result.data;
 }
 
 export async function upsertContributor(user: GitHubUser | null | undefined): Promise<number | null> {

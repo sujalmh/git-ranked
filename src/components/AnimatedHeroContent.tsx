@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ContributionGrid } from '@/components/ContributionGrid';
 import { AppSnapshots } from '@/components/AppSnapshots';
-import { ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
+import { GithubIcon } from '@/components/icons/GithubIcon';
 
 export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
   return (
@@ -63,8 +64,8 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
                 href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
                 className="px-8 py-4 bg-white text-black border-2 border-white font-black uppercase tracking-wider hover:bg-[#ccff00] hover:border-[#ccff00] transition-colors flex items-center justify-center gap-2 text-sm"
               >
-                <ShieldCheck className="w-5 h-5" />
-                Connect to GitHub
+                <GithubIcon className="w-5 h-5" />
+                CONNECT TO GITHUB
               </a>
             )}
           </motion.div>

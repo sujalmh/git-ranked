@@ -1,3 +1,4 @@
+import pLimit from 'p-limit';
 import { z } from 'zod';
 import { sql } from '../../db';
 import { callStructured, hasApiKey, type AiCallOptions } from '../openrouter';
@@ -48,7 +49,6 @@ export async function fetchUnclassifiedEvents(
       WHERE e.repo_id = ${repoId}
         AND e.contributor_id = ${contributorId}
         AND e.classification IS NULL
-        AND e.created_at > NOW() - INTERVAL '90 days'
       ORDER BY e.created_at ASC
       LIMIT ${limit}
     `) as UnclassifiedRow[];
@@ -76,7 +76,6 @@ export async function fetchUnclassifiedEvents(
     WHERE e.repo_id = ${repoId}
       AND c.username NOT ILIKE '%[bot]%'
       AND e.classification IS NULL
-      AND e.created_at > NOW() - INTERVAL '90 days'
     ORDER BY e.created_at ASC
     LIMIT ${limit}
   `) as UnclassifiedRow[];
@@ -84,7 +83,7 @@ export async function fetchUnclassifiedEvents(
 
 function buildClassificationPrompt(events: NormalizedEvent[], repoOwner: string, repoName: string) {
   const eventBlock = events
-    .map((e) => `[${e.id}] ${e.createdAt} ${e.username} - ${e.type}: ${e.title}`)
+    .map((e) => `[Event ID ${e.id}] ${e.createdAt} ${e.username} - ${e.type}: ${e.title}`)
     .join('\n');
 
   const system = `You are an Engineering Intelligence analyzer. Classify engineering work from GitHub events.
@@ -105,10 +104,10 @@ Rules:
 - Keep reasoning concise (one sentence).
 - If uncertain, use ["Other"] with low confidence.`;
 
-  const user = `Classify each of the following ${events.length} event(s). Respond as JSON matching this schema:
-{ "items": [{ "event_id": number, "categories": string[], "work_type": string, "work_areas": string[], "technologies": string[], "confidence": number, "reasoning": string }] }
+  const user = `Classify each of the following ${events.length} event(s).
+CRITICAL: You MUST output a non-empty JSON array in "items", containing exactly one classification item object for each Event ID listed below. Do NOT return an empty items array.
 
-Events:
+Events to classify:
 ${eventBlock}`;
 
   return { system, user };
@@ -123,14 +122,15 @@ function stripCodeFences(content: string): string {
 }
 
 async function persistClassifications(items: ClassificationItem[]): Promise<void> {
-  for (const item of items) {
-    await sql`
-      UPDATE github_events
-      SET classification = ${JSON.stringify(item)},
-          classified_at = NOW()
-      WHERE id = ${item.event_id}
-    `;
-  }
+  if (items.length === 0) return;
+  const itemsJson = JSON.stringify(items);
+  await sql`
+    UPDATE github_events e
+    SET classification = elem.value,
+        classified_at = CURRENT_TIMESTAMP
+    FROM jsonb_array_elements(${itemsJson}::jsonb) AS elem
+    WHERE e.id = (elem.value->>'event_id')::bigint
+  `;
 }
 
 function rowsToNormalized(rows: UnclassifiedRow[]): NormalizedEvent[] {
@@ -169,45 +169,62 @@ export async function classifyEvents(
 
   const jsonSchema = z.toJSONSchema(ClassificationSchema) as Record<string, unknown>;
 
+  const batches: NormalizedEvent[][] = [];
   for (let i = 0; i < normalized.length; i += BATCH_SIZE) {
-    const batch = normalized.slice(i, i + BATCH_SIZE);
-    let handled = false;
+    batches.push(normalized.slice(i, i + BATCH_SIZE));
+  }
 
-    if (hasApiKey(aiOptions)) {
-      const { system, user } = buildClassificationPrompt(batch, repoOwner, repoName);
+  const limit = pLimit(4);
+  const results = await Promise.allSettled(
+    batches.map((batch) =>
+      limit(async () => {
+        let handled = false;
+        let batchClassified = 0;
+        let batchFallback = 0;
 
-      try {
-        const content = await callStructured(
-          [
-            { role: 'system', content: system },
-            { role: 'user', content: user },
-          ],
-          jsonSchema,
-          'work_classification',
-          aiOptions
-        );
+        if (hasApiKey(aiOptions)) {
+          const { system, user } = buildClassificationPrompt(batch, repoOwner, repoName);
 
-        if (content) {
-          const parsed = JSON.parse(stripCodeFences(content));
-          const validated = ClassificationSchema.safeParse(parsed);
-          if (validated.success) {
-            const items = validated.data.items;
-            if (items.length === batch.length || items.length > 0) {
-              await persistClassifications(items);
-              classifiedCount += items.length;
-              handled = true;
+          try {
+            const content = await callStructured(
+              [
+                { role: 'system', content: system },
+                { role: 'user', content: user },
+              ],
+              jsonSchema,
+              'work_classification',
+              aiOptions
+            );
+
+            if (content) {
+              const parsed = JSON.parse(stripCodeFences(content));
+              const validated = ClassificationSchema.safeParse(parsed);
+              if (validated.success && validated.data.items.length > 0) {
+                await persistClassifications(validated.data.items);
+                batchClassified += validated.data.items.length;
+                handled = true;
+              }
             }
+          } catch (err) {
+            console.warn('AI classification failed for batch, falling back to heuristics:', err instanceof Error ? err.message : err);
           }
         }
-      } catch (error) {
-        console.warn('AI classification failed for batch, using fallback:', error instanceof Error ? error.message : error);
-      }
-    }
 
-    if (!handled) {
-      const fallbackResult = classifyEventsFallback(batch);
-      await persistClassifications(fallbackResult.items);
-      fallbackCount += fallbackResult.items.length;
+        if (!handled) {
+          const fallbackResult = classifyEventsFallback(batch);
+          await persistClassifications(fallbackResult.items);
+          batchFallback += fallbackResult.items.length;
+        }
+
+        return { classified: batchClassified, fallback: batchFallback };
+      })
+    )
+  );
+
+  for (const res of results) {
+    if (res.status === 'fulfilled') {
+      classifiedCount += res.value.classified;
+      fallbackCount += res.value.fallback;
     }
   }
 

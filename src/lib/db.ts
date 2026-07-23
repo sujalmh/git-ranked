@@ -255,6 +255,28 @@ export async function initSchema() {
     );
   `;
   await sql`CREATE INDEX IF NOT EXISTS wuc_contrib_idx ON work_unit_contributors(contributor_id);`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS wuc_unit_idx ON work_unit_contributors(work_unit_id);`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS ge_repo_type_created_idx ON github_events (repo_id, event_type, created_at);`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS wuc_repo_status_created_idx ON work_unit_candidates (repo_id, status, created_at);`.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS mv_contributor_leaderboard (
+      repo_id INTEGER NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+      contributor_id INTEGER NOT NULL REFERENCES github_contributors(id) ON DELETE CASCADE,
+      username VARCHAR(100) NOT NULL,
+      avatar_url TEXT,
+      rank INTEGER NOT NULL,
+      composite REAL NOT NULL,
+      impact REAL NOT NULL,
+      quality REAL NOT NULL,
+      collaboration REAL NOT NULL,
+      consistency REAL NOT NULL,
+      decay_profile VARCHAR(24) NOT NULL,
+      computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (repo_id, contributor_id, decay_profile)
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS mv_leaderboard_repo_rank_idx ON mv_contributor_leaderboard (repo_id, decay_profile, rank);`.catch(() => {});
 
   await sql`
     CREATE TABLE IF NOT EXISTS work_unit_overrides (
@@ -317,6 +339,32 @@ export async function initSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS rate_limit_bucket (
+      key TEXT PRIMARY KEY,
+      window_start TIMESTAMPTZ NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS job_progress (
+      job_id TEXT PRIMARY KEY,
+      repo_id INTEGER NOT NULL REFERENCES repositories(id),
+      done INTEGER NOT NULL DEFAULT 0,
+      total INTEGER NOT NULL DEFAULT 0,
+      status VARCHAR(24) NOT NULL DEFAULT 'queued',
+      error TEXT,
+      result_units INTEGER,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS job_progress_repo_updated_idx
+      ON job_progress(repo_id, updated_at DESC);
+  `.catch(() => {});
 
   console.log('Database schema initialized.');
 }

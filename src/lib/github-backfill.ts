@@ -247,5 +247,17 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
     }
   }
 
+  // Streaming Candidate Ingestion: Trigger incremental candidate aggregation & background worker classification
+  if (inserted > 0) {
+    try {
+      const { aggregateRepoCandidates } = await import('./scoring/aggregator');
+      const { enqueueClassifyRepo } = await import('./queue');
+      await aggregateRepoCandidates(repo.id);
+      await enqueueClassifyRepo(repo.id).catch(() => {});
+    } catch (err) {
+      console.warn('Streaming candidate ingestion failed:', err);
+    }
+  }
+
   return { skipped: false, inserted };
 }

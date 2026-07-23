@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { GitBranch } from 'lucide-react';
+import { GithubIcon } from '@/components/icons/GithubIcon';
 import { auth, signIn, signOut } from '@/lib/auth';
 
 export async function Navbar() {
@@ -62,8 +62,9 @@ export async function Navbar() {
               </form>
               <Link
                 href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
-                className="px-5 py-2 accent-panel text-sm"
+                className="px-5 py-2 accent-panel text-sm flex items-center gap-2"
               >
+                <GithubIcon className="w-4 h-4" />
                 CONNECT TO GITHUB
               </Link>
             </div>

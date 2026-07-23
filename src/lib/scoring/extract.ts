@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { sql } from '../db';
 import { callStructured, hasApiKey, type AiCallOptions } from '../ai/openrouter';
+import { acquireSlot } from '../rate-limit';
 import { derive } from './derivation';
 import { correctLowConfidenceFacts, extractHeuristicFacts, classifyWorkTypeFromText, determineScope } from './heuristic-fallback';
 import { buildRationale } from './rationale';
@@ -319,6 +320,8 @@ export async function extractAndPersistWorkUnits(
         commitMessages,
         prBody
       );
+
+      await acquireSlot('openrouter');
 
       const aiResponse = await callStructured(
         [
@@ -644,4 +647,316 @@ function stripCodeFences(content: string): string {
     cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
   }
   return cleaned;
+}
+
+export async function persistExtractedItemsForCandidate(
+  candidate: WorkUnitCandidate,
+  events: Array<Record<string, unknown>>,
+  config: ScoringConfig,
+  extractedItems: Array<{
+    work_type: WorkType;
+    summary: string;
+    facts: Facts;
+    confidence: number;
+  }>,
+  extractionSource: 'ai' | 'heuristic_fallback' | 'ai_facts_corrected' = 'heuristic_fallback'
+): Promise<number> {
+  if (events.length === 0 || extractedItems.length === 0) return 0;
+
+  const firstEvent = events[0];
+  const repoId = candidate.repo_id;
+  const contributorId = firstEvent.contributor_id as number;
+  const eventType = String(firstEvent.event_type || '');
+
+  const titleOrMessage = extractBestTitle(events, eventType);
+  const { additions, deletions, changedFiles, commitCount } = extractMergedSizeMetrics(events, eventType);
+
+  let persistedCount = 0;
+  const isShipped = eventType === 'pr_merged' || eventType === 'push' || eventType === 'issue_closed';
+
+  for (const item of extractedItems) {
+    let finalFacts = item.facts;
+    let itemSource: 'ai' | 'heuristic_fallback' | 'ai_facts_corrected' = extractionSource;
+
+    if (item.confidence < 0.6 && itemSource === 'ai') {
+      finalFacts = correctLowConfidenceFacts(item.facts, titleOrMessage);
+      itemSource = 'ai_facts_corrected';
+    }
+
+    const derived = derive(finalFacts, config.derivation_weights);
+    const rationale = buildRationale(finalFacts, item.work_type);
+    const sizeMetrics = JSON.stringify({ additions, deletions, changed_files: changedFiles, commit_count: commitCount });
+
+    const inserted = await sql`
+      INSERT INTO work_units (
+        repo_id, candidate_id, work_type, summary, facts, derived, derivation_ruleset_version,
+        extraction_confidence, extraction_source, flagged_for_review, shipped,
+        rationale, size_metrics, shipped_at, source_event_ids
+      ) VALUES (
+        ${repoId}, ${candidate.id}, ${item.work_type},
+        ${item.summary},
+        ${JSON.stringify(finalFacts)}, ${JSON.stringify(derived)},
+        ${config.version}, ${item.confidence}, ${itemSource}, false, ${isShipped},
+        ${JSON.stringify(rationale)}, ${sizeMetrics},
+        ${isShipped ? (firstEvent.created_at as string) : null},
+        ${candidate.source_event_ids}
+      )
+      RETURNING id
+    `;
+
+    if (inserted.length > 0) {
+      await sql`
+        INSERT INTO work_unit_contributors (work_unit_id, contributor_id, attribution_weight)
+        VALUES (${inserted[0].id as number}, ${contributorId}, 1.0)
+        ON CONFLICT DO NOTHING
+      `;
+      persistedCount++;
+    }
+  }
+
+  await sql`
+    UPDATE work_unit_candidates
+    SET status = 'classified', classified_at = NOW()
+    WHERE id = ${candidate.id}
+  `;
+
+  return persistedCount;
+}
+
+export const BATCH_EXTRACTION_SYSTEM_MESSAGE = `You are an expert engineering work classifier for GitRanked. Your job is to analyze multiple GitHub candidates in a single request and extract distinct, specific work items for each candidate.
+
+Critical rules:
+1. Return JSON containing a "candidates" array matching each candidate by correlation_key.
+2. Each summary MUST be SPECIFIC and DESCRIPTIVE — mention the actual components, files, or technologies involved.
+3. For each candidate, return 1-3 items with work_type, summary, facts, and confidence score.`;
+
+export const BATCH_EXTRACTION_SCHEMA = {
+  type: 'object',
+  properties: {
+    candidates: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          correlation_key: { type: 'string' },
+          items: EXTRACTION_SCHEMA.properties.items,
+        },
+        required: ['correlation_key', 'items'],
+      },
+    },
+  },
+  required: ['candidates'],
+};
+
+export function buildBatchExtractionPrompt(
+  items: Array<{
+    candidate: WorkUnitCandidate;
+    titleOrMessage: string;
+    eventType: string;
+    changedFiles: number;
+    additions: number;
+    deletions: number;
+    commitCount: number;
+    commitMessages: string[];
+    prBody: string | null;
+  }>
+): string {
+  let prompt = `Analyze the following ${items.length} GitHub candidates and extract work items for each candidate.\n\n`;
+
+  items.forEach((item, index) => {
+    prompt += `--- CANDIDATE ${index + 1} (correlation_key: "${item.candidate.correlation_key}") ---\n`;
+    prompt += `Title: "${item.titleOrMessage}"\n`;
+    prompt += `Event type: ${item.eventType}\n`;
+    prompt += `Stats: ${item.changedFiles} files changed, +${item.additions}/-${item.deletions} lines, ${item.commitCount} commits\n`;
+    if (item.commitMessages.length > 0) {
+      prompt += `Commits:\n${item.commitMessages.slice(0, 10).map((m, i) => `  ${i + 1}. ${m}`).join('\n')}\n`;
+    }
+    if (item.prBody) {
+      prompt += `PR Description:\n${item.prBody.slice(0, 600)}\n`;
+    }
+    prompt += `\n`;
+  });
+
+  prompt += `Respond with JSON matching this exact structure:
+{
+  "candidates": [
+    {
+      "correlation_key": "pr:1:101",
+      "items": [
+        {
+          "work_type": "Feature",
+          "summary": "Add RBAC models with role-based permission system",
+          "facts": { "scope": "medium", "user_visible": true, "breaking_change": false, "cross_cutting": true, "testing_added": true, "documentation_updated": false, "new_algorithm_or_subsystem": true, "boilerplate": false, "touches_auth": true, "touches_data_migration": false, "touches_distributed_state": false, "touches_architecture": true },
+          "confidence": 0.90
+        }
+      ]
+    }
+  ]
+}`;
+
+  return prompt;
+}
+
+export async function extractAndPersistBatchWorkUnits(
+  candidates: WorkUnitCandidate[],
+  config: ScoringConfig,
+  aiOptions?: AiCallOptions
+): Promise<number> {
+  if (candidates.length === 0) return 0;
+  if (candidates.length === 1) {
+    return extractAndPersistWorkUnits(candidates[0], config, aiOptions);
+  }
+
+  const candidateDataList: Array<{
+    candidate: WorkUnitCandidate;
+    events: Array<Record<string, unknown>>;
+    titleOrMessage: string;
+    commitMessages: string[];
+    prBody: string | null;
+    additions: number;
+    deletions: number;
+    changedFiles: number;
+    commitCount: number;
+    eventType: string;
+    contentHash: string;
+  }> = [];
+
+  const uncachedCandidates: typeof candidateDataList = [];
+  let totalPersisted = 0;
+
+  for (const candidate of candidates) {
+    const events = (await sql`
+      SELECT id, repo_id, contributor_id, event_type, payload, created_at, before_sha, after_sha
+      FROM github_events
+      WHERE id = ANY(${candidate.source_event_ids}::bigint[])
+      ORDER BY created_at ASC
+    `) as Array<Record<string, unknown>>;
+
+    if (events.length === 0) continue;
+
+    await sql`DELETE FROM work_units WHERE candidate_id = ${candidate.id}`;
+
+    const firstEvent = events[0];
+    const eventType = String(firstEvent.event_type || '');
+
+    if (eventType === 'review_submitted') {
+      const units = await extractAndPersistWorkUnits(candidate, config, aiOptions);
+      totalPersisted += units;
+      continue;
+    }
+
+    const titleOrMessage = extractBestTitle(events, eventType);
+    const commitMessages = extractCommitMessages(events);
+    const prBody = extractPrBody(events);
+    const { additions, deletions, changedFiles, commitCount } = extractMergedSizeMetrics(events, eventType);
+
+    const contentToHash = `${candidate.correlation_key}:${titleOrMessage}:${config.version}:${EXTRACTION_PROMPT_VERSION}`;
+    const contentHash = createHash('sha256').update(contentToHash).digest('hex');
+
+    const itemData = {
+      candidate,
+      events,
+      titleOrMessage,
+      commitMessages,
+      prBody,
+      additions,
+      deletions,
+      changedFiles,
+      commitCount,
+      eventType,
+      contentHash,
+    };
+
+    const cacheHit = await sql`
+      SELECT response FROM classification_cache WHERE content_hash = ${contentHash}
+    `;
+
+    if (cacheHit.length > 0) {
+      try {
+        const parsed = cacheHit[0].response;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const units = await persistExtractedItemsForCandidate(candidate, events, config, parsed, 'ai');
+          totalPersisted += units;
+          continue;
+        }
+      } catch {
+        /* ignore, fall through */
+      }
+    }
+
+    uncachedCandidates.push(itemData);
+  }
+
+  if (uncachedCandidates.length === 0) {
+    return totalPersisted;
+  }
+
+  if (hasApiKey(aiOptions)) {
+    try {
+      const batchPrompt = buildBatchExtractionPrompt(uncachedCandidates);
+      await acquireSlot('openrouter');
+
+      const aiResponse = await callStructured(
+        [
+          { role: 'system', content: BATCH_EXTRACTION_SYSTEM_MESSAGE },
+          { role: 'user', content: batchPrompt },
+        ],
+        BATCH_EXTRACTION_SCHEMA,
+        'batch_work_unit_extraction',
+        aiOptions
+      );
+
+      if (aiResponse) {
+        const parsed = JSON.parse(stripCodeFences(aiResponse));
+        if (Array.isArray(parsed.candidates)) {
+          const resultMap = new Map<string, any[]>();
+          for (const cRes of parsed.candidates) {
+            if (cRes && cRes.correlation_key && Array.isArray(cRes.items)) {
+              resultMap.set(cRes.correlation_key, cRes.items);
+            }
+          }
+
+          for (let idx = 0; idx < uncachedCandidates.length; idx++) {
+            const itemData = uncachedCandidates[idx];
+            if (!itemData) continue;
+
+            let items = resultMap.get(itemData.candidate.correlation_key);
+            if (!items && parsed.candidates[idx] && Array.isArray(parsed.candidates[idx].items)) {
+              items = parsed.candidates[idx].items;
+            }
+
+            if (items && items.length > 0) {
+              const formattedItems = items.map((item: Record<string, unknown>) => ({
+                work_type: coerceWorkType(String(item.work_type ?? 'Feature')),
+                summary: String(item.summary ?? itemData.titleOrMessage).slice(0, 200),
+                facts: coerceFacts(item.facts, itemData.titleOrMessage, itemData.additions + itemData.deletions, itemData.changedFiles),
+                confidence: Math.max(0, Math.min(1, Number(item.confidence ?? 0.7))),
+              }));
+
+              await sql`
+                INSERT INTO classification_cache (content_hash, response)
+                VALUES (${itemData.contentHash}, ${JSON.stringify(formattedItems)})
+                ON CONFLICT (content_hash) DO NOTHING
+              `.catch(() => {});
+
+              const units = await persistExtractedItemsForCandidate(itemData.candidate, itemData.events, config, formattedItems, 'ai');
+              totalPersisted += units;
+              (uncachedCandidates as any)[idx] = null;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Batch AI extraction failed, falling back to individual extraction:', err);
+    }
+  }
+
+  // Fallback for remaining uncached candidates
+  for (const itemData of uncachedCandidates) {
+    if (!itemData) continue;
+    const units = await extractAndPersistWorkUnits(itemData.candidate, config, aiOptions);
+    totalPersisted += units;
+  }
+
+  return totalPersisted;
 }
