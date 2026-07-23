@@ -31,7 +31,7 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ type: "spring" as const, stiffness: 300, damping: 20, delay: 0.1 }}
-            className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter uppercase leading-[0.95] mb-6 relative z-10"
+            className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter uppercase leading-[0.95] mb-6 relative z-10"
           >
             RANK YOUR <br />
             <span className="text-[#ccff00]">CONTRIBUTORS</span>.
