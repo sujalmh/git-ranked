@@ -43,3 +43,6 @@ next-env.d.ts
 # mock pages
 src/app/mock/
 src/app/mock-*/
+
+# scripts
+src/scripts/
