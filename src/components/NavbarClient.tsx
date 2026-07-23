@@ -22,7 +22,7 @@ export function NavbarClient({ user, githubAppSlug, signOutAction, signInAction 
 
   return (
     <header className="sticky top-0 z-50 bg-black border-b-2 border-white/10 w-full">
-      <div className="flex items-center justify-between px-4 sm:px-6 py-4 w-full max-w-7xl mx-auto">
+      <div className="flex items-center justify-between px-6 md:px-12 py-4 w-full">
         <Link href="/" className="flex items-center gap-3 shrink-0" onClick={() => setMobileMenuOpen(false)}>
           <Image src="/logo.png" alt="GitRanked Logo" width={32} height={32} className="rounded-none" />
           <span className="text-xl sm:text-2xl font-black tracking-tighter uppercase text-white">GitRanked</span>
