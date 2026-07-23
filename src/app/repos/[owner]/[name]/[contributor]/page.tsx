@@ -164,7 +164,15 @@ export default async function ContributorDetail(
           </div>
         </div>
 
-        {/* Work Units Section */}
+        {/* AI Profile & Impact Sections (Description, Strengths, Focus Areas, Accomplishments, Concerns) */}
+        {(profileResult || impactResult) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {profileResult && <ContributorProfileCard result={profileResult} />}
+            {impactResult && <ImpactExplanation result={impactResult} />}
+          </div>
+        )}
+
+        {/* Extracted Work Units Section */}
         <div className="mb-8">
           <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
             <Cpu className="w-5 h-5 text-indigo-400" />
@@ -226,14 +234,6 @@ export default async function ContributorDetail(
             </div>
           )}
         </div>
-
-        {/* AI Profile & Impact Sections */}
-        {(profileResult || impactResult) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {profileResult && <ContributorProfileCard result={profileResult} />}
-            {impactResult && <ImpactExplanation result={impactResult} />}
-          </div>
-        )}
       </main>
     </div>
   );
