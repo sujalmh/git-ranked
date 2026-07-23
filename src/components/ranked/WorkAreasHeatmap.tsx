@@ -20,15 +20,18 @@ type HoverState = {
 } | null;
 
 const PALETTE = [
-  { fill: '#831843', stroke: '#f43f5e', text: '#fecdd3', glow: 'rgba(244,63,94,0.3)' },
-  { fill: '#14532d', stroke: '#00ff66', text: '#dcfce7', glow: 'rgba(0,255,102,0.3)' },
-  { fill: '#164e63', stroke: '#00ffff', text: '#cffafe', glow: 'rgba(0,255,255,0.3)' },
-  { fill: '#451a03', stroke: '#fbbf24', text: '#fef3c7', glow: 'rgba(251,191,36,0.3)' },
-  { fill: '#3b0764', stroke: '#c084fc', text: '#f3e8ff', glow: 'rgba(192,132,252,0.3)' },
-  { fill: '#1e1b4b', stroke: '#818cf8', text: '#e0e7ff', glow: 'rgba(129,140,248,0.3)' },
-  { fill: '#701a75', stroke: '#f0abfc', text: '#fae8ff', glow: 'rgba(240,171,252,0.3)' },
-  { fill: '#7c2d12', stroke: '#fb923c', text: '#ffedd5', glow: 'rgba(251,146,60,0.3)' },
-  { fill: '#134e4a', stroke: '#2dd4bf', text: '#ccfbf1', glow: 'rgba(45,212,191,0.3)' },
+  { fill: '#500724', stroke: '#f43f5e', text: '#fecdd3', glow: 'rgba(244,63,94,0.35)' }, // Pink
+  { fill: '#1a2600', stroke: '#ccff00', text: '#e6ff80', glow: 'rgba(204,255,0,0.35)' }, // Neon Lime
+  { fill: '#451a03', stroke: '#fbbf24', text: '#fef3c7', glow: 'rgba(251,191,36,0.35)' }, // Amber
+  { fill: '#172554', stroke: '#60a5fa', text: '#dbeafe', glow: 'rgba(96,165,250,0.35)' }, // Blue
+  { fill: '#064e3b', stroke: '#00ff66', text: '#dcfce7', glow: 'rgba(0,255,102,0.35)' }, // Neon Green
+  { fill: '#083344', stroke: '#00ffff', text: '#cffafe', glow: 'rgba(0,255,255,0.35)' }, // Cyan
+  { fill: '#3b0764', stroke: '#c084fc', text: '#f3e8ff', glow: 'rgba(192,132,252,0.35)' }, // Purple
+  { fill: '#4c0519', stroke: '#fb7185', text: '#ffe4e6', glow: 'rgba(251,113,133,0.35)' }, // Rose
+  { fill: '#431407', stroke: '#fb923c', text: '#ffedd5', glow: 'rgba(251,146,60,0.35)' }, // Orange
+  { fill: '#042f2e', stroke: '#2dd4bf', text: '#ccfbf1', glow: 'rgba(45,212,191,0.35)' }, // Teal
+  { fill: '#1e1b4b', stroke: '#818cf8', text: '#e0e7ff', glow: 'rgba(129,140,248,0.35)' }, // Indigo
+  { fill: '#422006', stroke: '#facc15', text: '#fef9c3', glow: 'rgba(250,204,21,0.35)' }, // Yellow
 ];
 
 export function WorkAreasHeatmap({
@@ -71,7 +74,7 @@ export function WorkAreasHeatmap({
   }, [contributors]);
 
   if (treeData.length === 0) {
-    return <div className="sleek-panel p-5 text-sm text-zinc-500">No work-area data yet.</div>;
+    return <div className="sleek-panel p-5 text-sm text-zinc-500 font-mono">No work-area data yet.</div>;
   }
 
   const CustomizedContent = (props: any) => {
@@ -89,12 +92,30 @@ export function WorkAreasHeatmap({
 
     const clipId = `clip-${index}-${Math.round(x)}-${Math.round(y)}`;
     const isHovered = hovered?.name === name;
-    const showLabel = width > 50 && height > 36;
-    const showPct = width > 50 && height > 52;
-    const fontSize = Math.min(13, Math.max(9, width / 7.5));
-    const pctSize = Math.min(11, Math.max(8, width / 9.5));
 
-    const maxChars = Math.max(3, Math.floor(width / (fontSize * 0.6)));
+    // Minimum size requirements: do NOT display font if box is too small
+    const minWidthForLabel = 42;
+    const minHeightForLabel = 28;
+    const showLabel = width >= minWidthForLabel && height >= minHeightForLabel;
+    const showPct = showLabel && height >= 48;
+
+    // Proportional font sizing: scale up font size for bigger boxes with a minimum of 10px
+    const rectArea = width * height;
+    let fontSize = 10; // minimum font size
+    if (rectArea > 22000) {
+      fontSize = Math.min(22, Math.max(14, Math.floor(width / 9)));
+    } else if (rectArea > 9000) {
+      fontSize = Math.min(16, Math.max(12, Math.floor(width / 8.5)));
+    } else if (rectArea > 3500) {
+      fontSize = Math.min(13, Math.max(11, Math.floor(width / 7.5)));
+    } else {
+      fontSize = 10;
+    }
+
+    const pctSize = Math.max(9, Math.floor(fontSize * 0.8));
+
+    // Truncate name cleanly if needed for available width
+    const maxChars = Math.max(3, Math.floor((width - 6) / (fontSize * 0.62)));
     const displayName = name.length > maxChars ? name.slice(0, maxChars - 1) + '…' : name;
 
     return (
@@ -123,8 +144,8 @@ export function WorkAreasHeatmap({
             stroke: theme.stroke,
             strokeWidth: isHovered ? 3.5 : 2,
             strokeOpacity: 0.95,
-            fillOpacity: isHovered ? 0.95 : 0.7,
-            filter: isHovered ? `drop-shadow(0 0 10px ${theme.glow})` : undefined,
+            fillOpacity: isHovered ? 0.95 : 0.75,
+            filter: isHovered ? `drop-shadow(0 0 12px ${theme.glow})` : undefined,
           }}
         />
 
@@ -132,12 +153,12 @@ export function WorkAreasHeatmap({
           <g clipPath={`url(#${clipId})`} style={{ pointerEvents: 'none' }}>
             <text
               x={x + width / 2}
-              y={showPct ? y + height / 2 - 8 : y + height / 2}
+              y={showPct ? y + height / 2 - (fontSize * 0.5) : y + height / 2}
               textAnchor="middle"
               fill="#ffffff"
               stroke="none"
               fontSize={fontSize}
-              fontWeight={700}
+              fontWeight={fontSize >= 14 ? 900 : 700}
               fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
               dominantBaseline="middle"
             >
@@ -146,7 +167,7 @@ export function WorkAreasHeatmap({
             {showPct && (
               <text
                 x={x + width / 2}
-                y={y + height / 2 + 10}
+                y={y + height / 2 + (fontSize * 0.6)}
                 textAnchor="middle"
                 fill={theme.text}
                 stroke="none"
