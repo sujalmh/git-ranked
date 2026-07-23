@@ -19,9 +19,16 @@ type HoverState = {
   contributors: { name: string; size: number; pct: number }[];
 } | null;
 
-const COLORS = [
-  '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e',
-  '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6',
+const PALETTE = [
+  { fill: '#831843', stroke: '#f43f5e', text: '#fecdd3', glow: 'rgba(244,63,94,0.3)' },
+  { fill: '#14532d', stroke: '#00ff66', text: '#dcfce7', glow: 'rgba(0,255,102,0.3)' },
+  { fill: '#164e63', stroke: '#00ffff', text: '#cffafe', glow: 'rgba(0,255,255,0.3)' },
+  { fill: '#451a03', stroke: '#fbbf24', text: '#fef3c7', glow: 'rgba(251,191,36,0.3)' },
+  { fill: '#3b0764', stroke: '#c084fc', text: '#f3e8ff', glow: 'rgba(192,132,252,0.3)' },
+  { fill: '#1e1b4b', stroke: '#818cf8', text: '#e0e7ff', glow: 'rgba(129,140,248,0.3)' },
+  { fill: '#701a75', stroke: '#f0abfc', text: '#fae8ff', glow: 'rgba(240,171,252,0.3)' },
+  { fill: '#7c2d12', stroke: '#fb923c', text: '#ffedd5', glow: 'rgba(251,146,60,0.3)' },
+  { fill: '#134e4a', stroke: '#2dd4bf', text: '#ccfbf1', glow: 'rgba(45,212,191,0.3)' },
 ];
 
 export function WorkAreasHeatmap({
@@ -72,7 +79,7 @@ export function WorkAreasHeatmap({
 
     if (depth !== 1) return null;
 
-    const bg = COLORS[index % COLORS.length];
+    const theme = PALETTE[index % PALETTE.length];
     const areaTotal = value ?? 0;
     const percent = grandTotal > 0 ? Math.round((areaTotal / grandTotal) * 100) : 0;
     const areaContributors = (treeData[index]?.children ?? []).map((c) => ({
@@ -82,11 +89,11 @@ export function WorkAreasHeatmap({
 
     const clipId = `clip-${index}-${Math.round(x)}-${Math.round(y)}`;
     const isHovered = hovered?.name === name;
-    const showLabel = width > 70 && height > 52;
-    const showPct = width > 70 && height > 68;
-    const fontSize = Math.min(12, Math.max(9, width / 8));
-    const pctSize = Math.min(10, Math.max(8, width / 10));
-    // Truncate name so it fits within the rect
+    const showLabel = width > 50 && height > 36;
+    const showPct = width > 50 && height > 52;
+    const fontSize = Math.min(13, Math.max(9, width / 7.5));
+    const pctSize = Math.min(11, Math.max(8, width / 9.5));
+
     const maxChars = Math.max(3, Math.floor(width / (fontSize * 0.6)));
     const displayName = name.length > maxChars ? name.slice(0, maxChars - 1) + '…' : name;
 
@@ -94,29 +101,30 @@ export function WorkAreasHeatmap({
       <g
         style={{ cursor: 'pointer' }}
         onMouseEnter={() =>
-          setHovered({ name, value: areaTotal, percent, color: bg, contributors: areaContributors })
+          setHovered({ name, value: areaTotal, percent, color: theme.stroke, contributors: areaContributors })
         }
         onMouseLeave={() => setHovered(null)}
       >
         <defs>
           <clipPath id={clipId}>
-            <rect x={x + 2} y={y + 2} width={width - 4} height={height - 4} />
+            <rect x={x + 3} y={y + 3} width={width - 6} height={height - 6} />
           </clipPath>
         </defs>
 
         <rect
-          x={x}
-          y={y}
-          width={width}
-          height={height}
+          x={x + 1}
+          y={y + 1}
+          width={width - 2}
+          height={height - 2}
           rx={6}
           ry={6}
           style={{
-            fill: bg,
-            stroke: bg,
-            strokeWidth: isHovered ? 3 : 2,
-            strokeOpacity: 0.9,
-            fillOpacity: isHovered ? 0.95 : 0.75,
+            fill: theme.fill,
+            stroke: theme.stroke,
+            strokeWidth: isHovered ? 3.5 : 2,
+            strokeOpacity: 0.95,
+            fillOpacity: isHovered ? 0.95 : 0.7,
+            filter: isHovered ? `drop-shadow(0 0 10px ${theme.glow})` : undefined,
           }}
         />
 
@@ -129,7 +137,7 @@ export function WorkAreasHeatmap({
               fill="#ffffff"
               stroke="none"
               fontSize={fontSize}
-              fontWeight={700}
+              fontWeight={800}
               dominantBaseline="middle"
             >
               {displayName}
@@ -139,10 +147,10 @@ export function WorkAreasHeatmap({
                 x={x + width / 2}
                 y={y + height / 2 + 10}
                 textAnchor="middle"
-                fill="rgba(255,255,255,0.85)"
+                fill={theme.text}
                 stroke="none"
                 fontSize={pctSize}
-                fontWeight={500}
+                fontWeight={600}
                 dominantBaseline="middle"
               >
                 {percent}%
