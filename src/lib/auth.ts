@@ -132,6 +132,9 @@ export async function upsertGitHubUserAndLinkInstallation(profile: GitHubProfile
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  pages: {
+    signIn: '/auth/signin',
+  },
   providers: [
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID?.trim(),
