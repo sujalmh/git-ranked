@@ -109,11 +109,14 @@ export function WorkAreasHeatmap({
           y={y}
           width={width}
           height={height}
+          rx={6}
+          ry={6}
           style={{
             fill: bg,
-            stroke: '#000',
+            stroke: bg,
             strokeWidth: isHovered ? 3 : 2,
-            fillOpacity: isHovered ? 1 : 0.82,
+            strokeOpacity: 0.9,
+            fillOpacity: isHovered ? 0.95 : 0.75,
           }}
         />
 

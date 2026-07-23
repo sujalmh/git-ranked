@@ -5,11 +5,11 @@ import { motion } from 'framer-motion';
 
 export function AnimatedCards() {
   const cardVariants = {
-    hidden: { opacity: 0, scale: 0.95 },
+    hidden: { opacity: 0, y: 20 },
     visible: { 
       opacity: 1, 
-      scale: 1,
-      transition: { type: "spring" as const, stiffness: 400, damping: 30 }
+      y: 0,
+      transition: { duration: 0.5, ease: 'easeOut' as const }
     }
   };
 
@@ -20,7 +20,7 @@ export function AnimatedCards() {
         variants={cardVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, margin: "-50px" }}
+        viewport={{ once: true, amount: 0.15 }}
         className="stark-panel p-6 sm:p-12 flex flex-col group shadow-[8px_8px_0_0_#333] sm:shadow-[12px_12px_0_0_#333] hover:shadow-[12px_12px_0_0_#ccff00] sm:hover:shadow-[16px_16px_0_0_#ccff00] hover:-translate-y-2 hover:-rotate-1 transition-all duration-300 origin-bottom-left"
       >
         <div className="text-[#ccff00] font-black text-lg sm:text-2xl tracking-widest uppercase mb-4 sm:mb-6 group-hover:text-white transition-colors">
@@ -39,7 +39,7 @@ export function AnimatedCards() {
         variants={cardVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, margin: "-50px" }}
+        viewport={{ once: true, amount: 0.15 }}
         className="stark-panel p-6 sm:p-12 flex flex-col group shadow-[8px_8px_0_0_#333] sm:shadow-[12px_12px_0_0_#333] hover:shadow-[12px_12px_0_0_#fff] sm:hover:shadow-[16px_16px_0_0_#fff] hover:-translate-y-2 hover:rotate-1 transition-all duration-300 origin-bottom-right"
       >
         <div className="text-white font-black text-lg sm:text-2xl tracking-widest uppercase mb-4 sm:mb-6 group-hover:text-[#ccff00] transition-colors">
