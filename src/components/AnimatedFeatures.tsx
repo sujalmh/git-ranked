@@ -10,15 +10,15 @@ function FeatureCard({ title, description, delay, index }: { title: string, desc
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
       transition={{ type: "spring" as const, stiffness: 300, damping: 25, delay }}
-      className="bg-black border-2 border-white p-10 flex flex-col group cursor-default relative overflow-hidden shadow-[6px_6px_0_0_#fff] hover:shadow-[10px_10px_0_0_#ccff00] hover:-translate-y-1 hover:border-[#ccff00] transition-all duration-300"
+      className="bg-black border-2 border-white p-6 sm:p-10 flex flex-col group cursor-default relative overflow-hidden shadow-[4px_4px_0_0_#fff] sm:shadow-[6px_6px_0_0_#fff] hover:shadow-[8px_8px_0_0_#ccff00] hover:-translate-y-1 hover:border-[#ccff00] transition-all duration-300"
     >
-      <div className="absolute -top-6 -right-4 text-9xl font-black text-white/10 group-hover:text-[#ccff00]/10 transition-colors select-none z-0 pointer-events-none">
+      <div className="absolute -top-6 -right-4 text-7xl sm:text-9xl font-black text-white/10 group-hover:text-[#ccff00]/10 transition-colors select-none z-0 pointer-events-none">
         0{index}
       </div>
       <div className="relative z-10">
-        <h3 className="text-3xl font-black uppercase tracking-tight mb-4 text-white group-hover:text-[#ccff00] transition-colors">{title}</h3>
-        <div className="w-12 h-2 bg-white mb-6 group-hover:bg-[#ccff00] transition-colors" />
-        <p className="text-lg font-medium leading-relaxed text-zinc-400 group-hover:text-white transition-colors">{description}</p>
+        <h3 className="text-2xl sm:text-3xl font-black uppercase tracking-tight mb-3 sm:mb-4 text-white group-hover:text-[#ccff00] transition-colors">{title}</h3>
+        <div className="w-10 sm:w-12 h-1.5 sm:h-2 bg-white mb-4 sm:mb-6 group-hover:bg-[#ccff00] transition-colors" />
+        <p className="text-base sm:text-lg font-medium leading-relaxed text-zinc-400 group-hover:text-white transition-colors">{description}</p>
       </div>
     </motion.div>
   );
