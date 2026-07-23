@@ -25,7 +25,7 @@ const REACT_MOCK_CONTRIBUTORS: ContributorInsight[] = [
   {
     id: 1,
     username: 'heoyq',
-    avatarUrl: 'https://github.com/heoyq.png',
+    avatarUrl: 'https://avatars.githubusercontent.com/u/69631?v=4',
     score: {
       total: 38,
       breakdown: { featureDelivery: 10, codeQuality: 9, reviews: 8, collaboration: 6, consistency: 5 },
@@ -67,7 +67,7 @@ const REACT_MOCK_CONTRIBUTORS: ContributorInsight[] = [
   {
     id: 2,
     username: 'eps1lon',
-    avatarUrl: 'https://github.com/eps1lon.png',
+    avatarUrl: 'https://avatars.githubusercontent.com/u/12292047?v=4',
     score: {
       total: 29,
       breakdown: { featureDelivery: 8, codeQuality: 7, reviews: 6, collaboration: 5, consistency: 3 },
@@ -108,7 +108,7 @@ const REACT_MOCK_CONTRIBUTORS: ContributorInsight[] = [
   {
     id: 3,
     username: 'sophiebits',
-    avatarUrl: 'https://github.com/sophiebits.png',
+    avatarUrl: 'https://avatars.githubusercontent.com/u/439777?v=4',
     score: {
       total: 21,
       breakdown: { featureDelivery: 5, codeQuality: 5, reviews: 4, collaboration: 4, consistency: 3 },
@@ -392,7 +392,7 @@ export function AppSnapshots() {
 
           <div className="flex items-center gap-2 bg-black/90 border border-zinc-800 px-3 py-1 rounded-md text-xs text-zinc-400 font-mono w-full max-w-sm justify-center">
             <span className="text-zinc-600">https://</span>
-            <span className="text-zinc-200">gitranked.com</span>
+            <span className="text-zinc-200">gitranked.dev</span>
             <span className="text-[#ccff00] font-semibold">/repos/facebook/react</span>
           </div>
 
