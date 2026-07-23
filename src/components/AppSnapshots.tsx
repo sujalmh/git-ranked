@@ -456,28 +456,87 @@ export function AppSnapshots() {
                 className="space-y-4"
               >
                 {/* Work Areas Treemap Visualizer */}
-                <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 space-y-2">
+                <div className="p-3.5 sm:p-4 rounded-xl border border-zinc-800 bg-zinc-950 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-white uppercase flex items-center gap-1.5">
                       <Layers className="w-4 h-4 text-pink-400" /> Work Areas Treemap
                     </span>
-                    <span className="text-[10px] text-zinc-500 font-mono">CODE MODULES</span>
+                    <span className="text-[10px] text-zinc-400 font-mono">15 MODULES DETECTED</span>
                   </div>
 
-                  <div className="grid grid-cols-12 gap-1.5 h-24 font-mono text-[10px] text-white font-bold p-1 bg-black rounded border border-zinc-800">
-                    <div className="col-span-5 bg-pink-600/60 border border-pink-500/80 p-2 rounded flex flex-col justify-between hover:bg-pink-600 transition-colors">
-                      <span>rust compiler</span>
-                      <span className="text-[9px] text-pink-200">13%</span>
+                  {/* Complex Multi-Module Treemap Matrix */}
+                  <div className="grid grid-cols-12 gap-1.5 h-36 font-mono text-[9px] text-white font-bold p-1.5 bg-black rounded-xl border border-zinc-800/90">
+                    {/* Row 1 */}
+                    <div className="col-span-4 bg-pink-950/70 border-2 border-pink-400/80 p-1.5 rounded-lg flex flex-col justify-between hover:bg-pink-900/80 transition-colors shadow-[0_0_8px_rgba(244,63,94,0.2)]">
+                      <span className="truncate">rust compiler</span>
+                      <span className="text-[8px] text-pink-300 font-normal">13%</span>
                     </div>
 
-                    <div className="col-span-3 bg-amber-600/60 border border-amber-500/80 p-2 rounded flex flex-col justify-between hover:bg-amber-600 transition-colors">
-                      <span>DevTools</span>
-                      <span className="text-[9px] text-amber-200">7%</span>
+                    <div className="col-span-3 bg-[#ccff00]/10 border-2 border-[#ccff00]/80 p-1.5 rounded-lg flex flex-col justify-between hover:bg-[#ccff00]/20 transition-colors shadow-[0_0_8px_rgba(204,255,0,0.2)]">
+                      <span className="truncate text-[#ccff00]">Flight</span>
+                      <span className="text-[8px] text-[#ccff00]/80 font-normal">8%</span>
                     </div>
 
-                    <div className="col-span-4 bg-emerald-600/60 border border-emerald-500/80 p-2 rounded flex flex-col justify-between hover:bg-emerald-600 transition-colors">
-                      <span>Flight / Fiber</span>
-                      <span className="text-[9px] text-emerald-200">12%</span>
+                    <div className="col-span-3 bg-amber-950/70 border-2 border-amber-400/80 p-1.5 rounded-lg flex flex-col justify-between hover:bg-amber-900/80 transition-colors shadow-[0_0_8px_rgba(251,191,36,0.2)]">
+                      <span className="truncate text-amber-300">DevTools</span>
+                      <span className="text-[8px] text-amber-300/80 font-normal">8%</span>
+                    </div>
+
+                    <div className="col-span-2 bg-blue-950/70 border-2 border-blue-400/80 p-1.5 rounded-lg flex flex-col justify-between hover:bg-blue-900/80 transition-colors">
+                      <span className="truncate text-blue-300">Doc</span>
+                      <span className="text-[8px] text-blue-300/80 font-normal">5%</span>
+                    </div>
+
+                    {/* Row 2 */}
+                    <div className="col-span-3 bg-emerald-950/70 border-2 border-[#00ff66]/80 p-1.5 rounded-lg flex flex-col justify-between hover:bg-emerald-900/80 transition-colors shadow-[0_0_8px_rgba(0,255,102,0.2)]">
+                      <span className="truncate text-[#00ff66]">Fiber</span>
+                      <span className="text-[8px] text-emerald-300 font-normal">8%</span>
+                    </div>
+
+                    <div className="col-span-3 bg-cyan-950/70 border-2 border-[#00ffff]/80 p-1.5 rounded-lg flex flex-col justify-between hover:bg-cyan-900/80 transition-colors shadow-[0_0_8px_rgba(0,255,255,0.2)]">
+                      <span className="truncate text-[#00ffff]">DOM / Reconciler</span>
+                      <span className="text-[8px] text-cyan-300 font-normal">7%</span>
+                    </div>
+
+                    <div className="col-span-2 bg-purple-950/70 border-2 border-purple-400/80 p-1.5 rounded-lg flex flex-col justify-between hover:bg-purple-900/80 transition-colors">
+                      <span className="truncate text-purple-300">Async Store</span>
+                      <span className="text-[8px] text-purple-300/80 font-normal">5%</span>
+                    </div>
+
+                    <div className="col-span-2 bg-rose-950/70 border-2 border-rose-400/80 p-1.5 rounded-lg flex flex-col justify-between hover:bg-rose-900/80 transition-colors">
+                      <span className="truncate text-rose-300">Testing</span>
+                      <span className="text-[8px] text-rose-300/80 font-normal">4%</span>
+                    </div>
+
+                    <div className="col-span-2 bg-orange-950/70 border-2 border-orange-400/80 p-1.5 rounded-lg flex flex-col justify-between hover:bg-orange-900/80 transition-colors">
+                      <span className="truncate text-orange-300">Bug Fix</span>
+                      <span className="text-[8px] text-orange-300/80 font-normal">4%</span>
+                    </div>
+
+                    {/* Row 3 */}
+                    <div className="col-span-2 bg-teal-950/70 border-2 border-teal-400/80 p-1 rounded-md flex flex-col justify-between hover:bg-teal-900/80 transition-colors">
+                      <span className="truncate text-teal-300">React DOM</span>
+                      <span className="text-[8px] text-teal-300/80 font-normal">3%</span>
+                    </div>
+
+                    <div className="col-span-2 bg-indigo-950/70 border-2 border-indigo-400/80 p-1 rounded-md flex flex-col justify-between hover:bg-indigo-900/80 transition-colors">
+                      <span className="truncate text-indigo-300">Hooks</span>
+                      <span className="text-[8px] text-indigo-300/80 font-normal">3%</span>
+                    </div>
+
+                    <div className="col-span-2 bg-violet-950/70 border-2 border-violet-400/80 p-1 rounded-md flex flex-col justify-between hover:bg-violet-900/80 transition-colors">
+                      <span className="truncate text-violet-300">Profiler</span>
+                      <span className="text-[8px] text-violet-300/80 font-normal">2%</span>
+                    </div>
+
+                    <div className="col-span-2 bg-yellow-950/70 border-2 border-yellow-400/80 p-1 rounded-md flex flex-col justify-between hover:bg-yellow-900/80 transition-colors">
+                      <span className="truncate text-yellow-300">Fast Refresh</span>
+                      <span className="text-[8px] text-yellow-300/80 font-normal">2%</span>
+                    </div>
+
+                    <div className="col-span-4 bg-zinc-900 border-2 border-zinc-600/80 p-1 rounded-md flex flex-col justify-between hover:bg-zinc-800 transition-colors">
+                      <span className="truncate text-zinc-300">Other (11 modules)</span>
+                      <span className="text-[8px] text-zinc-400 font-normal">11%</span>
                     </div>
                   </div>
                 </div>

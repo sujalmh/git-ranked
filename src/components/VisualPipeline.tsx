@@ -15,8 +15,8 @@ export function VisualPipeline() {
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, scale: 0.95 },
-    visible: { opacity: 1, scale: 1, transition: { type: 'spring' as const, stiffness: 400, damping: 30 } },
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' as const } },
   };
 
   return (
@@ -25,7 +25,7 @@ export function VisualPipeline() {
         variants={containerVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
+        viewport={{ once: true, amount: 0.15 }}
         className="flex flex-col md:flex-row items-stretch justify-center gap-6"
       >
         {/* Step 1 */}

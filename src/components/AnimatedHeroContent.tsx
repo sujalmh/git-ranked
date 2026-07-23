@@ -16,9 +16,9 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
         {/* Left Column: Hero Headline & CTAs */}
         <div className="flex-1 text-left w-full">
           <motion.div
-            initial={{ y: 20, opacity: 0 }}
+            initial={{ y: 16, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ type: "spring" as const, stiffness: 300, damping: 20 }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
             className="relative z-10 mb-6"
           >
             <div className="inline-flex items-center gap-2 px-4 py-1.5 border border-[#ccff00] text-[#ccff00] bg-[#ccff00]/10 text-xs font-black uppercase tracking-widest">
@@ -28,9 +28,9 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
           </motion.div>
 
           <motion.h1 
-            initial={{ y: 20, opacity: 0 }}
+            initial={{ y: 16, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ type: "spring" as const, stiffness: 300, damping: 20, delay: 0.1 }}
+            transition={{ duration: 0.45, ease: 'easeOut', delay: 0.08 }}
             className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter uppercase leading-[0.95] mb-6 relative z-10"
           >
             RANK YOUR <br />
@@ -38,18 +38,18 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
           </motion.h1>
 
           <motion.p 
-            initial={{ y: 20, opacity: 0 }}
+            initial={{ y: 16, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ type: "spring" as const, stiffness: 300, damping: 20, delay: 0.2 }}
+            transition={{ duration: 0.45, ease: 'easeOut', delay: 0.16 }}
             className="text-base sm:text-lg lg:text-xl text-zinc-400 max-w-2xl mb-8 font-medium relative z-10 leading-relaxed"
           >
             Evaluating true developer impact through AI fact extraction, multi-dimension scoring (Impact, Quality, Collaboration, Consistency), and team health metrics.
           </motion.p>
 
           <motion.div 
-            initial={{ y: 20, opacity: 0 }}
+            initial={{ y: 16, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ type: "spring" as const, stiffness: 300, damping: 20, delay: 0.3 }}
+            transition={{ duration: 0.45, ease: 'easeOut', delay: 0.24 }}
             className="flex flex-col sm:flex-row gap-4 relative z-10 pointer-events-auto"
           >
             {isSignedIn ? (
@@ -73,9 +73,9 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
 
         {/* Right Column: Workflow Interactive Snapshots */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: 'easeOut', delay: 0.15 }}
           className="w-full lg:flex-1"
         >
           <AppSnapshots />
