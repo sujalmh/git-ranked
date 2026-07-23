@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Loader2, Star, GitBranch, Check, X, Sparkles, ArrowRight } from 'lucide-react';
+import { Search, Loader2, Star, GitBranch, Check, X, Sparkles, ArrowRight, Globe } from 'lucide-react';
 
 interface SearchResultItem {
   id: number | string;
@@ -143,128 +143,135 @@ export function AddPublicRepo() {
   };
 
   return (
-    <div className="sleek-panel p-6 md:p-8 mb-12 relative z-20 space-y-6">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <Sparkles className="w-5 h-5 text-[#ccff00]" />
-            <h2 className="text-xl md:text-2xl font-black uppercase tracking-tighter text-white">
-              Public Repository Search & Analysis
-            </h2>
+    <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-4 relative z-20">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+            <Globe className="w-4 h-4" />
           </div>
-          <p className="text-sm text-zinc-400 font-medium">
-            Search any public GitHub repository to compute developer impact, PR metrics, and AI Insights.
-          </p>
+          <span className="text-[11px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+            PUBLIC REPOSITORIES
+          </span>
         </div>
+        <span className="text-[11px] text-zinc-500 font-mono">Instant Search</span>
+      </div>
 
-        {/* Search Input Container */}
-        <div className="w-full lg:w-auto lg:flex-1 max-w-2xl relative" ref={dropdownRef}>
-          <form onSubmit={handleSubmit} className="flex gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-              <input
-                type="text"
-                value={repoQuery}
-                onFocus={() => setShowDropdown(true)}
-                onChange={(e) => {
-                  setRepoQuery(e.target.value);
-                  setShowDropdown(true);
+      <div>
+        <h3 className="text-base font-black text-white uppercase tracking-tight">
+          Search Public Repository
+        </h3>
+        <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">
+          Search and analyze any public repository on GitHub instantly without installing an app.
+        </p>
+      </div>
+
+      {/* Search Input Container */}
+      <div className="w-full relative" ref={dropdownRef}>
+        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+            <input
+              type="text"
+              value={repoQuery}
+              onFocus={() => setShowDropdown(true)}
+              onChange={(e) => {
+                setRepoQuery(e.target.value);
+                setShowDropdown(true);
+              }}
+              placeholder="Search repository (e.g. facebook/react, vercel/next.js)..."
+              className="w-full bg-black border border-zinc-700 rounded-xl pl-11 pr-10 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#ccff00] transition-colors font-bold font-mono"
+            />
+            {repoQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRepoQuery('');
+                  setSearchResults([]);
+                  setShowDropdown(false);
                 }}
-                placeholder="Search repository (e.g. facebook/react, next.js)..."
-                className="w-full bg-black border-2 border-white/20 rounded-none pl-11 pr-10 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#ccff00] transition-colors font-bold font-mono"
-              />
-              {repoQuery && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRepoQuery('');
-                    setSearchResults([]);
-                    setShowDropdown(false);
-                  }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            <button
-              type="submit"
-              disabled={isSubmitting || !repoQuery.trim()}
-              className="px-6 py-3 bg-[#ccff00] text-black font-black text-xs uppercase tracking-wider hover:bg-[#b8e600] transition-colors flex items-center justify-center gap-2 min-w-[130px] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-            >
-              {isSubmitting ? (
-                <Loader2 className="w-4 h-4 animate-spin text-black" />
-              ) : (
-                <>
-                  ANALYZE <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting || !repoQuery.trim()}
+            className="px-6 py-3 bg-[#ccff00] text-black font-black text-xs uppercase tracking-wider hover:bg-[#b8e600] transition-colors flex items-center justify-center gap-2 rounded-xl min-w-[130px] disabled:opacity-50 disabled:cursor-not-allowed shrink-0 cursor-pointer"
+          >
+            {isSubmitting ? (
+              <Loader2 className="w-4 h-4 animate-spin text-black" />
+            ) : (
+              <>
+                ANALYZE <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+        </form>
 
-          {/* Search Dropdown Results */}
-          {showDropdown && (repoQuery.trim().length >= 2 || searchResults.length > 0) && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-950 border-2 border-zinc-800 shadow-2xl z-50 max-h-96 overflow-y-auto divide-y divide-zinc-800/60">
-              {isSearching ? (
-                <div className="p-4 text-center text-zinc-400 text-xs font-mono flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-[#ccff00]" />
-                  Searching GitHub public repositories...
-                </div>
-              ) : searchResults.length > 0 ? (
-                searchResults.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleSelectResult(item)}
-                    className="w-full p-3.5 text-left hover:bg-zinc-900 transition-colors flex items-start gap-3.5 group"
-                  >
-                    {item.owner.avatar_url ? (
-                      <img
-                        src={item.owner.avatar_url}
-                        alt={item.owner.login}
-                        className="w-7 h-7 rounded-full border border-zinc-700 shrink-0 mt-0.5"
-                      />
-                    ) : (
-                      <div className="w-7 h-7 rounded-full border border-zinc-700 bg-zinc-800 shrink-0 mt-0.5 flex items-center justify-center">
-                        <GitBranch className="w-4 h-4 text-zinc-400" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-bold text-sm text-white group-hover:text-[#ccff00] transition-colors truncate font-mono">
-                          {item.full_name}
-                        </span>
-                        {item.isTracked && (
-                          <span className="text-[10px] font-bold uppercase tracking-wider bg-[#ccff00]/10 text-[#ccff00] border border-[#ccff00]/30 px-2 py-0.5 shrink-0 flex items-center gap-1">
-                            <Check className="w-3 h-3" /> TRACKED
-                          </span>
-                        )}
-                      </div>
-                      {item.description && (
-                        <p className="text-xs text-zinc-400 line-clamp-1 mt-0.5 font-sans">
-                          {item.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-3 mt-1.5 text-[11px] text-zinc-500 font-mono">
-                        {item.language && <span>{item.language}</span>}
-                        {item.stargazers_count > 0 && (
-                          <span className="flex items-center gap-1 text-amber-400/90">
-                            <Star className="w-3 h-3 fill-amber-400/90" />
-                            {formatStars(item.stargazers_count)}
-                          </span>
-                        )}
-                      </div>
+        {/* Search Dropdown Results */}
+        {showDropdown && (repoQuery.trim().length >= 2 || searchResults.length > 0) && (
+          <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-950 border-2 border-zinc-800 rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto divide-y divide-zinc-800/60">
+            {isSearching ? (
+              <div className="p-4 text-center text-zinc-400 text-xs font-mono flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-[#ccff00]" />
+                Searching GitHub public repositories...
+              </div>
+            ) : searchResults.length > 0 ? (
+              searchResults.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleSelectResult(item)}
+                  className="w-full p-3.5 text-left hover:bg-zinc-900 transition-colors flex items-start gap-3.5 group cursor-pointer"
+                >
+                  {item.owner.avatar_url ? (
+                    <img
+                      src={item.owner.avatar_url}
+                      alt={item.owner.login}
+                      className="w-7 h-7 rounded-full border border-zinc-700 shrink-0 mt-0.5"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full border border-zinc-700 bg-zinc-800 shrink-0 mt-0.5 flex items-center justify-center">
+                      <GitBranch className="w-4 h-4 text-zinc-400" />
                     </div>
-                  </button>
-                ))
-              ) : (
-                <div className="p-4 text-center text-zinc-500 text-xs font-mono">
-                  No public repositories found for "{repoQuery}". Hit Enter to analyze manually.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-sm text-white group-hover:text-[#ccff00] transition-colors truncate font-mono">
+                        {item.full_name}
+                      </span>
+                      {item.isTracked && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-[#ccff00]/10 text-[#ccff00] border border-[#ccff00]/30 px-2 py-0.5 shrink-0 flex items-center gap-1 rounded">
+                          <Check className="w-3 h-3" /> TRACKED
+                        </span>
+                      )}
+                    </div>
+                    {item.description && (
+                      <p className="text-xs text-zinc-400 line-clamp-1 mt-0.5 font-sans">
+                        {item.description}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 mt-1.5 text-[11px] text-zinc-500 font-mono">
+                      {item.language && <span>{item.language}</span>}
+                      {item.stargazers_count > 0 && (
+                        <span className="flex items-center gap-1 text-amber-400/90">
+                          <Star className="w-3 h-3 fill-amber-400/90" />
+                          {formatStars(item.stargazers_count)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="p-4 text-center text-zinc-500 text-xs font-mono">
+                No public repositories found for &quot;{repoQuery}&quot;. Hit Enter to analyze manually.
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Featured Repos Quick Picks */}
@@ -278,7 +285,7 @@ export function AddPublicRepo() {
             type="button"
             disabled={isSubmitting}
             onClick={() => handleSelectFeatured(featured.name)}
-            className="px-3 py-1 bg-black border border-zinc-800 text-xs font-mono text-zinc-300 hover:border-[#ccff00] hover:text-[#ccff00] transition-colors disabled:opacity-50"
+            className="px-3 py-1 bg-black border border-zinc-800 rounded-lg text-xs font-mono text-zinc-300 hover:border-[#ccff00] hover:text-[#ccff00] transition-colors disabled:opacity-50 cursor-pointer"
           >
             {featured.name}
           </button>
@@ -286,7 +293,7 @@ export function AddPublicRepo() {
       </div>
 
       {error && (
-        <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold uppercase tracking-wider">
+        <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold uppercase tracking-wider rounded-lg">
           {error}
         </div>
       )}

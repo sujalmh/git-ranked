@@ -68,20 +68,20 @@ export default async function Dashboard() {
     <div className="flex flex-col min-h-screen relative bg-black text-white">
       <Navbar />
       
-      <main className="flex-1 w-full px-6 md:px-12 py-8 space-y-8">
+      <main className="flex-1 w-full px-4 sm:px-6 md:px-12 py-6 sm:py-8 space-y-8">
         {/* Clean Dashboard Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
           <div>
-            <h1 className="text-3xl md:text-4xl font-black tracking-tighter flex items-center gap-3">
-              <LayoutDashboard className="w-8 h-8 text-[#ccff00]" />
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter flex items-center gap-3">
+              <LayoutDashboard className="w-7 h-7 sm:w-8 sm:h-8 text-[#ccff00]" />
               Your Repositories
             </h1>
-            <p className="text-sm md:text-base font-medium text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm md:text-base font-medium text-zinc-400 mt-1">
               Track activity, compute scores, and generate AI insights for private and public projects.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 self-start md:self-auto">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 self-start md:self-auto w-full sm:w-auto">
             {/* Primary "+ Add Repository" Modal Button */}
             <AddRepoModal installationCount={installationCount} installUrl={installUrl} />
 
@@ -90,11 +90,11 @@ export default async function Dashboard() {
               href={installUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-bold uppercase tracking-wider rounded-xl flex items-center gap-2 transition-colors"
+              className="px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-bold uppercase tracking-wider rounded-xl flex items-center gap-2 transition-colors shrink-0"
               title="Manage GitHub App Installations"
             >
               <Settings className="w-4 h-4 text-[#ccff00]" />
-              <span className="hidden sm:inline">Manage App ({installationCount})</span>
+              <span>Manage App ({installationCount})</span>
             </a>
           </div>
         </div>

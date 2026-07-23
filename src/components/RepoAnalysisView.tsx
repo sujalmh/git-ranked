@@ -132,12 +132,12 @@ export function RepoAnalysisView({
 
       {/* 2. Hero row: Leaderboard (60) + Health (40) */}
       <section className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5 mb-6 items-start">
-        <div className="sleek-panel p-5">
-          <div className="flex items-center justify-between gap-3 mb-1">
-            <div className="flex items-center gap-2">
-              <Crown className="w-6 h-6 text-amber-400" />
-              <h2 className="text-xl font-bold text-white">Leaderboard</h2>
-              <span className="text-base text-zinc-300 ml-2">
+        <div className="sleek-panel p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 shrink-0" />
+              <h2 className="text-lg sm:text-xl font-bold text-white">Leaderboard</h2>
+              <span className="text-xs sm:text-base text-zinc-300">
                 {smallTeam
                   ? `${contributors.length} collaborators · ranked by impact`
                   : `Top 3 of ${contributors.length} · ranked by impact`}
@@ -149,7 +149,7 @@ export function RepoAnalysisView({
               contributors={contributors}
             />
           </div>
-          <p className="text-base text-zinc-300 mb-5">
+          <p className="text-xs sm:text-base text-zinc-300 mb-5">
             {smallTeam
               ? 'Impact breakdown bar shows shipping, quality, reviews, collaboration and consistency.'
               : 'Search and sort the full list below the podium.'}

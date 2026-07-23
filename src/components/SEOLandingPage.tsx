@@ -5,31 +5,65 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ContributionGrid } from '@/components/ContributionGrid';
 import type { SEOPageData } from '@/lib/seo-content';
-import { ChevronRight, ArrowRight } from 'lucide-react';
+import { ChevronRight, ArrowRight, Menu, X } from 'lucide-react';
 import { Footer } from '@/components/Footer';
 
 export function SEOLandingPage({ data }: { data: SEOPageData }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const githubAppSlug = process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev';
+
   return (
     <div className="flex flex-col min-h-screen relative overflow-hidden bg-black text-white">
-      {/* Header (Simplified from main page) */}
-      <header className="w-full z-10 border-b-2 border-white/10 relative">
-        <div className="flex items-center justify-between px-6 py-6 max-w-7xl mx-auto w-full">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-black/90 backdrop-blur-md border-b-2 border-white/10 w-full">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 max-w-7xl mx-auto w-full">
           <Link href="/" className="flex items-center gap-3">
             <img src="/logo.png" alt="GitRanked Logo" className="w-8 h-8 rounded-none" />
-            <span className="text-2xl font-black tracking-tighter uppercase">GitRanked</span>
+            <span className="text-xl sm:text-2xl font-black tracking-tighter uppercase">GitRanked</span>
           </Link>
-          <nav className="flex gap-6 items-center">
+
+          <nav className="hidden md:flex gap-6 items-center">
             <Link href="/api/auth/signin" className="text-sm font-bold tracking-wider hover:text-[#ccff00] transition-colors uppercase">
               Log In
             </Link>
             <a 
-              href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`} 
+              href={`https://github.com/apps/${githubAppSlug}/installations/new`} 
               className="px-5 py-2 accent-panel text-sm"
             >
               CONNECT TO GITHUB
             </a>
           </nav>
+
+          <div className="flex md:hidden items-center">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 text-white hover:text-[#ccff00] focus:outline-none transition-colors"
+              aria-label="Toggle Menu"
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
         </div>
+
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-white/10 bg-black/95 px-4 py-6 space-y-4">
+            <Link
+              href="/api/auth/signin"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block w-full py-3 bg-zinc-900 border border-zinc-700 text-center text-sm font-bold tracking-wider text-white hover:text-[#ccff00] uppercase"
+            >
+              Log In
+            </Link>
+            <a
+              href={`https://github.com/apps/${githubAppSlug}/installations/new`}
+              onClick={() => setMobileMenuOpen(false)}
+              className="block w-full py-3 accent-panel text-center text-sm font-bold tracking-wider uppercase"
+            >
+              CONNECT TO GITHUB
+            </a>
+          </div>
+        )}
       </header>
 
       <main className="flex-1 w-full z-10 relative">

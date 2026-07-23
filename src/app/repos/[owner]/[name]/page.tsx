@@ -104,7 +104,7 @@ export default async function RepoAnalysisBoard(
   return (
     <div className="flex flex-col min-h-screen relative">
       <Navbar />
-      <main className="flex-1 w-full px-6 py-8">
+      <main className="flex-1 w-full px-4 sm:px-6 py-6 sm:py-8">
         <div className="mb-8">
           <div className="flex items-center gap-2 text-sm text-zinc-400 mb-2">
             <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
@@ -113,11 +113,11 @@ export default async function RepoAnalysisBoard(
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
-            <h1 className="text-3xl font-black flex items-center gap-3 tracking-tighter text-white">
+            <h1 className="text-2xl sm:text-3xl font-black flex items-center gap-3 tracking-tighter text-white min-w-0 break-all">
               <img
                 src={`https://github.com/${owner}.png`}
                 alt={owner}
-                className="w-9 h-9 border-2 border-white/20 object-cover shrink-0"
+                className="w-8 h-8 sm:w-9 sm:h-9 border-2 border-white/20 object-cover shrink-0"
               />
               <span>{owner} / {name}</span>
             </h1>
@@ -128,10 +128,10 @@ export default async function RepoAnalysisBoard(
           </div>
 
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-3">
-            <p className="text-base text-zinc-400 max-w-2xl">
+            <p className="text-sm sm:text-base text-zinc-400 max-w-2xl">
               {repoDescription}
             </p>
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
               {session ? (
                 <>
                   <AnalyseButton owner={owner} name={name} isReanalyse={data.isAnalysed} />
@@ -151,7 +151,7 @@ export default async function RepoAnalysisBoard(
                   isStatic={true}
                 />
               )}
-              <Link href={`/repos/${owner}/${name}/compare`} className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-6 py-3 text-base text-white font-semibold flex items-center justify-center">
+              <Link href={`/repos/${owner}/${name}/compare`} className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-4 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base text-white font-semibold flex items-center justify-center">
                 Compare Team
               </Link>
             </div>

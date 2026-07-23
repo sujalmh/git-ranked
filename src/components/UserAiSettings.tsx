@@ -127,26 +127,25 @@ export function UserAiSettings() {
         </div>
       </div>
 
-      {/* Status Message */}
       {statusMessage && (
         <div
           className={`p-4 border text-sm font-medium flex items-center gap-3 ${
             statusMessage.type === 'success'
-              ? 'bg-[#ccff00]/10 border-[#ccff00] text-[#ccff00]'
-              : 'bg-red-500/10 border-red-500 text-red-400'
+              ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300'
+              : 'bg-red-950/40 border-red-500/50 text-red-300'
           }`}
         >
           {statusMessage.type === 'success' ? (
-            <Check className="w-5 h-5 flex-shrink-0" />
+            <Check className="w-5 h-5 text-emerald-400 shrink-0" />
           ) : (
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
           )}
           <span>{statusMessage.text}</span>
         </div>
       )}
 
-      {/* Toggle: Use Custom Key */}
-      <div className="p-5 bg-zinc-900/60 border border-zinc-800 rounded-none flex items-center justify-between">
+      {/* Toggle Custom Key */}
+      <div className="p-4 sm:p-6 border border-zinc-800 bg-zinc-950 flex items-center justify-between gap-4">
         <div className="space-y-1">
           <label className="text-base font-bold text-white uppercase flex items-center gap-2">
             <Key className="w-4 h-4 text-[#ccff00]" />
