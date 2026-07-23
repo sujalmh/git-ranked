@@ -137,7 +137,8 @@ export function WorkAreasHeatmap({
               fill="#ffffff"
               stroke="none"
               fontSize={fontSize}
-              fontWeight={800}
+              fontWeight={700}
+              fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
               dominantBaseline="middle"
             >
               {displayName}
@@ -150,7 +151,8 @@ export function WorkAreasHeatmap({
                 fill={theme.text}
                 stroke="none"
                 fontSize={pctSize}
-                fontWeight={600}
+                fontWeight={500}
+                fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
                 dominantBaseline="middle"
               >
                 {percent}%
@@ -163,7 +165,7 @@ export function WorkAreasHeatmap({
   };
 
   return (
-    <div className="sleek-panel p-5">
+    <div className="sleek-panel p-5 font-mono">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Proportions className="w-6 h-6 text-[#00ffff]" />
