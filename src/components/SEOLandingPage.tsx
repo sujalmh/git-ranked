@@ -16,7 +16,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
     <div className="flex flex-col min-h-screen relative overflow-hidden bg-black text-white">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-black/90 backdrop-blur-md border-b-2 border-white/10 w-full">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 max-w-7xl mx-auto w-full">
+        <div className="flex items-center justify-between px-6 md:px-12 py-4 w-full">
           <Link href="/" className="flex items-center gap-3">
             <img src="/logo.png" alt="GitRanked Logo" className="w-8 h-8 rounded-none" />
             <span className="text-xl sm:text-2xl font-black tracking-tighter uppercase">GitRanked</span>
