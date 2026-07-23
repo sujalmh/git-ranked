@@ -17,12 +17,17 @@ export async function POST(req: Request) {
 
     // Check if the repo already exists
     const existingRepo = await sql`
-      SELECT id, owner, name FROM repositories 
+      SELECT id, owner, name, is_active FROM repositories 
       WHERE owner ILIKE ${owner} AND name ILIKE ${name}
       LIMIT 1
     `;
 
     if (existingRepo.length > 0) {
+      if (!existingRepo[0].is_active) {
+        await sql`
+          UPDATE repositories SET is_active = true WHERE id = ${existingRepo[0].id}
+        `;
+      }
       return NextResponse.json({
         repoId: existingRepo[0].id,
         owner: existingRepo[0].owner,

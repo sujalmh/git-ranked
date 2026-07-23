@@ -39,12 +39,12 @@ function buildFindings(
 ): Finding[] {
   const out: Finding[] = [];
   if (teamInsights) {
-    for (const t of teamInsights.single_owner_modules) out.push({ kind: 'single-owner', text: t, severity: 'warning' });
-    for (const t of teamInsights.review_bottlenecks) out.push({ kind: 'bottleneck', text: t, severity: 'warning' });
-    for (const t of teamInsights.quiet_areas) out.push({ kind: 'quiet', text: t, severity: 'info' });
-    for (const t of teamInsights.rising_contributors) out.push({ kind: 'rising', text: t, severity: 'info' });
+    for (const t of teamInsights.single_owner_modules ?? []) out.push({ kind: 'single-owner', text: t, severity: 'warning' });
+    for (const t of teamInsights.review_bottlenecks ?? []) out.push({ kind: 'bottleneck', text: t, severity: 'warning' });
+    for (const t of teamInsights.quiet_areas ?? []) out.push({ kind: 'quiet', text: t, severity: 'info' });
+    for (const t of teamInsights.rising_contributors ?? []) out.push({ kind: 'rising', text: t, severity: 'info' });
   }
-  for (const t of risks) out.push({ kind: 'risk', text: t, severity: 'risk' });
+  for (const t of risks ?? []) out.push({ kind: 'risk', text: t, severity: 'risk' });
   return out;
 }
 
