@@ -9,8 +9,6 @@ import {
   GitBranch,
   ShieldAlert,
   BarChart3,
-  Layers,
-  ChevronRight,
   Flame,
   Search,
   Users,
@@ -18,26 +16,24 @@ import {
   TrendingUp,
   RefreshCw,
   Share2,
+  Layers,
 } from 'lucide-react';
 
-const STEPS = [
+const FEATURE_TABS = [
   {
     id: 1,
-    badge: 'Step 1',
     title: 'Leaderboard & Podium',
     desc: 'Impact rankings, gold/silver/bronze podium & contributor scores',
   },
   {
     id: 2,
-    badge: 'Step 2',
-    title: 'Team Health & Activity',
-    desc: '5-axis health radar, delivery metrics & real-time activity feed',
+    title: 'Team Health & Radar',
+    desc: '5-axis health radar, delivery metrics & activity feed',
   },
   {
     id: 3,
-    badge: 'Step 3',
-    title: 'Work Areas & AI Insights',
-    desc: 'Codebase treemap visualizer, single-owner risks & AI fact summary',
+    title: 'Work Areas & AI Risks',
+    desc: 'Codebase treemap visualizer, single-owner risks & AI insights',
   },
 ];
 
@@ -45,11 +41,12 @@ export function AppSnapshots() {
   const [activeStep, setActiveStep] = useState(1);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
+  // 1-second slideshow interval (paused on hover)
   useEffect(() => {
     if (!isAutoPlaying) return;
     const interval = setInterval(() => {
       setActiveStep((prev) => (prev % 3) + 1);
-    }, 6000);
+    }, 1000);
     return () => clearInterval(interval);
   }, [isAutoPlaying]);
 
@@ -59,50 +56,8 @@ export function AppSnapshots() {
       onMouseEnter={() => setIsAutoPlaying(false)}
       onMouseLeave={() => setIsAutoPlaying(true)}
     >
-      {/* Step Tabs Selector */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-        {STEPS.map((step) => {
-          const isActive = activeStep === step.id;
-          return (
-            <button
-              key={step.id}
-              type="button"
-              onClick={() => {
-                setActiveStep(step.id);
-                setIsAutoPlaying(false);
-              }}
-              className={`p-4 text-left rounded-xl border transition-all duration-300 ${
-                isActive
-                  ? 'bg-zinc-900 border-[#ccff00] shadow-[0_0_25px_rgba(204,255,0,0.2)]'
-                  : 'bg-zinc-950/80 border-zinc-800/80 hover:border-zinc-700 opacity-75 hover:opacity-100'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <span
-                  className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                    isActive
-                      ? 'bg-[#ccff00] text-black font-extrabold'
-                      : 'bg-zinc-800 text-zinc-400'
-                  }`}
-                >
-                  {step.badge}
-                </span>
-                {isActive && (
-                  <span className="flex h-2 w-2 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ccff00] opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ccff00]"></span>
-                  </span>
-                )}
-              </div>
-              <div className="font-bold text-sm text-white mb-0.5">{step.title}</div>
-              <div className="text-xs text-zinc-400 line-clamp-1">{step.desc}</div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Snapshot Window Frame */}
-      <div className="relative rounded-2xl border-2 border-zinc-800 bg-black overflow-hidden shadow-2xl">
+      {/* 1. SNAPSHOT SCREEN WINDOW (ABOVE) */}
+      <div className="relative rounded-2xl border-2 border-white bg-black overflow-hidden shadow-2xl">
         {/* Browser Top Bar */}
         <div className="flex items-center justify-between px-4 py-3 bg-zinc-950 border-b border-zinc-800">
           <div className="flex items-center gap-2">
@@ -124,7 +79,7 @@ export function AppSnapshots() {
           </div>
         </div>
 
-        {/* Global Repo Stats Bar (matching exact header in screenshot) */}
+        {/* Global Repo Stats Bar */}
         <div className="p-4 bg-zinc-950/90 border-b border-zinc-800 space-y-3">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div>
@@ -207,18 +162,18 @@ export function AppSnapshots() {
           </div>
         </div>
 
-        {/* Dynamic Snapshot Viewport */}
-        <div className="p-4 md:p-6 min-h-[430px] flex items-center justify-center relative overflow-hidden bg-black text-left">
+        {/* Dynamic Viewport with FIXED HEIGHT (440px) to completely eliminate height shift */}
+        <div className="p-4 md:p-6 h-[440px] flex items-center justify-center relative overflow-hidden bg-black text-left">
           <AnimatePresence mode="wait">
-            {/* STEP 1: Leaderboard Podium & Contributor Ranking List */}
+            {/* STEP 1: Leaderboard Podium & Contributor Rankings */}
             {activeStep === 1 && (
               <motion.div
                 key="step1"
-                initial={{ opacity: 0, y: 15 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.3 }}
-                className="w-full space-y-4"
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="w-full h-full flex flex-col justify-between space-y-3"
               >
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
@@ -283,7 +238,7 @@ export function AppSnapshots() {
 
                 {/* Contributor Rankings Table Preview */}
                 <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden divide-y divide-zinc-800/80">
-                  <div className="p-2.5 bg-black/60 flex items-center justify-between text-xs text-zinc-400 font-mono">
+                  <div className="p-2 bg-black/60 flex items-center justify-between text-xs text-zinc-400 font-mono">
                     <div className="flex items-center gap-2">
                       <Search className="w-3.5 h-3.5 text-zinc-500" />
                       <span>Search contributors...</span>
@@ -291,7 +246,7 @@ export function AppSnapshots() {
                     <span>Rank / Impact</span>
                   </div>
 
-                  <div className="p-2.5 flex items-center justify-between text-xs hover:bg-zinc-900/60">
+                  <div className="p-2 flex items-center justify-between text-xs hover:bg-zinc-900/60">
                     <div className="flex items-center gap-2 font-bold text-white font-mono">
                       <span className="w-5 text-zinc-500 text-[11px]">4</span>
                       <div className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-[10px]">p</div>
@@ -300,22 +255,13 @@ export function AppSnapshots() {
                     <span className="font-mono font-bold text-[#ccff00]">20 / 100</span>
                   </div>
 
-                  <div className="p-2.5 flex items-center justify-between text-xs hover:bg-zinc-900/60">
+                  <div className="p-2 flex items-center justify-between text-xs hover:bg-zinc-900/60">
                     <div className="flex items-center gap-2 font-bold text-white font-mono">
                       <span className="w-5 text-zinc-500 text-[11px]">5</span>
                       <div className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-[10px]">g</div>
                       <span>geoff</span>
                     </div>
                     <span className="font-mono font-bold text-[#ccff00]">17 / 100</span>
-                  </div>
-
-                  <div className="p-2.5 flex items-center justify-between text-xs hover:bg-zinc-900/60">
-                    <div className="flex items-center gap-2 font-bold text-white font-mono">
-                      <span className="w-5 text-zinc-500 text-[11px]">6</span>
-                      <div className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-[10px]">a</div>
-                      <span>analise</span>
-                    </div>
-                    <span className="font-mono font-bold text-[#ccff00]">13 / 100</span>
                   </div>
                 </div>
               </motion.div>
@@ -325,28 +271,27 @@ export function AppSnapshots() {
             {activeStep === 2 && (
               <motion.div
                 key="step2"
-                initial={{ opacity: 0, y: 15 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.3 }}
-                className="w-full space-y-4"
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="w-full h-full flex flex-col justify-between space-y-3"
               >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs h-full">
                   {/* Left Column: Team Health Breakdown Card */}
-                  <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 space-y-3">
+                  <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 flex flex-col justify-between">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 font-black text-white uppercase text-sm">
                         <Activity className="w-4 h-4 text-[#ccff00]" />
                         Team Health
                       </div>
-                      <span className="text-xs font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                      <span className="text-[11px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
                         71 / 100 • HEALTHY
                       </span>
                     </div>
 
                     {/* Radar graphic + Bars */}
-                    <div className="grid grid-cols-2 gap-3 pt-1 items-center">
-                      {/* Polygon Radar Graphic SVG */}
+                    <div className="grid grid-cols-2 gap-3 items-center">
                       <div className="relative w-28 h-28 mx-auto flex items-center justify-center">
                         <svg viewBox="0 0 100 100" className="w-full h-full">
                           <polygon points="50,10 90,38 75,90 25,90 10,38" fill="none" stroke="#333" strokeWidth="1.5" />
@@ -355,7 +300,6 @@ export function AppSnapshots() {
                         </svg>
                       </div>
 
-                      {/* Bar Indicators */}
                       <div className="space-y-1.5 font-mono text-[10px]">
                         <div>
                           <div className="flex justify-between text-zinc-400"><span>Delivery</span><span className="text-[#ccff00] font-bold">85</span></div>
@@ -382,12 +326,12 @@ export function AppSnapshots() {
                   </div>
 
                   {/* Right Column: Real-Time Activity Feed */}
-                  <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 space-y-2.5">
-                    <div className="flex items-center justify-between font-black text-white text-xs uppercase">
+                  <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 flex flex-col justify-between">
+                    <div className="flex items-center justify-between font-black text-white text-xs uppercase mb-2">
                       <span className="flex items-center gap-1.5">
                         <BarChart3 className="w-4 h-4 text-cyan-400" /> Activity Feed
                       </span>
-                      <span className="text-[10px] text-zinc-500 font-mono">MOST RECENT FIRST</span>
+                      <span className="text-[10px] text-zinc-500 font-mono">MOST RECENT</span>
                     </div>
 
                     <div className="space-y-2 text-[11px]">
@@ -421,23 +365,22 @@ export function AppSnapshots() {
             {activeStep === 3 && (
               <motion.div
                 key="step3"
-                initial={{ opacity: 0, y: 15 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.3 }}
-                className="w-full space-y-4"
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="w-full h-full flex flex-col justify-between space-y-3"
               >
-                {/* Work Areas Treemap Block Visualizer */}
+                {/* Work Areas Treemap Visualizer */}
                 <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-white uppercase flex items-center gap-1.5">
                       <Layers className="w-4 h-4 text-pink-400" /> Work Areas Treemap
                     </span>
-                    <span className="text-[10px] text-zinc-500 font-mono">HOVER A BLOCK TO SEE CONTRIBUTORS</span>
+                    <span className="text-[10px] text-zinc-500 font-mono">CODE MODULES</span>
                   </div>
 
-                  {/* Treemap visual blocks grid matching exact colors in screenshot */}
-                  <div className="grid grid-cols-12 gap-1.5 h-28 font-mono text-[10px] text-white font-bold p-1 bg-black rounded border border-zinc-800">
+                  <div className="grid grid-cols-12 gap-1.5 h-24 font-mono text-[10px] text-white font-bold p-1 bg-black rounded border border-zinc-800">
                     <div className="col-span-5 bg-pink-600/60 border border-pink-500/80 p-2 rounded flex flex-col justify-between hover:bg-pink-600 transition-colors">
                       <span>rust compiler</span>
                       <span className="text-[9px] text-pink-200">13%</span>
@@ -456,16 +399,16 @@ export function AppSnapshots() {
                 </div>
 
                 {/* AI Insights & Single Owner Risks */}
-                <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 space-y-3">
+                <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 space-y-2.5 flex-1 flex flex-col justify-between">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-white uppercase flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-[#ccff00]" /> AI Insights & Risk Pattern Detection
+                      <Sparkles className="w-4 h-4 text-[#ccff00]" /> AI Risk Detection
                     </span>
-                    <span className="text-[10px] font-mono text-[#ccff00]">TEAM DISTRIBUTION</span>
+                    <span className="text-[10px] font-mono text-[#ccff00]">DISTRIBUTION PATTERNS</span>
                   </div>
 
-                  <p className="text-[11px] text-zinc-400 leading-relaxed font-sans">
-                    In the second half of July 2026, the React team focused heavily on bug fixes (171) and features (55) across the codebase. Key shipped work included Fast Stack Overflow recovery for errors, nested view/transition animations...
+                  <p className="text-[11px] text-zinc-400 leading-relaxed font-sans line-clamp-2">
+                    In the second half of July 2026, the React team focused heavily on bug fixes (171) and features (55) across the codebase. Key shipped work included Fast Stack Overflow recovery...
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono">
@@ -473,7 +416,7 @@ export function AppSnapshots() {
                       <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
                       <div>
                         <span className="font-bold text-amber-300 uppercase text-[10px]">Single-Owner Risk</span>
-                        <p className="text-zinc-300 text-[10px]">eps1lon: dominant in DOM/Filter bug fixes (15 PRs merged)</p>
+                        <p className="text-zinc-300 text-[10px] truncate">eps1lon: dominant in DOM/Filter bug fixes</p>
                       </div>
                     </div>
 
@@ -481,7 +424,7 @@ export function AppSnapshots() {
                       <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
                       <div>
                         <span className="font-bold text-amber-300 uppercase text-[10px]">Single-Owner Risk</span>
-                        <p className="text-zinc-300 text-[10px]">gaearon: primary contributor to Flight performance & refactoring</p>
+                        <p className="text-zinc-300 text-[10px] truncate">gaearon: primary contributor to Flight performance</p>
                       </div>
                     </div>
                   </div>
@@ -490,6 +433,39 @@ export function AppSnapshots() {
             )}
           </AnimatePresence>
         </div>
+      </div>
+
+      {/* 2. FEATURE TABS SELECTOR (BELOW SNAPSHOT SCREEN) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-5">
+        {FEATURE_TABS.map((tab) => {
+          const isActive = activeStep === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setActiveStep(tab.id);
+                setIsAutoPlaying(false);
+              }}
+              className={`p-4 text-left rounded-xl border transition-all duration-300 ${
+                isActive
+                  ? 'bg-zinc-900 border-[#ccff00] shadow-[0_0_20px_rgba(204,255,0,0.15)]'
+                  : 'bg-zinc-950/80 border-zinc-800/80 hover:border-zinc-700 opacity-75 hover:opacity-100'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <div className="font-bold text-sm text-white">{tab.title}</div>
+                {isActive && (
+                  <span className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ccff00] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ccff00]"></span>
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-zinc-400 line-clamp-1">{tab.desc}</div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
