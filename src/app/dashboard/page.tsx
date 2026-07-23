@@ -2,11 +2,10 @@ import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
-import { GitBranch, ArrowRight, LayoutDashboard, Settings, Lock, Globe, ShieldCheck, Sparkles, ExternalLink } from 'lucide-react';
+import { GitBranch, ArrowRight, LayoutDashboard, Settings } from 'lucide-react';
 import { redirect } from 'next/navigation';
-import { AddPublicRepo } from '@/components/AddPublicRepo';
 import { RemoveRepoButton } from '@/components/RemoveRepoButton';
-import { GithubIcon } from '@/components/icons/GithubIcon';
+import { AddRepoModal } from '@/components/AddRepoModal';
 
 import { getRepoInsights, HealthMetrics } from '@/lib/insights';
 
@@ -69,8 +68,8 @@ export default async function Dashboard() {
     <div className="flex flex-col min-h-screen relative bg-black text-white">
       <Navbar />
       
-      <main className="flex-1 w-full px-6 md:px-12 py-8 space-y-12">
-        {/* Page Title Header */}
+      <main className="flex-1 w-full px-6 md:px-12 py-8 space-y-8">
+        {/* Clean Dashboard Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
           <div>
             <h1 className="text-3xl md:text-4xl font-black tracking-tighter flex items-center gap-3">
@@ -82,134 +81,40 @@ export default async function Dashboard() {
             </p>
           </div>
 
-          <a 
-            href={installUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-bold uppercase tracking-wider rounded-xl flex items-center gap-2 transition-colors self-start md:self-auto"
-          >
-            <Settings className="w-4 h-4 text-[#ccff00]" />
-            <span>Manage App Access ({installationCount})</span>
-          </a>
-        </div>
+          <div className="flex items-center gap-3 self-start md:self-auto">
+            {/* Primary "+ Add Repository" Modal Button */}
+            <AddRepoModal installationCount={installationCount} installUrl={installUrl} />
 
-        {/* 2-Column Section: Clear distinction between Private Repos vs Public Repos */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#ccff00]" />
-            <h2 className="text-sm font-black uppercase tracking-wider text-zinc-300">
-              Add Repositories To Track
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Card A: Private / Personal Repositories */}
-            <div className="p-6 rounded-2xl border-2 border-white/15 bg-zinc-950/90 flex flex-col justify-between space-y-6">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
-                      <Lock className="w-5 h-5" />
-                    </div>
-                    <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-md border border-indigo-500/20">
-                      PRIVATE & PERSONAL
-                    </span>
-                  </div>
-
-                  {installationCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-mono bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/30">
-                      <ShieldCheck className="w-3.5 h-3.5" /> App Connected
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="text-xl font-black text-white uppercase tracking-tight">
-                    Add Private & Account Repositories
-                  </h3>
-                  <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                    Grant GitRanked GitHub App access to your personal account or organizations to track private commits, PR reviews, and team insights.
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-black border border-zinc-800 text-xs font-mono space-y-2 text-zinc-300">
-                  <div className="flex items-center gap-2 text-zinc-400">
-                    <span className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-300 flex items-center justify-center font-bold text-[10px]">1</span>
-                    <span>Click &quot;Connect GitHub App&quot; below</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-zinc-400">
-                    <span className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-300 flex items-center justify-center font-bold text-[10px]">2</span>
-                    <span>Select personal or organization repositories</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-zinc-400">
-                    <span className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-300 flex items-center justify-center font-bold text-[10px]">3</span>
-                    <span>Repository automatically syncs to your dashboard</span>
-                  </div>
-                </div>
-              </div>
-
-              <a
-                href={installUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-3 px-4 rounded-xl bg-[#ccff00] hover:bg-[#b8e600] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(204,255,0,0.15)]"
-              >
-                <GithubIcon className="w-4 h-4 fill-current" />
-                <span>Connect Private Repositories</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-
-            {/* Card B: Public Repository Search */}
-            <div className="p-6 rounded-2xl border-2 border-white/15 bg-zinc-950/90 flex flex-col justify-between space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-                      <Globe className="w-5 h-5" />
-                    </div>
-                    <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-md border border-cyan-500/20">
-                      PUBLIC REPOSITORIES
-                    </span>
-                  </div>
-
-                  <span className="text-xs text-zinc-500 font-mono">Instant Search</span>
-                </div>
-
-                <div>
-                  <h3 className="text-xl font-black text-white uppercase tracking-tight">
-                    Add Any Public Repository
-                  </h3>
-                  <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                    Search and analyze any public repository on GitHub instantly without installing the GitHub App.
-                  </p>
-                </div>
-              </div>
-
-              {/* Public Search Component */}
-              <div className="w-full">
-                <AddPublicRepo />
-              </div>
-            </div>
+            {/* Manage Installations Link */}
+            <a 
+              href={installUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-bold uppercase tracking-wider rounded-xl flex items-center gap-2 transition-colors"
+              title="Manage GitHub App Installations"
+            >
+              <Settings className="w-4 h-4 text-[#ccff00]" />
+              <span className="hidden sm:inline">Manage App ({installationCount})</span>
+            </a>
           </div>
         </div>
 
-        {/* Tracked Repositories List */}
-        <div className="space-y-6 pt-4">
-          <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+        {/* Tracked Repositories Grid */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
             <h2 className="text-lg font-black uppercase tracking-tight text-white flex items-center gap-2">
               <GitBranch className="w-5 h-5 text-[#ccff00]" />
               Tracked Repositories ({repos.length})
             </h2>
             {repos.length > 0 && (
-              <span className="text-xs text-zinc-500 font-mono">
+              <span className="text-xs text-zinc-500 font-mono hidden sm:inline">
                 Click any repo card to view AI leaderboard & insights
               </span>
             )}
           </div>
 
           {repos.length === 0 ? (
-            <div className="sleek-panel p-12 text-center flex flex-col items-center max-w-xl mx-auto my-8 border-2 border-white/20">
+            <div className="sleek-panel p-12 text-center flex flex-col items-center max-w-xl mx-auto my-12 border-2 border-white/20">
               <div className="w-14 h-14 bg-white/5 flex items-center justify-center mb-4 border border-white/20">
                 <GitBranch className="w-7 h-7 text-[#ccff00]" />
               </div>
@@ -217,17 +122,9 @@ export default async function Dashboard() {
                 No Repositories Tracked Yet
               </h3>
               <p className="text-xs text-zinc-400 mb-6 leading-relaxed">
-                Connect your private repositories using the GitHub App above or search for a public repository to start tracking developer impact.
+                Connect your private repositories using the GitHub App or search for any public repository to start tracking developer impact.
               </p>
-              <a 
-                href={installUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-6 py-3 bg-[#ccff00] text-black font-black text-xs uppercase tracking-wider rounded-xl flex items-center gap-2"
-              >
-                <GithubIcon className="w-4 h-4 fill-current" />
-                <span>Connect Private Repositories</span>
-              </a>
+              <AddRepoModal installationCount={installationCount} installUrl={installUrl} />
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
