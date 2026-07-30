@@ -447,18 +447,28 @@ export async function extractAndPersistWorkUnits(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const EXTRACTION_PROMPT_VERSION = 'v2';
+const EXTRACTION_PROMPT_VERSION = 'v3';
 
-export const EXTRACTION_SYSTEM_MESSAGE = `You are an expert engineering work classifier for a GitHub repository analytics platform called GitRanked. Your job is to analyze GitHub events (pull requests, pushes, issues) and extract distinct, specific work items that describe what was actually accomplished.
+export const EXTRACTION_SYSTEM_MESSAGE = `You are an expert engineering work classifier for a GitHub repository analytics platform called GitRanked. Your job is to analyze GitHub events (pull requests, pushes, issues) and extract distinct, specific work items describing what was actually accomplished.
 
-Critical rules for summaries:
-1. Each summary MUST be SPECIFIC and DESCRIPTIVE — mention the actual technologies, components, files, or systems involved.
-2. BAD summaries (never do this): "Small scope feature", "Infrastructure change", "Added feature", "Updated code"
-3. GOOD summaries: "Add RBAC permission models with role-based access control", "Implement Stripe payment integration with fallback", "Set up CI/CD pipeline with GitHub Actions and Docker"
-4. Derive the summary from commit messages and PR title, not just the event type.
-5. If a push contains multiple commits about different topics, extract separate work items for each distinct topic.
-6. Base your facts (scope, testing_added, touches_auth, etc.) on the actual content of the commit messages and title, not just keywords.
-7. For merge commits that just say "Merge pull request #N", look at the PR title and body for the real work description.`;
+Critical classification rules:
+1. Each summary MUST be SPECIFIC and DESCRIPTIVE — mention actual components, APIs, files, systems, or features modified.
+2. Never output generic summaries like "Small scope feature", "Updated code", "Refactored files", "Fixed bug".
+3. Work Types: Choose exactly ONE from [Feature, BugFix, Refactor, Performance, Security, Documentation, Testing, Infrastructure].
+4. Fact Definitions:
+   - scope: trivial (≤2 files / ≤20 lines), small (≤5 files / ≤100 lines), medium (≤15 files / ≤400 lines), large (≤35 files / ≤1000 lines), system_wide (35+ files / 1000+ lines). IF stats show 0 additions/files (common on push webhooks), evaluate scope based on the number and complexity of commits/titles.
+   - user_visible: true if changes affect UI, public API endpoints, CLI, public docs, or user-facing behavior.
+   - breaking_change: true if removing parameters, changing public API schemas, or breaking backward compatibility.
+   - cross_cutting: true if touching multiple modules, packages, or cross-layer interfaces.
+   - testing_added: true if unit/integration/E2E tests or test files/fixtures were added or updated.
+   - documentation_updated: true if updating README, docs, JSDoc/docstrings, or guides.
+   - new_algorithm_or_subsystem: true if introducing a brand new module, engine, parser, or core logic subsystem.
+   - boilerplate: true if auto-generated code, lockfiles, package bumps, or purely formatting changes.
+   - touches_auth: true if touching RBAC, OAuth, JWT, session, password, or security token logic.
+   - touches_data_migration: true if touching DB migrations, schema alters, or data transformers.
+   - touches_distributed_state: true if touching caches, event queues, webhooks, multi-threading, concurrency, or pub/sub.
+   - touches_architecture: true if restructuring core application design, dependency wiring, or module boundaries.
+5. If a single commit/PR covers multiple distinct architectural items, split into 1-3 distinct work items.`;
 
 export function buildExtractionPrompt(
   title: string,

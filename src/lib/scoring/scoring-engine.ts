@@ -9,9 +9,9 @@ import { clamp } from './derivation';
 import { decayWeight } from './decay';
 import { reviewValue } from './review';
 
-export function softCap(value: number, cap: number): number {
+export function softCap(value: number, cap: number, scaleFactor: number = cap): number {
   if (cap <= 0 || value <= 0) return 0;
-  return Math.min(cap, cap * (1 - Math.exp(-value / cap)));
+  return Math.min(cap, cap * (1 - Math.exp(-value / scaleFactor)));
 }
 
 export function computeConsistency(rawEvents: RawEvent[]): number {
@@ -43,7 +43,9 @@ export function computeConsistency(rawEvents: RawEvent[]): number {
   const breadth = Math.min(activeDays.size, 20);
   const regularity = activeDays.size >= 3 ? activeRatio * 30 : activeRatio * 10;
 
-  return Math.min(50, Math.round((breadth + regularity) * 10) / 10);
+  const rawScore = breadth + regularity; // max 50
+  // Scale to 0-100
+  return Math.min(100, Math.round(rawScore * 2 * 10) / 10);
 }
 
 export function scoreContributor(
@@ -113,22 +115,36 @@ export function scoreContributor(
     }
   }
 
-  // Soft-cap scaling
+  // Soft-cap scaling:
+  // Use non-saturating scale factors (250 for impact, 200 for quality/collab)
   const caps = config.caps;
-  const impact = Math.round(softCap(rawImpactSum, caps.impact) * 10) / 10;
-  const quality = Math.round(softCap(rawQualitySum, caps.quality) * 10) / 10;
-  const collaboration = Math.round(softCap(rawCollabSum, caps.collaboration) * 10) / 10;
+  const impact = Math.round(softCap(rawImpactSum, caps.impact, 250) * 10) / 10;
+  const quality = Math.round(softCap(rawQualitySum, caps.quality, 200) * 10) / 10;
+  const collaboration = Math.round(softCap(rawCollabSum, caps.collaboration, 100) * 10) / 10;
 
-  // Consistency (pure timestamp math, no decay)
+  // Consistency (pure timestamp math, 0-100 scale)
   const consistency = computeConsistency(rawEvents);
 
-  // Composite calculation
+  // Composite calculation with dynamic weight rebalancing when collaboration is 0
   const cw = caps.compositeWeights;
+  let impactWeight = cw.impact;
+  let qualityWeight = cw.quality;
+  let collabWeight = cw.collaboration;
+  let consistencyWeight = cw.consistency;
+
+  if (collaboration === 0) {
+    // Rebalance collaboration weight (0.20) across impact (0.50), quality (0.35), consistency (0.15)
+    impactWeight = 0.50;
+    qualityWeight = 0.35;
+    collabWeight = 0.0;
+    consistencyWeight = 0.15;
+  }
+
   const compositeRaw =
-    impact * cw.impact +
-    quality * cw.quality +
-    collaboration * cw.collaboration +
-    consistency * cw.consistency;
+    impact * impactWeight +
+    quality * qualityWeight +
+    collaboration * collabWeight +
+    consistency * consistencyWeight;
 
   const composite = Math.min(100, Math.round(compositeRaw * 10) / 10);
 
@@ -137,7 +153,6 @@ export function scoreContributor(
 
   const contributor_id = 0; // overwritten by caller in scoring/index.ts
   const repo_id = workUnits[0]?.repo_id ?? rawEvents[0]?.id ?? 0;
-
 
   return {
     contributor_id,
