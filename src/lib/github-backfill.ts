@@ -92,6 +92,8 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
   const since = backfillSince();
   console.log(`Backfill ${repo.owner}/${repo.name} (window: since ${since}, ${historyDays()}d)`);
 
+  let fetchedCommitsInWindow = 0;
+
   // --- Commits: server-side filtered by `since`; stop at end of history ---
   for (let page = 1; page <= MAX_PAGES; page++) {
     let commits: GitHubCommit[];
@@ -105,6 +107,7 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
       break;
     }
     if (commits.length === 0) break;
+    fetchedCommitsInWindow += commits.length;
 
     for (const commit of commits) {
       const contributorId = await upsertContributor(commit.author);
@@ -129,6 +132,40 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
     if (commits.length < PER_PAGE) break;
   }
 
+  // Fallback: If 0 commits were found within the recent window (e.g. repository activity occurred >90 days ago),
+  // fetch the most recent commits page without the `since` filter so older repos populate history!
+  let isFallback = false;
+  if (fetchedCommitsInWindow === 0) {
+    try {
+      const fallbackCommits = await githubInstallationApi<GitHubCommit[]>(
+        `/repos/${owner}/${repoName}/commits?per_page=${PER_PAGE}&page=1`,
+        tokenToUse
+      );
+      if (fallbackCommits.length > 0) {
+        console.log(`Backfill fallback: fetched ${fallbackCommits.length} recent commits for ${repo.owner}/${repo.name}`);
+        isFallback = true;
+        for (const commit of fallbackCommits) {
+          const contributorId = await upsertContributor(commit.author);
+          const commitDate = commit.commit.committer?.date ?? commit.commit.author?.date ?? null;
+          await insertBackfilledEvent({
+            repoId: repo.id,
+            contributorId,
+            eventType: 'push',
+            githubEventId: `backfill:commit:${commit.sha}`,
+            createdAt: commitDate,
+            payload: {
+              commits: [{ sha: commit.sha, message: commit.commit.message, url: commit.html_url }],
+              commit_count: 1,
+            },
+          });
+          if (contributorId) inserted += 1;
+        }
+      }
+    } catch (err) {
+      console.warn(`Backfill fallback commits failed:`, err instanceof Error ? err.message : err);
+    }
+  }
+
   // --- Pull requests: sorted by created desc; stop when older than the window ---
   const pulls: GitHubPullRequest[] = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
@@ -148,13 +185,13 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
     // window we can stop paginating entirely.
     let reachedCutoff = false;
     for (const pr of pagePulls) {
-      if (!isAtOrAfter(pr.created_at, since)) {
+      if (!isFallback && !isAtOrAfter(pr.created_at, since)) {
         reachedCutoff = true;
         break;
       }
       pulls.push(pr);
     }
-    if (reachedCutoff || pagePulls.length < PER_PAGE) break;
+    if (reachedCutoff || pagePulls.length < PER_PAGE || isFallback) break;
   }
 
   // pulls are most-recent-first; only the first DETAIL_REVIEW_PR_LIMIT get the
