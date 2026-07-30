@@ -2,9 +2,9 @@ import type { DerivationWeights, ProfileName, ScoringConfig, Caps } from './type
 
 export const DEFAULT_CAPS: Caps = {
   impact: 100,
-  quality: 80,
-  collaboration: 60,
-  consistency: 50,
+  quality: 100,
+  collaboration: 100,
+  consistency: 100,
   compositeWeights: {
     impact: 0.4,
     quality: 0.3,
@@ -61,7 +61,7 @@ export const BALANCED_DERIVATION_WEIGHTS: DerivationWeights = {
 
 export const PROFILE_PRESETS: Record<ProfileName, Omit<ScoringConfig, 'id'>> = {
   balanced: {
-    version: 'v3.0',
+    version: 'v3.1',
     profile: 'balanced',
     repo_id: null,
     derivation_weights: BALANCED_DERIVATION_WEIGHTS,
@@ -70,7 +70,7 @@ export const PROFILE_PRESETS: Record<ProfileName, Omit<ScoringConfig, 'id'>> = {
     decay_half_life_days: 60,
   },
   product: {
-    version: 'v3.0',
+    version: 'v3.1',
     profile: 'product',
     repo_id: null,
     derivation_weights: {
@@ -89,7 +89,7 @@ export const PROFILE_PRESETS: Record<ProfileName, Omit<ScoringConfig, 'id'>> = {
     decay_half_life_days: 60,
   },
   infrastructure: {
-    version: 'v3.0',
+    version: 'v3.1',
     profile: 'infrastructure',
     repo_id: null,
     derivation_weights: {
@@ -112,7 +112,7 @@ export const PROFILE_PRESETS: Record<ProfileName, Omit<ScoringConfig, 'id'>> = {
     decay_half_life_days: 60,
   },
   open_source: {
-    version: 'v3.0',
+    version: 'v3.1',
     profile: 'open_source',
     repo_id: null,
     derivation_weights: {
@@ -131,7 +131,7 @@ export const PROFILE_PRESETS: Record<ProfileName, Omit<ScoringConfig, 'id'>> = {
     decay_half_life_days: 60,
   },
   research: {
-    version: 'v3.0',
+    version: 'v3.1',
     profile: 'research',
     repo_id: null,
     derivation_weights: {
