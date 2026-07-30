@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ContributionGrid } from '@/components/ContributionGrid';
 import { AppSnapshots } from '@/components/AppSnapshots';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { GithubIcon } from '@/components/icons/GithubIcon';
 
 export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
@@ -15,22 +15,10 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
       <div className="flex flex-col lg:flex-row items-center justify-between gap-12 w-full px-6 md:px-12 lg:px-16 pt-12 pb-20 relative z-10 min-h-[75vh]">
         {/* Left Column: Hero Headline & CTAs */}
         <div className="flex-1 text-left w-full">
-          <motion.div
-            initial={{ y: 16, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.45, ease: 'easeOut' }}
-            className="relative z-10 mb-6"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 border border-[#ccff00] text-[#ccff00] bg-[#ccff00]/10 text-xs font-black uppercase tracking-widest">
-              <Sparkles className="w-4 h-4 text-[#ccff00]" />
-              GITRANKED ENGINE ACTIVE
-            </div>
-          </motion.div>
-
           <motion.h1 
             initial={{ y: 16, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.45, ease: 'easeOut', delay: 0.08 }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
             className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter uppercase leading-[0.95] mb-6 relative z-10"
           >
             RANK YOUR <br />
@@ -40,7 +28,7 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
           <motion.p 
             initial={{ y: 16, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.45, ease: 'easeOut', delay: 0.16 }}
+            transition={{ duration: 0.45, ease: 'easeOut', delay: 0.12 }}
             className="text-base sm:text-lg lg:text-xl text-zinc-400 max-w-2xl mb-8 font-medium relative z-10 leading-relaxed"
           >
             Evaluating true developer impact through AI fact extraction, multi-dimension scoring (Impact, Quality, Collaboration, Consistency), and team health metrics.
@@ -49,7 +37,7 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
           <motion.div 
             initial={{ y: 16, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.45, ease: 'easeOut', delay: 0.24 }}
+            transition={{ duration: 0.45, ease: 'easeOut', delay: 0.2 }}
             className="flex flex-col sm:flex-row gap-4 relative z-10 pointer-events-auto"
           >
             {isSignedIn ? (

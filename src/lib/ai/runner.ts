@@ -15,7 +15,7 @@ export async function getCachedResult<T>(
   contributorId?: number
 ): Promise<AiResult<T> | null> {
   if (task.storage === 'ai_summaries') {
-    const rows = contributorId
+    let rows = contributorId
       ? await sql`
           SELECT payload, confidence, source, model_used, generated_at
           FROM ai_summaries
@@ -27,7 +27,6 @@ export async function getCachedResult<T>(
             AND schema_version = ${task.schemaVersion}
             AND prompt_version = ${task.promptVersion}
             AND payload IS NOT NULL
-            AND generated_at > NOW() - INTERVAL '${sql.unsafe(`${task.cacheTtlHours} hours`)}'
           ORDER BY generated_at DESC LIMIT 1
         `
       : await sql`
@@ -41,9 +40,35 @@ export async function getCachedResult<T>(
             AND schema_version = ${task.schemaVersion}
             AND prompt_version = ${task.promptVersion}
             AND payload IS NOT NULL
-            AND generated_at > NOW() - INTERVAL '${sql.unsafe(`${task.cacheTtlHours} hours`)}'
           ORDER BY generated_at DESC LIMIT 1
         `;
+
+    // Fall back to most recent summary for this repository if exact date_from/date_to window missed
+    if (rows.length === 0) {
+      rows = contributorId
+        ? await sql`
+            SELECT payload, confidence, source, model_used, generated_at
+            FROM ai_summaries
+            WHERE repo_id = ${repoId}
+              AND contributor_id = ${contributorId}
+              AND summary_type = ${task.id}
+              AND schema_version = ${task.schemaVersion}
+              AND prompt_version = ${task.promptVersion}
+              AND payload IS NOT NULL
+            ORDER BY generated_at DESC LIMIT 1
+          `
+        : await sql`
+            SELECT payload, confidence, source, model_used, generated_at
+            FROM ai_summaries
+            WHERE repo_id = ${repoId}
+              AND contributor_id IS NULL
+              AND summary_type = ${task.id}
+              AND schema_version = ${task.schemaVersion}
+              AND prompt_version = ${task.promptVersion}
+              AND payload IS NOT NULL
+            ORDER BY generated_at DESC LIMIT 1
+          `;
+    }
 
     if (rows.length === 0) return null;
     return await rowToResult<T>(rows[0]);
@@ -59,7 +84,6 @@ export async function getCachedResult<T>(
           AND schema_version = ${task.schemaVersion}
           AND prompt_version = ${task.promptVersion}
           AND payload IS NOT NULL
-          AND generated_at > NOW() - INTERVAL '${sql.unsafe(`${task.cacheTtlHours} hours`)}'
         ORDER BY generated_at DESC LIMIT 1
       `
     : await sql`
@@ -71,7 +95,6 @@ export async function getCachedResult<T>(
           AND schema_version = ${task.schemaVersion}
           AND prompt_version = ${task.promptVersion}
           AND payload IS NOT NULL
-          AND generated_at > NOW() - INTERVAL '${sql.unsafe(`${task.cacheTtlHours} hours`)}'
         ORDER BY generated_at DESC LIMIT 1
       `;
 
