@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
-import { githubInstallationApi } from '@/lib/github-api';
+import { getPublicRepository } from '@/lib/github-api';
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Owner and name are required' }, { status: 400 });
     }
 
-    // Check if the repo already exists
+    // Check if the repo already exists in DB
     const existingRepo = await sql`
       SELECT id, owner, name, is_active FROM repositories 
       WHERE owner ILIKE ${owner} AND name ILIKE ${name}
@@ -36,28 +36,22 @@ export async function POST(req: Request) {
       });
     }
 
-    // If not, fetch repo details from GitHub
-    // We pass the user's access token if available to prevent rate limits
-    const tokenToUse = (session as any).accessToken || null;
-    let githubRepoData;
-    try {
-      githubRepoData = await githubInstallationApi<any>(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`,
-        tokenToUse
-      );
-    } catch (err: any) {
-      if (err.message?.includes('404')) {
-        return NextResponse.json({ error: 'Repository not found on GitHub' }, { status: 404 });
-      }
-      throw err;
+    // Use getPublicRepository which properly falls back to unauthenticated or GITHUB_TOKEN header
+    // to fetch public repository data without triggering 403 Forbidden errors
+    const githubRepoData = await getPublicRepository(owner, name);
+    if (!githubRepoData) {
+      return NextResponse.json({ error: 'Public repository not found on GitHub or is private' }, { status: 404 });
     }
 
-    const { id: github_repo_id, default_branch, owner: { login: fetchedOwner }, name: fetchedName } = githubRepoData;
+    const { id: github_repo_id, owner: { login: fetchedOwner }, name: fetchedName } = githubRepoData;
+
+    // Default branch fallback if not provided
+    const defaultBranch = (githubRepoData as any).default_branch || 'main';
 
     // Insert into repositories with installation_id = NULL
     const newRepo = await sql`
       INSERT INTO repositories (github_repo_id, owner, name, default_branch, is_active)
-      VALUES (${github_repo_id}, ${fetchedOwner}, ${fetchedName}, ${default_branch}, true)
+      VALUES (${github_repo_id}, ${fetchedOwner}, ${fetchedName}, ${defaultBranch}, true)
       RETURNING id, owner, name
     `;
 
@@ -68,8 +62,8 @@ export async function POST(req: Request) {
       alreadyExists: false,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to add public repo:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Internal Server Error' }, { status: 500 });
   }
 }
