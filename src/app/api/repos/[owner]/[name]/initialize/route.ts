@@ -109,8 +109,8 @@ export async function POST(
             controller.enqueue(
               encodeEvent({
                 step: 'init',
-                status: 'complete',
-                message: 'No recent activity found on this repository.',
+                status: 'error',
+                message: 'No commits or activity were found for this repository on GitHub.',
               })
             );
           } else {
