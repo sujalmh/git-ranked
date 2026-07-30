@@ -7,29 +7,38 @@ export const revalidate = 3600; // Revalidate every hour
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://gitranked.dev';
 
-  // 1. Core pages & SEO landing pages
+  // 1. Core pages, legal compliance pages, and public showcase
+  const staticRoutes = [
+    '',
+    'showcase',
+    'about',
+    'privacy',
+    'terms',
+    'contact',
+  ];
+
   const staticPages: MetadataRoute.Sitemap = [
-    {
-      url: baseUrl,
+    ...staticRoutes.map((route) => ({
+      url: route ? `${baseUrl}/${route}` : baseUrl,
       lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 1.0,
-    },
+      changeFrequency: (route === '' || route === 'showcase' ? 'daily' : 'monthly') as 'daily' | 'monthly',
+      priority: route === '' ? 1.0 : route === 'showcase' ? 0.9 : 0.7,
+    })),
     ...Object.keys(seoPages).map((slug) => ({
       url: `${baseUrl}/${slug}`,
       lastModified: new Date(),
       changeFrequency: 'weekly' as const,
-      priority: 0.9,
+      priority: 0.8,
     })),
   ];
 
-  // 2. Dynamic public repository pages
+  // 2. Dynamic public repository pages only (exclude private organization repos)
   let repoPages: MetadataRoute.Sitemap = [];
   try {
     const repos = await sql`
       SELECT owner, name, added_at
       FROM repositories
-      WHERE is_active = true
+      WHERE is_active = true AND (installation_id IS NULL OR share_enabled = true)
       ORDER BY added_at DESC
       LIMIT 1000
     `;

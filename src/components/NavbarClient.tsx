@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import { GithubIcon } from '@/components/icons/GithubIcon';
 
@@ -18,15 +19,33 @@ type NavbarClientProps = {
 
 export function NavbarClient({ user, githubAppSlug, signOutAction, signInAction }: NavbarClientProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
   const isSignedIn = !!user;
+  const isShowcaseActive = pathname === '/showcase';
 
   return (
     <header className="sticky top-0 z-50 bg-black border-b-2 border-white/10 w-full">
       <div className="flex items-center justify-between px-6 md:px-12 py-4 w-full">
-        <Link href="/" className="flex items-center gap-3 shrink-0" onClick={() => setMobileMenuOpen(false)}>
-          <Image src="/logo.png" alt="GitRanked Logo" width={32} height={32} className="rounded-none" />
-          <span className="text-xl sm:text-2xl font-black tracking-tighter uppercase text-white">GitRanked</span>
-        </Link>
+        <div className="flex items-center gap-8">
+          <Link href="/" className="flex items-center gap-3 shrink-0" onClick={() => setMobileMenuOpen(false)}>
+            <Image src="/logo.png" alt="GitRanked Logo" width={32} height={32} className="rounded-none" />
+            <span className="text-xl sm:text-2xl font-black tracking-tighter uppercase text-white">GitRanked</span>
+          </Link>
+
+          {/* Desktop Left Links */}
+          <nav className="hidden md:flex items-center gap-6 text-sm font-bold tracking-wider uppercase">
+            <Link
+              href="/showcase"
+              className={`transition-colors ${
+                isShowcaseActive
+                  ? 'text-[#ccff00] font-black'
+                  : 'text-zinc-300 hover:text-[#ccff00]'
+              }`}
+            >
+              SHOWCASE
+            </Link>
+          </nav>
+        </div>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-4">
@@ -97,6 +116,18 @@ export function NavbarClient({ user, githubAppSlug, signOutAction, signInAction 
       {/* Mobile Drawer Navigation */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-white/10 bg-black/95 backdrop-blur-md px-4 py-6 space-y-4">
+          <Link
+            href="/showcase"
+            onClick={() => setMobileMenuOpen(false)}
+            className={`block w-full py-3 border text-center text-sm font-bold tracking-wider uppercase transition-colors ${
+              isShowcaseActive
+                ? 'bg-[#ccff00]/10 border-[#ccff00]/50 text-[#ccff00]'
+                : 'bg-zinc-900 border-zinc-700 text-zinc-200 hover:text-[#ccff00]'
+            }`}
+          >
+            SHOWCASE
+          </Link>
+
           {isSignedIn ? (
             <div className="flex flex-col space-y-4">
               <div className="flex items-center gap-3 pb-3 border-b border-white/10">
