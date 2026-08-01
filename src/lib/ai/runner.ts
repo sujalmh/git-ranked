@@ -200,13 +200,21 @@ function parseJsonContent(content: string): unknown {
 export async function runTask<T>(
   task: AiTask<T>,
   ctx: TaskContext,
-  options: { generateIfMissing?: boolean; forceRegenerate?: boolean; aiOptions?: AiCallOptions } = {}
+  options: { generateIfMissing?: boolean; aiOptions?: AiCallOptions } = {}
 ): Promise<AiResult<T> | null> {
-  const { generateIfMissing = false, forceRegenerate = false, aiOptions } = options;
+  const { generateIfMissing = false, aiOptions } = options;
 
-  if (!forceRegenerate) {
-    const cached = await getCachedResult(task, ctx.repoId, ctx.dateFrom, ctx.dateTo, ctx.contributorId);
-    if (cached) return cached;
+  const cached = await getCachedResult(task, ctx.repoId, ctx.dateFrom, ctx.dateTo, ctx.contributorId);
+  if (cached) {
+    if (!generateIfMissing) return cached;
+    const hasUpdates = await hasNewRepoActivitySince(
+      ctx.repoId,
+      ctx.dateFrom,
+      ctx.dateTo,
+      ctx.contributorId,
+      cached.generatedAt
+    );
+    if (!hasUpdates) return cached;
   }
 
   if (!generateIfMissing) return null;
@@ -250,6 +258,35 @@ export async function runTask<T>(
   await persistResult(task, ctx.repoId, ctx.dateFrom, ctx.dateTo, ctx.contributorId, result);
 
   return result;
+}
+
+async function hasNewRepoActivitySince(
+  repoId: number,
+  dateFrom: string,
+  dateTo: string,
+  contributorId: number | undefined,
+  generatedAt: Date
+): Promise<boolean> {
+  const rows = contributorId
+    ? await sql<{ latest_event_at: string | Date | null }>`
+        SELECT MAX(e.created_at) AS latest_event_at
+        FROM github_events e
+        WHERE e.repo_id = ${repoId}
+          AND e.contributor_id = ${contributorId}
+          AND e.created_at >= ${dateFrom}::date
+          AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
+      `
+    : await sql<{ latest_event_at: string | Date | null }>`
+        SELECT MAX(e.created_at) AS latest_event_at
+        FROM github_events e
+        WHERE e.repo_id = ${repoId}
+          AND e.created_at >= ${dateFrom}::date
+          AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
+      `;
+
+  if (rows.length === 0 || !rows[0].latest_event_at) return false;
+  const latestEventAt = new Date(rows[0].latest_event_at);
+  return latestEventAt.getTime() > generatedAt.getTime();
 }
 
 async function attemptStructuredCall<T>(
