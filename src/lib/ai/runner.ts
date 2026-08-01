@@ -200,12 +200,14 @@ function parseJsonContent(content: string): unknown {
 export async function runTask<T>(
   task: AiTask<T>,
   ctx: TaskContext,
-  options: { generateIfMissing?: boolean; aiOptions?: AiCallOptions } = {}
+  options: { generateIfMissing?: boolean; forceRegenerate?: boolean; aiOptions?: AiCallOptions } = {}
 ): Promise<AiResult<T> | null> {
-  const { generateIfMissing = false, aiOptions } = options;
+  const { generateIfMissing = false, forceRegenerate = false, aiOptions } = options;
 
-  const cached = await getCachedResult(task, ctx.repoId, ctx.dateFrom, ctx.dateTo, ctx.contributorId);
-  if (cached) return cached;
+  if (!forceRegenerate) {
+    const cached = await getCachedResult(task, ctx.repoId, ctx.dateFrom, ctx.dateTo, ctx.contributorId);
+    if (cached) return cached;
+  }
 
   if (!generateIfMissing) return null;
 
