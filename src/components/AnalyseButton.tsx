@@ -125,6 +125,7 @@ export function AnalyseButton({
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let encounteredError = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -146,16 +147,21 @@ export function AnalyseButton({
             };
 
             if (event.step === 'analysis' && event.status === 'complete') {
-              setIsComplete(true);
-              addLog('system', 'complete', `[SUCCESS] Pipeline execution finished successfully. All tasks complete.`);
-              setSteps((prev) =>
-                prev.map((s) =>
-                  s.status === 'pending' || s.status === 'running'
-                    ? { ...s, status: 'done' as StepStatus }
-                    : s
-                )
-              );
-              router.refresh();
+              if (encounteredError) {
+                setHasError(true);
+                addLog('system', 'error', '[FAIL] Pipeline reported completion but earlier step errors were detected.');
+              } else {
+                setIsComplete(true);
+                addLog('system', 'complete', `[SUCCESS] Pipeline execution finished successfully. All tasks complete.`);
+                setSteps((prev) =>
+                  prev.map((s) =>
+                    s.status === 'pending' || s.status === 'running'
+                      ? { ...s, status: 'done' as StepStatus }
+                      : s
+                  )
+                );
+                router.refresh();
+              }
               continue;
             }
 
@@ -181,6 +187,7 @@ export function AnalyseButton({
             addLog(event.step, event.status, `${event.message}${detailStr}`);
 
             if (event.status === 'error') {
+              encounteredError = true;
               setHasError(true);
             }
           } catch {

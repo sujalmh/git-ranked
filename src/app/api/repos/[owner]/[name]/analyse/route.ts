@@ -256,6 +256,7 @@ export async function POST(
           },
         ];
 
+        let hadStepErrors = false;
         for (const { step, message, fn } of steps) {
           controller.enqueue(encodeEvent({ step, status: 'running', message }));
           try {
@@ -263,11 +264,16 @@ export async function POST(
             controller.enqueue(encodeEvent({ step, status: 'done', message: `${message} — complete`, detail }));
           } catch (err) {
             const errMsg = err instanceof Error ? err.message : String(err);
+            hadStepErrors = true;
             controller.enqueue(encodeEvent({ step, status: 'error', message: `${message} — failed: ${errMsg}` }));
           }
         }
 
-        controller.enqueue(encodeEvent({ step: 'analysis', status: 'complete', message: 'Analysis complete' }));
+        if (hadStepErrors) {
+          controller.enqueue(encodeEvent({ step: 'analysis', status: 'error', message: 'Analysis finished with errors' }));
+        } else {
+          controller.enqueue(encodeEvent({ step: 'analysis', status: 'complete', message: 'Analysis complete' }));
+        }
         controller.close();
       } finally {
         setTelemetryListener(null);
