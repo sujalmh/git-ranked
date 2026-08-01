@@ -181,7 +181,7 @@ export async function POST(
             message: 'Generating AI repository summary',
             fn: async () => {
               const ctx = await buildTaskContext(repoId, repoInfo.owner, repoInfo.name, dateFrom, dateTo);
-              return getOrGenerateTask(tasks.repositorySummary, ctx, true, userAiConfig, true);
+              return getOrGenerateTask(tasks.repositorySummary, ctx, true, userAiConfig);
             },
           },
           {
@@ -189,7 +189,7 @@ export async function POST(
             message: 'Generating AI team insights',
             fn: async () => {
               const ctx = await buildTaskContext(repoId, repoInfo.owner, repoInfo.name, dateFrom, dateTo);
-              return getOrGenerateTask(tasks.teamInsights, ctx, true, userAiConfig, true);
+              return getOrGenerateTask(tasks.teamInsights, ctx, true, userAiConfig);
             },
           },
           {
@@ -218,7 +218,7 @@ export async function POST(
                   contributor.id,
                   contributor.username
                 );
-                await getOrGenerateTask(tasks.contributorProfile, ctx, true, userAiConfig, true);
+                await getOrGenerateTask(tasks.contributorProfile, ctx, true, userAiConfig);
               }
               return { count: topContributors.length };
             },
@@ -249,7 +249,7 @@ export async function POST(
                   contributor.id,
                   contributor.username
                 );
-                await getOrGenerateTask(tasks.impactAnalysis, ctx, true, userAiConfig, true);
+                await getOrGenerateTask(tasks.impactAnalysis, ctx, true, userAiConfig);
               }
               return { count: topContributors.length };
             },
