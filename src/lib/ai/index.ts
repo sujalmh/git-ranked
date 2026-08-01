@@ -110,9 +110,10 @@ export async function getOrGenerateTask<T>(
   task: AiTask<T>,
   ctx: TaskContext,
   generateIfMissing: boolean,
-  aiOptions?: AiCallOptions
+  aiOptions?: AiCallOptions,
+  forceRegenerate = false,
 ): Promise<AiResult<T> | null> {
-  return runTask(task, ctx, { generateIfMissing, aiOptions });
+  return runTask(task, ctx, { generateIfMissing, forceRegenerate, aiOptions });
 }
 
 async function getCachedResultPublic(
