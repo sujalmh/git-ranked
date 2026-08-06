@@ -3,21 +3,15 @@
 **AI-powered engineering analytics for GitHub repositories.** Go beyond basic commit counts — GitRanked classifies every piece of work using AI, scores contributors across four dimensions, and surfaces actionable insights about your engineering team.
 
 <p align="center">
-  <a href="https://gitranked.dev">
-    <img src="docs/leaderboard-preview.png" alt="GitRanked leaderboard preview — facebook/react contributor impact scores" />
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://gitranked.dev">
-    <img src="docs/work-areas-preview.png" alt="GitRanked work areas & AI risk insights preview — facebook/react" />
+  <a href="https://gitranked.dev/github/facebook/react">
+    <img src="docs/repo-preview.png" alt="GitRanked repo analysis overview — facebook/react leaderboard, team health, contributor profiles, and work areas" />
   </a>
 </p>
 
 <p align="center">
   <a href="https://gitranked.dev"><strong>Live demo →</strong></a>
   &nbsp;·&nbsp;
-  <a href="https://gitranked.dev/repos/facebook/react"><strong>Ranked real repo (facebook/react)</strong></a>
+  <a href="https://gitranked.dev/github/facebook/react"><strong>Ranked real repo (facebook/react)</strong></a>
 </p>
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
