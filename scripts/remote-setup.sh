@@ -19,13 +19,18 @@ echo "=== 4. Installing dependencies ==="
 npm install
 
 echo "=== 5. Writing environment configuration ==="
-cat << 'EOF' > .env
-DATABASE_URL="postgresql://neondb_owner:***REDACTED***@ep-square-hat-aubbiotz-pooler.c-10.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-OPENROUTER_API_KEY="***REDACTED***"
-OPENROUTER_MODEL="tencent/hy3:free"
-RATE_LIMIT_RPM="120"
-CLASSIFY_TEAM_CONCURRENCY="2"
-CLASSIFY_CANDIDATE_CONCURRENCY="6"
+if [ -z "$DATABASE_URL" ] || [ -z "$OPENROUTER_API_KEY" ]; then
+  echo "ERROR: DATABASE_URL and OPENROUTER_API_KEY must be set in the environment."
+  exit 1
+fi
+
+cat << EOF > .env
+DATABASE_URL="${DATABASE_URL}"
+OPENROUTER_API_KEY="${OPENROUTER_API_KEY}"
+OPENROUTER_MODEL="${OPENROUTER_MODEL:-tencent/hy3:free}"
+RATE_LIMIT_RPM="${RATE_LIMIT_RPM:-120}"
+CLASSIFY_TEAM_CONCURRENCY="${CLASSIFY_TEAM_CONCURRENCY:-2}"
+CLASSIFY_CANDIDATE_CONCURRENCY="${CLASSIFY_CANDIDATE_CONCURRENCY:-6}"
 EOF
 
 echo "=== 6. Installing systemd unit ==="
