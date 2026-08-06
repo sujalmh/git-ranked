@@ -94,7 +94,7 @@ function StreakBadge({ days }: { days: number }) {
 
 function BreakdownLegend() {
   const segments = [
-    { key: 'featureDelivery', label: 'Shipping', className: 'bg-[#ccff00]' },
+    { key: 'featureDelivery', label: 'Shipping', className: 'bg-accent' },
     { key: 'codeQuality', label: 'Quality', className: 'bg-[#00ffff]' },
     { key: 'reviews', label: 'Reviews', className: 'bg-[#ff00ff]' },
     { key: 'collaboration', label: 'Collab', className: 'bg-[#ff5500]' },
@@ -172,7 +172,7 @@ function SmallTeamRow({
         '--tw-shadow-color': glowHex,
         '--tw-shadow-base': `${glowHex}0D`,
         '--tw-shadow-hover': `${glowHex}20`,
-      } as any}
+      } as React.CSSProperties}
     >
       
       <div className="flex items-center gap-4 relative z-10">
@@ -206,13 +206,11 @@ function PodiumCard({
   rank,
   repoOwner,
   repoName,
-  assignment,
 }: {
   contributor: ContributorInsight;
   rank: number;
   repoOwner: string;
   repoName: string;
-  assignment: IdentityAssignment;
 }) {
   const style = podiumStyleForRank(rank);
   const area = primaryWorkArea(contributor);
@@ -229,7 +227,7 @@ function PodiumCard({
         '--tw-shadow-color': medalHex,
         '--tw-shadow-base': `${medalHex}66`,
         '--tw-shadow-hover': `${medalHex}99`
-      } as any}
+      } as React.CSSProperties}
     >
       <div className="relative flex flex-col items-center gap-3">
         <div className="flex items-center gap-1">
@@ -284,7 +282,7 @@ function CompactRow({
         '--tw-shadow-color': glowHex,
         '--tw-shadow-base': `${glowHex}40`,
         '--tw-shadow-hover': `${glowHex}80`
-      } as any}
+      } as React.CSSProperties}
     >
       <span className="w-8 text-center text-xl font-black text-zinc-500 shrink-0 relative z-10">{rank}</span>
       <Avatar src={contributor.avatarUrl} name={contributor.username} size={28} />
@@ -376,6 +374,11 @@ export function Leaderboard({
   const podium = ranked.slice(0, 3);
   const rest = ranked.slice(3);
 
+  // True rank by id from the impact-sorted list, so search/sort of the "rest"
+  // list below does not distort the displayed rank (previously rank was the
+  // index into the filtered list).
+  const rankById = new Map(ranked.map((c, i) => [c.id, i + 1]));
+
   const q = query.trim().toLowerCase();
   const filtered = q ? rest.filter((c) => c.username.toLowerCase().includes(q)) : rest;
   const filteredSorted = [...filtered].sort((a, b) => {
@@ -404,7 +407,6 @@ export function Leaderboard({
             rank={i + 1}
             repoOwner={repoOwner}
             repoName={repoName}
-            assignment={assignment}
           />
         ))}
       </div>
@@ -420,13 +422,13 @@ export function Leaderboard({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search contributors…"
-                className="w-full rounded-lg bg-white/5 border border-white/10 pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500/50"
+                className="w-full rounded-none bg-white/5 border border-white/10 pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-accent/50"
               />
             </div>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
-              className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-indigo-500/50"
+              className="rounded-none bg-white/5 border border-white/10 px-2 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-accent/50"
             >
               {SORT_OPTIONS.map((o) => (
                 <option key={o.key} value={o.key} className="bg-zinc-900">
@@ -437,11 +439,11 @@ export function Leaderboard({
           </div>
 
           <div className="space-y-1.5">
-            {visibleRest.map((c, i) => (
+            {visibleRest.map((c) => (
               <CompactRow
                 key={c.id}
                 contributor={c}
-                rank={i + 4}
+                rank={rankById.get(c.id) ?? 0}
                 rankDeltas={rankDeltas}
                 repoOwner={repoOwner}
                 repoName={repoName}
@@ -459,7 +461,7 @@ export function Leaderboard({
             <button
               type="button"
               onClick={() => setExpanded(true)}
-              className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white border border-white/5 rounded-lg py-2 hover:bg-white/5 transition-colors"
+              className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white border border-white/5 rounded-none py-2 hover:bg-white/5 transition-colors"
             >
               <ChevronDown className="w-3.5 h-3.5" />
               Show {hiddenCount} more

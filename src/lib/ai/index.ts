@@ -26,16 +26,6 @@ export const tasks = {
 
 export type TaskId = keyof typeof tasks;
 
-function safeParse(payload: unknown): Record<string, unknown> {
-  if (typeof payload !== 'string') return {};
-  try {
-    const parsed = JSON.parse(payload);
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-}
-
 const TASK_BY_ID: Record<string, AiTask<unknown>> = {
   contributor_profile: contributorProfileTask as AiTask<unknown>,
   repository_summary: repositorySummaryTask as AiTask<unknown>,
@@ -68,26 +58,33 @@ export async function buildTaskContext(
 
   let scoreBreakdown: TaskContext['scoreBreakdown'] | undefined;
   if (contributorId) {
-    // Score the contributor from ALL of their stored events — not just the
-    // dateFrom/dateTo window — so the breakdown we hand to the AI matches the
-    // Impact Score displayed on the contributor's card (which is computed from
-    // the same full event set in buildContributorInsights). Otherwise the AI
-    // explained one total while the page showed a different one.
-    const allContributorRows = await sql`
-      SELECT event_type, payload, created_at
-      FROM github_events
+    // Score the contributor from the stored v3 dimension scores so the
+    // breakdown handed to the AI matches the Impact Score displayed on the
+    // contributor's card (getRepoAnalysisData reads the same table). Before
+    // this, a hardcoded breakdown was sent, so the AI described a score that
+    // did not match the page.
+    const scoreRows = await sql`
+      SELECT impact, quality, collaboration, consistency, composite
+      FROM dimension_scores
       WHERE repo_id = ${repoId} AND contributor_id = ${contributorId}
-      ORDER BY created_at ASC
+        AND decay_profile = 'current'
+      ORDER BY computed_at DESC
+      LIMIT 1
     `;
-    const scoreEvents = allContributorRows.map((r) => ({
-      type: r.event_type as string,
-      payload: typeof r.payload === 'string' ? safeParse(r.payload) : (r.payload as Record<string, unknown>) || {},
-      created_at: new Date(r.created_at as string).toISOString(),
-    }));
-    scoreBreakdown = {
-      total: 80,
-      breakdown: { featureDelivery: 40, codeQuality: 20, reviews: 10, collaboration: 5, consistency: 5 },
-    };
+
+    if (scoreRows.length > 0) {
+      const s = scoreRows[0];
+      scoreBreakdown = {
+        total: Math.max(1, Math.min(100, Math.round(Number(s.composite)))),
+        breakdown: {
+          featureDelivery: Math.round(Number(s.impact)),
+          codeQuality: Math.round(Number(s.quality)),
+          reviews: Math.round(Number(s.collaboration)),
+          collaboration: Math.round(Number(s.collaboration)),
+          consistency: Math.round(Number(s.consistency)),
+        },
+      };
+    }
   }
 
   return {

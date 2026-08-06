@@ -3,6 +3,11 @@ import { sql } from './db';
 /**
  * Acquire a rate limit slot for a given key in a Postgres-backed fixed window rate limiter.
  * Window duration is 1 minute. Callers block until a slot is acquired.
+ *
+ * The slot claim is atomic: the ON CONFLICT ... WHERE gate is evaluated inside
+ * the single statement, so concurrent callers cannot both read a stale count and
+ * both be admitted (the previous implementation decided from a snapshot of the
+ * pre-update row, which allowed over-admission under concurrency).
  */
 export async function acquireSlot(
   key = 'openrouter',
@@ -10,53 +15,45 @@ export async function acquireSlot(
 ): Promise<void> {
   while (true) {
     try {
-      const rows = await sql<{
-        acquired: boolean;
-        wait_ms: number;
-      }>`
-        WITH current_bucket AS (
-          SELECT window_start, count FROM rate_limit_bucket WHERE key = ${key}
-        ),
-        updated AS (
-          INSERT INTO rate_limit_bucket (key, window_start, count, updated_at)
-          VALUES (${key}, NOW(), 1, NOW())
-          ON CONFLICT (key) DO UPDATE
-          SET
-            window_start = CASE
-              WHEN rate_limit_bucket.window_start <= NOW() - INTERVAL '1 minute' THEN NOW()
-              ELSE rate_limit_bucket.window_start
-            END,
-            count = CASE
-              WHEN rate_limit_bucket.window_start <= NOW() - INTERVAL '1 minute' THEN 1
-              WHEN rate_limit_bucket.count < ${maxRpm} THEN rate_limit_bucket.count + 1
-              ELSE rate_limit_bucket.count
-            END,
-            updated_at = NOW()
-          RETURNING window_start, count
-        )
-        SELECT
-          CASE
-            WHEN c.window_start IS NULL THEN true
-            WHEN c.window_start <= NOW() - INTERVAL '1 minute' THEN true
-            WHEN c.count < ${maxRpm} THEN true
-            ELSE false
-          END AS acquired,
-          COALESCE(
-            GREATEST(
-              200,
-              CAST(EXTRACT(EPOCH FROM (COALESCE(c.window_start, NOW()) + INTERVAL '1 minute' - NOW())) * 1000 AS INTEGER)
-            ),
-            1000
-          ) AS wait_ms
-        FROM updated u
-        LEFT JOIN current_bucket c ON true
+      // Returns a row iff a slot was actually claimed:
+      // - fresh insert (first request in window) → count = 1
+      // - expired window → count reset to 1
+      // - window current and count < max → count incremented
+      // If the window is current and full, the WHERE gate rejects the update and
+      // no row is returned.
+      const rows = await sql<{ count: number }>`
+        INSERT INTO rate_limit_bucket (key, window_start, count, updated_at)
+        VALUES (${key}, NOW(), 1, NOW())
+        ON CONFLICT (key) DO UPDATE
+        SET
+          window_start = CASE
+            WHEN rate_limit_bucket.window_start <= NOW() - INTERVAL '1 minute' THEN NOW()
+            ELSE rate_limit_bucket.window_start
+          END,
+          count = CASE
+            WHEN rate_limit_bucket.window_start <= NOW() - INTERVAL '1 minute' THEN 1
+            ELSE rate_limit_bucket.count + 1
+          END,
+          updated_at = NOW()
+        WHERE rate_limit_bucket.window_start <= NOW() - INTERVAL '1 minute'
+           OR rate_limit_bucket.count < ${maxRpm}
+        RETURNING count
       `;
 
-      if (rows.length > 0 && rows[0].acquired) {
+      if (rows.length > 0) {
         return;
       }
 
-      const waitMs = rows.length > 0 && typeof rows[0].wait_ms === 'number' ? rows[0].wait_ms : 1000;
+      // Window is full. Wait until the current window rolls over.
+      const bucket = await sql<{ window_start: string | Date }>`
+        SELECT window_start FROM rate_limit_bucket WHERE key = ${key}
+      `;
+
+      let waitMs = 1000;
+      if (bucket.length > 0) {
+        const windowStart = new Date(bucket[0].window_start).getTime();
+        waitMs = windowStart + 60_000 - Date.now();
+      }
       // Sleep for a portion of the window wait time (capped between 200ms and 2000ms for safety)
       const sleepTime = Math.min(Math.max(waitMs, 200), 2000);
       await new Promise((resolve) => setTimeout(resolve, sleepTime));

@@ -15,12 +15,15 @@ The repo `sujalmh/git-ranked` is **PUBLIC**, and `scripts/remote-setup.sh` conta
 
 Introduced in commit `4825cb6`, present in ≥5 commits (`f38fede`, `13a5adb`, `a439a43`, `350b82b`, `bb95a9c`).
 
-**Status:** Working-tree fix committed. Rotation + history purge still required (see below).
+**Status:** Fixed and purged.
 
 - [x] Remove secrets from working tree (`scripts/remote-setup.sh` now reads from env)
-- [ ] **Rotate both credentials** in the Neon and OpenRouter dashboards — they were exposed publicly
-- [ ] **Purge git history** (BFG/filter-repo) and force-push — destructive, requires explicit consent
-- [ ] Verify no other files reintroduce secrets (grep for `sk-or-v1-` / `neondb_owner:` before every commit)
+- [x] **Rotate both credentials** in the Neon and OpenRouter dashboards (done by owner 2026-08-07)
+- [x] **Purge git history** — `git-filter-repo` rewrote all 86 commits replacing the leaked
+      `npg_…` DB password and `sk-or-v1-…` OpenRouter key with `***REDACTED***`. Rewritten main
+      (`ccc25b0`) + copilot branches force-pushed via `gh`. Local working repo reset to new history;
+      uncommitted WIP preserved. Verify future deploys don't reintroduce secrets (grep for
+      `sk-or-v1-` / `neondb_owner:`).
 
 ---
 
@@ -56,21 +59,26 @@ Introduced in commit `4825cb6`, present in ≥5 commits (`f38fede`, `13a5adb`, `
 
 ## 🟠 High — Logic bugs
 
-- `insights.ts:227` — **inverted legacy check**: `isLegacy = prompt_version !== '2.0.0'` but the writer
-  stores `'2.2.0'` → health metrics regenerate on every repo page view (6h cache never honored)
-- `ai/index.ts:76-91` — **hardcoded AI score breakdown** (`total: 80, ...`); real computed `scoreEvents`
-  is never used
-- `ranked/Leaderboard.tsx:394,441` — wrong ranks after filter/sort (`rank={i+4}`)
-- `rate-limit.ts` — fixed-window race: concurrent callers can all pass the limit (read old snapshot)
+- [x] `insights.ts` — **inverted legacy check**: `isLegacy = prompt_version !== '2.0.0'` but the writer
+      stores `'2.2.0'` → health metrics regenerated on every repo page view. Fixed with a shared
+      `HEALTH_METRICS_PROMPT_VERSION` constant; legacy now means "not the current version".
+- [x] `ai/index.ts` — **hardcoded AI score breakdown** (`total: 80, ...`); now reads the contributor's
+      real v3 `dimension_scores` (current decay profile) so the Impact Explanation matches the page.
+- [x] `ranked/Leaderboard.tsx` — wrong ranks after filter/sort (`rank={i+4}` from the filtered index);
+      now uses a precomputed `rankById` map from the impact-sorted list.
+- [x] `rate-limit.ts` — fixed-window race: concurrent callers could all pass the limit. Rewritten as an
+      atomic `INSERT … ON CONFLICT … WHERE count < max RETURNING` gate; only a successfully claimed
+      slot returns a row. Test updated.
 
 ## 🟡 Medium
 
-- 48 lint errors (`no-explicit-any` ×~30, React-compiler `setState-in-effect` ×5, impure-function-in-
-  render ×3, `UserAiSettings.tsx:36` TDZ)
-- `contact/page.tsx` — dead form (`action="#"`, `type="button"`)
-- No `loading.tsx`/`error.tsx` anywhere
+- [x] 48 lint errors (`no-explicit-any`, React-compiler `setState-in-effect`, impure-function-in-render,
+      `UserAiSettings.tsx` TDZ) — resolved; `eslint .` exits 0.
+- [x] `contact/page.tsx` — dead form (`action="#"`, `type="button"`). Now a working `mailto:` form.
+- [x] No `loading.tsx`/`error.tsx` — added root `src/app/loading.tsx` and `src/app/error.tsx`.
+- [x] Dead code: `mock/page.tsx`, `mock-dashboard/page.tsx` (+ empty `mock-leaderboard/`) deleted;
+      `/mock/` removed from robots.ts.
 - `github/[owner]/[name]` fetches `getPublicRepository` twice (layout metadata + page)
-- Dead code: `mock/page.tsx`, `mock-dashboard/page.tsx`
 - `instrumentation.ts` runs `initSchema()` (~60 DDL + constraint swap) on every cold start
 - `pg-boss` not in `serverExternalPackages` but bundled into 2 API routes
 - `mv_contributor_leaderboard` is a plain table, not a materialized view
@@ -90,11 +98,13 @@ Introduced in commit `4825cb6`, present in ≥5 commits (`f38fede`, `13a5adb`, `
 - `vercel.json` project name vs `.vercel/project.json` mismatch
 - `analyse/route.ts` runs `classifyEvents` **and** `enqueueClassifyRepo` in sequence (double work)
 
-## Priority order
+## Priority order (status)
 
-1. Rotate leaked credentials + purge git history (CRITICAL)
-2. Ownership checks on `remove`, admin auth, and the `installation_id IS NULL` hole
-3. `insights.ts` inversion, hardcoded `scoreBreakdown`, Leaderboard ranks
-4. Cost/rate-limit the unauthenticated AI-generation paths
-5. Delete `mock` pages, add `loading.tsx`/`error.tsx`, fix contact form
-6. Fix 48 lint errors
+1. ✅ Rotate leaked credentials + purge git history (CRITICAL)
+2. ✅ Ownership checks on `remove`, admin auth, and the `installation_id IS NULL` hole
+3. ✅ `insights.ts` inversion, hardcoded `scoreBreakdown`, Leaderboard ranks
+4. ⬜ Cost/rate-limit the unauthenticated AI-generation paths (`getRepoAnalysisData` on public pages,
+   `scores` route triggering `scoreRepo`, 60-min streaming wait in `analyse/route.ts`)
+5. ✅ Delete `mock` pages, add `loading.tsx`/`error.tsx`, fix contact form
+6. ✅ Fix lint errors
+7. ⬜ Default model switched to `nvidia/nemotron-3-super-120b-a12b:free` (server key) — done 2026-08-07

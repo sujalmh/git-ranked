@@ -1,30 +1,33 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
+const mockSql = vi.fn();
 vi.mock('../db', () => ({
-  sql: vi.fn(),
+  sql: (...args: unknown[]) => mockSql(...args),
 }));
 
 import { acquireSlot } from '../rate-limit';
-import { sql } from '../db';
 
 describe('rate-limit acquireSlot', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockSql.mockClear();
   });
 
-  it('acquires slot immediately when database returns acquired = true', async () => {
-    (sql as any).mockResolvedValueOnce([{ acquired: true, wait_ms: 0 }]);
+  it('acquires slot immediately when the atomic upsert returns a row', async () => {
+    mockSql.mockResolvedValueOnce([{ count: 1 }]);
 
     await expect(acquireSlot('test-key', 120)).resolves.toBeUndefined();
-    expect(sql).toHaveBeenCalledTimes(1);
+    expect(mockSql).toHaveBeenCalledTimes(1);
   });
 
-  it('retries until slot is acquired when database initially returns acquired = false', async () => {
-    (sql as any)
-      .mockResolvedValueOnce([{ acquired: false, wait_ms: 50 }])
-      .mockResolvedValueOnce([{ acquired: true, wait_ms: 0 }]);
+  it('retries until slot is acquired when the upsert returns no row (window full)', async () => {
+    // Attempt 1: window full -> no row returned from the upsert
+    mockSql.mockResolvedValueOnce([]);
+    // Wait computation reads the current window (resets ~200ms from now)
+    mockSql.mockResolvedValueOnce([{ window_start: new Date(Date.now() - 59_800) }]);
+    // Attempt 2: slot claimed
+    mockSql.mockResolvedValueOnce([{ count: 2 }]);
 
     await expect(acquireSlot('test-key', 120)).resolves.toBeUndefined();
-    expect(sql).toHaveBeenCalledTimes(2);
+    expect(mockSql).toHaveBeenCalledTimes(3);
   });
 });

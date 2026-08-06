@@ -189,14 +189,15 @@ export async function generateRepoInsights(repoId: number) {
     overallScore: round(overallScore),
   };
 
-  // Cache it with prompt_version '2.2.0'
+  // Cache it with a versioned prompt_version so readers can invalidate
+  // caches produced by older formulas.
   try {
     await sql`
       INSERT INTO insight_caches (repo_id, contributor_id, insight_type, payload, schema_version, prompt_version, confidence, source)
-      VALUES (${repoId}, NULL, 'health_metrics', ${JSON.stringify(metrics)}, 'deterministic', '2.2.0', 1.0, 'deterministic')
+      VALUES (${repoId}, NULL, 'health_metrics', ${JSON.stringify(metrics)}, 'deterministic', ${HEALTH_METRICS_PROMPT_VERSION}, 1.0, 'deterministic')
       ON CONFLICT (repo_id, contributor_id, insight_type) DO UPDATE
       SET payload = ${JSON.stringify(metrics)}, generated_at = CURRENT_TIMESTAMP,
-          schema_version = 'deterministic', prompt_version = '2.2.0',
+          schema_version = 'deterministic', prompt_version = ${HEALTH_METRICS_PROMPT_VERSION},
           confidence = 1.0, source = 'deterministic'
     `;
   } catch (upsertErr) {
@@ -204,7 +205,7 @@ export async function generateRepoInsights(repoId: number) {
     await sql`DELETE FROM insight_caches WHERE repo_id = ${repoId} AND contributor_id IS NULL AND insight_type = 'health_metrics'`;
     await sql`
       INSERT INTO insight_caches (repo_id, contributor_id, insight_type, payload, schema_version, prompt_version, confidence, source)
-      VALUES (${repoId}, NULL, 'health_metrics', ${JSON.stringify(metrics)}, 'deterministic', '2.2.0', 1.0, 'deterministic')
+      VALUES (${repoId}, NULL, 'health_metrics', ${JSON.stringify(metrics)}, 'deterministic', ${HEALTH_METRICS_PROMPT_VERSION}, 1.0, 'deterministic')
     `;
   }
 
@@ -212,6 +213,7 @@ export async function generateRepoInsights(repoId: number) {
 }
 
 const HEALTH_STALE_MS = 6 * 60 * 60 * 1000;
+const HEALTH_METRICS_PROMPT_VERSION = '2.2.0';
 
 export async function getRepoInsights(repoId: number, generateIfMissing: boolean = false): Promise<HealthMetrics | null> {
   const cache = await sql`
@@ -222,9 +224,10 @@ export async function getRepoInsights(repoId: number, generateIfMissing: boolean
 
   if (cache.length > 0) {
     const isStale = new Date(cache[0].generated_at).getTime() < Date.now() - HEALTH_STALE_MS;
-    // Invalidate caches produced by the previous (absolute-count) formula so the
-    // page self-heals to the new ratio/quality metrics without a manual re-analyse.
-    const isLegacy = cache[0].prompt_version !== '2.0.0';
+    // Invalidate caches produced by a previous formula so the page self-heals
+    // to the current metrics without a manual re-analyse. The current writer
+    // stores HEALTH_METRICS_PROMPT_VERSION; anything older is legacy.
+    const isLegacy = cache[0].prompt_version !== HEALTH_METRICS_PROMPT_VERSION;
     if ((isStale || isLegacy) && generateIfMissing) {
       // Regenerate synchronously so the page reflects current activity (the
       // computation is a single bounded query + upsert).
