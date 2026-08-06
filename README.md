@@ -4,7 +4,13 @@
 
 <p align="center">
   <a href="https://gitranked.dev">
-    <img src="docs/leaderboard-preview.png" alt="GitRanked live dashboard preview — facebook/react leaderboard with contributor impact scores" width="100%" />
+    <img src="docs/leaderboard-preview.png" alt="GitRanked leaderboard preview — facebook/react contributor impact scores" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://gitranked.dev">
+    <img src="docs/work-areas-preview.png" alt="GitRanked work areas & AI risk insights preview — facebook/react" />
   </a>
 </p>
 
