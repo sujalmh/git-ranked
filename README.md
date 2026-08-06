@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://gitranked.dev">
-    <img src="https://gitranked.dev/api/og/leaderboard/facebook/react" alt="GitRanked leaderboard for facebook/react" width="100%" />
+    <img src="docs/leaderboard-preview.png" alt="GitRanked live dashboard preview — facebook/react leaderboard with contributor impact scores" width="100%" />
   </a>
 </p>
 
