@@ -1,7 +1,12 @@
 {
-  "name": "temp_app",
+  "name": "gitranked",
   "version": "0.1.0",
   "private": true,
+  "description": "AI-powered engineering analytics for GitHub repositories — classify work, score contributors, and surface team insights.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sujalmh/git-ranked"
+  },
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",

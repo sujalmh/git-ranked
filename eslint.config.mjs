@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local dev scaffolding (gitignored):
+    "src/app/mock/**",
+    "src/app/mock-*/**",
   ]),
 ]);
 

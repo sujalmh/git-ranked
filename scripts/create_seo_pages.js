@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('fs');
 const path = require('path');
 const slugs = ["github-insights", "pr-review-metrics", "repository-health", "engineering-metrics", "github-contributor-analytics"];

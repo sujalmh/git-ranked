@@ -46,3 +46,9 @@ src/app/mock-*/
 
 # scripts
 src/scripts/
+
+# agent tooling artifacts
+.kilo/
+.playwright-mcp/
+.commandcode/
+.claude/
