@@ -253,7 +253,7 @@ export function InitializeButton({ owner, name }: { owner: string; name: string 
                       ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                       : isComplete
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                        : 'bg-accent text-accent border border-accent'
                   }`}
                 >
                   <span
@@ -262,7 +262,7 @@ export function InitializeButton({ owner, name }: { owner: string; name: string 
                         ? 'bg-amber-400'
                         : isComplete
                           ? 'bg-emerald-400'
-                          : 'bg-indigo-400 animate-pulse'
+                          : 'bg-accent animate-pulse'
                     }`}
                   />
                   {hasError ? 'ERROR' : isComplete ? 'COMPLETE' : 'RUNNING'}
@@ -275,7 +275,7 @@ export function InitializeButton({ owner, name }: { owner: string; name: string 
               <span className="text-zinc-400 truncate">
                 Current Task: <span className="text-zinc-200 font-bold">{statusMessage || 'Initializing...'}</span>
               </span>
-              {loading && <Loader2 className="w-4 h-4 animate-spin text-indigo-400 shrink-0 ml-2" />}
+              {loading && <Loader2 className="w-4 h-4 animate-spin text-accent shrink-0 ml-2" />}
             </div>
 
             {/* Terminal Log Output View */}
@@ -297,7 +297,7 @@ export function InitializeButton({ owner, name }: { owner: string; name: string 
                   badgeColor = 'text-amber-400 border-amber-500/30 bg-amber-950/40';
                   textColor = 'text-amber-300';
                 } else if (log.status === 'info') {
-                  badgeColor = 'text-indigo-400 border-indigo-500/30 bg-indigo-950/40';
+                  badgeColor = 'text-accent border-accent bg-accent';
                   textColor = 'text-zinc-400';
                 }
 
@@ -314,7 +314,7 @@ export function InitializeButton({ owner, name }: { owner: string; name: string 
 
               {/* Blinking prompt line */}
               <div className="flex items-center gap-2 pt-1 text-zinc-500">
-                <span className="text-indigo-400 font-bold">❯</span>
+                <span className="text-accent font-bold">❯</span>
                 {loading ? (
                   <span className="animate-pulse text-cyan-400">Ingesting repository history...</span>
                 ) : isComplete ? (
@@ -322,7 +322,7 @@ export function InitializeButton({ owner, name }: { owner: string; name: string 
                 ) : (
                   <span className="text-zinc-600">Idle</span>
                 )}
-                <span className="w-2 h-4 bg-indigo-400 animate-pulse inline-block" />
+                <span className="w-2 h-4 bg-accent animate-pulse inline-block" />
               </div>
 
               {/* Dummy element for smooth auto-scroll */}
@@ -378,8 +378,8 @@ export function InitializeButton({ owner, name }: { owner: string; name: string 
 export function RepositoryNeedsInit({ owner, name }: { owner: string; name: string }) {
   return (
     <div className="sleek-panel p-8 text-center max-w-2xl mx-auto mt-12 flex flex-col items-center border-2 border-white/10">
-      <div className="w-14 h-14 rounded-full bg-indigo-500/10 flex items-center justify-center mb-4 border border-indigo-500/20">
-        <GitBranch className="w-7 h-7 text-indigo-400" />
+      <div className="w-14 h-14 rounded-full bg-accent flex items-center justify-center mb-4 border border-accent">
+        <GitBranch className="w-7 h-7 text-accent" />
       </div>
       <h2 className="text-xl font-bold mb-2 text-white">No activity data yet</h2>
       <p className="text-sm text-zinc-400 leading-relaxed mb-6 max-w-lg">

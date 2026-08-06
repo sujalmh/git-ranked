@@ -3,8 +3,7 @@ import type { ContributorInsight, ContributionCategory } from '@/lib/contributor
 export const SMALL_TEAM_THRESHOLD = 5;
 
 export function isSmallTeam(count: number): boolean {
-  void count;
-  return false;
+  return count <= SMALL_TEAM_THRESHOLD;
 }
 
 export type PodiumTier = 'gold' | 'silver' | 'bronze';

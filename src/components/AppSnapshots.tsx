@@ -197,8 +197,8 @@ export function AppSnapshots() {
 
                   {/* #1 GOLD */}
                   <div className="p-3.5 rounded-xl bg-zinc-950 border-2 border-accent shadow-[0_0_20px_rgba(204,255,0,0.2)] text-center relative space-y-1 scale-105">
-                    <div className="text-[9px] font-black uppercase bg-accent text-black py-0.5 px-2 rounded-full inline-block">
-                      👑 #1 GOLD
+                    <div className="text-[9px] font-black uppercase bg-accent text-black py-0.5 px-2 rounded-full inline-flex items-center gap-1">
+                      <Crown className="w-3 h-3" /> #1 GOLD
                     </div>
                     <div className="w-10 h-10 rounded-full bg-accent/20 border-2 border-accent mx-auto flex items-center justify-center font-black text-sm text-accent">
                       heo
@@ -239,7 +239,7 @@ export function AppSnapshots() {
                   <div className="p-2 flex items-center justify-between text-xs hover:bg-zinc-900/60">
                     <div className="flex items-center gap-2 font-bold text-white font-mono">
                       <span className="w-5 text-zinc-500 text-[11px]">4</span>
-                      <div className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-[10px]">p</div>
+                      <div className="w-5 h-5 rounded-full bg-accent text-accent flex items-center justify-center text-[10px]">p</div>
                       <span>potato</span>
                     </div>
                     <span className="font-mono font-bold text-accent">20 / 100</span>
@@ -348,7 +348,7 @@ export function AppSnapshots() {
                     </div>
 
                     <div className="p-2 rounded border border-zinc-800 bg-black/60 flex items-start gap-2">
-                      <div className="w-4 h-4 rounded-full bg-indigo-500/20 text-indigo-400 text-[9px] font-bold shrink-0 flex items-center justify-center">a</div>
+                      <div className="w-4 h-4 rounded-full bg-accent text-accent text-[9px] font-bold shrink-0 flex items-center justify-center">a</div>
                       <div className="min-w-0">
                         <span className="font-bold text-white">acdlite</span> <span className="text-zinc-400">Advanced Apis: Fixed PR: Compile transform for memoized JSX tasks</span>
                       </div>
@@ -370,7 +370,7 @@ export function AppSnapshots() {
               >
                 <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
                   <div className="flex items-center gap-2">
-                    <UsersRound className="w-4 h-4 text-indigo-400" />
+                    <UsersRound className="w-4 h-4 text-accent" />
                     <h3 className="text-sm font-black text-white uppercase tracking-tight">
                       Contributor Profiles <span className="text-zinc-500 font-normal text-xs">Top 3 of 175</span>
                     </h3>
@@ -519,9 +519,9 @@ export function AppSnapshots() {
                       <span className="text-[8px] text-teal-300/80 font-normal">3%</span>
                     </div>
 
-                    <div className="col-span-2 bg-indigo-950/70 border-2 border-indigo-400/80 p-1 rounded-md flex flex-col justify-between hover:bg-indigo-900/80 transition-colors">
-                      <span className="truncate text-indigo-300">Hooks</span>
-                      <span className="text-[8px] text-indigo-300/80 font-normal">3%</span>
+                    <div className="col-span-2 bg-accent/10 border-2 border-accent/80 p-1 rounded-md flex flex-col justify-between hover:bg-accent/20 transition-colors">
+                      <span className="truncate text-accent">Hooks</span>
+                      <span className="text-[8px] text-accent font-normal">3%</span>
                     </div>
 
                     <div className="col-span-2 bg-violet-950/70 border-2 border-violet-400/80 p-1 rounded-md flex flex-col justify-between hover:bg-violet-900/80 transition-colors">

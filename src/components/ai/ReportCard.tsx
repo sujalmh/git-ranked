@@ -56,7 +56,7 @@ export function ReportCard({
           <ul className="space-y-1.5">
             {getNextItems().map((item, i) => (
               <li key={i} className="text-sm text-zinc-300 flex gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-300 mt-0.5 shrink-0" />
+                <Sparkles className="w-3.5 h-3.5 text-accent mt-0.5 shrink-0" />
                 <span>{item}</span>
               </li>
             ))}

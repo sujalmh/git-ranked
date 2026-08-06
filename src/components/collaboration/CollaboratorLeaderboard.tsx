@@ -12,7 +12,7 @@ function VelocityBars({ values }: { values: number[] }) {
         return (
           <div
             key={i}
-            className="w-1 rounded-sm bg-indigo-400/60"
+            className="w-1 rounded-sm bg-accent"
             style={{ height: `${h}px` }}
             title={`Week ${i + 1}: ${v} events`}
           />
@@ -61,7 +61,7 @@ export function CollaboratorLeaderboard({
                   {rank}
                 </span>
               ) : (
-                <span className="text-sm font-bold text-zinc-600">{rank}</span>
+                <span className="text-sm font-bold text-zinc-400">{rank}</span>
               )}
             </div>
 
@@ -93,15 +93,15 @@ export function CollaboratorLeaderboard({
 
             {/* Impact score */}
             <div className="text-right shrink-0">
-              <div className="text-xl font-black text-indigo-400 leading-none">{c.impactScore}</div>
-              <div className="text-[9px] uppercase text-zinc-600 tracking-wider">Impact</div>
+              <div className="text-xl font-black text-accent leading-none">{c.impactScore}</div>
+              <div className="text-[9px] uppercase text-zinc-400 tracking-wider">Impact</div>
             </div>
 
             {/* Collaboration score */}
             {c.collaborationScore > 0 && (
               <div className="hidden md:block text-right shrink-0 w-14">
                 <div className="text-sm font-bold text-emerald-400 leading-none">{c.collaborationScore}%</div>
-                <div className="text-[9px] uppercase text-zinc-600 tracking-wider">Collab</div>
+                <div className="text-[9px] uppercase text-zinc-400 tracking-wider">Collab</div>
               </div>
             )}
           </Link>

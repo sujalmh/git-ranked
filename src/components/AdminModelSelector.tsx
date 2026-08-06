@@ -85,7 +85,7 @@ export function AdminModelSelector({ initialModel }: { initialModel?: string }) 
 
       <div className="flex items-center justify-between gap-4 mb-3">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+          <div className="p-2.5 rounded-xl bg-accent border border-accent text-accent">
             <Cpu className="w-5 h-5" />
           </div>
           <div>
@@ -100,9 +100,9 @@ export function AdminModelSelector({ initialModel }: { initialModel?: string }) 
 
         {/* Current Active Badge */}
         <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs text-zinc-300">
-          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+          <Sparkles className="w-3.5 h-3.5 text-accent" />
           <span className="font-medium text-zinc-400">Active:</span>
-          <span className="font-mono text-indigo-300 truncate max-w-[200px]">{currentModel}</span>
+          <span className="font-mono text-accent truncate max-w-[200px]">{currentModel}</span>
         </div>
       </div>
 
@@ -129,7 +129,7 @@ export function AdminModelSelector({ initialModel }: { initialModel?: string }) 
           </div>
 
           {loading && (
-            <div className="flex items-center gap-2 px-4 py-3 text-xs text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
+            <div className="flex items-center gap-2 px-4 py-3 text-xs text-accent bg-accent border border-accent rounded-xl">
               <Loader2 className="w-4 h-4 animate-spin" />
               Applying model...
             </div>

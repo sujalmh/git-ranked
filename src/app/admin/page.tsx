@@ -85,8 +85,8 @@ export default async function AdminDashboardPage() {
           <StatCard
             title="Total Users"
             value={totalUsers.toLocaleString()}
-            icon={<Users className="w-5 h-5 text-indigo-400" />}
-            gradient="from-indigo-500/20 to-indigo-500/0"
+            icon={<Users className="w-5 h-5 text-accent" />}
+            gradient="from-accent to-accent"
           />
           <StatCard
             title="Active Repositories"

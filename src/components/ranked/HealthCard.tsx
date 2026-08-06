@@ -84,7 +84,7 @@ export function HealthCard({
         <div>
           <div className={`text-5xl font-black leading-none ${sevStyle.text}`}>
             {animatedScore}
-            <span className="text-lg text-zinc-600 font-medium ml-1">/100</span>
+            <span className="text-lg text-zinc-400 font-medium ml-1">/100</span>
           </div>
           <div className="text-sm uppercase tracking-wider text-zinc-500 font-semibold mt-2">
             Team Health · {sevStyle.label}

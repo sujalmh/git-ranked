@@ -125,9 +125,9 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
               <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 {payload.items.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 text-center">
-                    <Search className="w-6 h-6 text-zinc-600 mb-2" />
+                    <Search className="w-6 h-6 text-zinc-400 mb-2" />
                     <p className="text-sm text-zinc-500">No linked events found.</p>
-                    <p className="text-xs text-zinc-600 mt-1">This insight may be AI-synthesized with no single source event.</p>
+                    <p className="text-xs text-zinc-400 mt-1">This insight may be AI-synthesized with no single source event.</p>
                   </div>
                 ) : (
                   payload.items.slice(0, revealed).map((item) => (
@@ -139,7 +139,7 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
                         <div className="flex items-center gap-2 mb-0.5">
                           <span className="text-[10px] uppercase tracking-wide text-zinc-500">{KIND_LABEL[item.kind]}</span>
                           {item.prNumber && <span className="text-[10px] text-accent font-medium">#{item.prNumber}</span>}
-                          <span className="text-[10px] text-zinc-600 ml-auto">{formatDate(item.date)}</span>
+                          <span className="text-[10px] text-zinc-400 ml-auto">{formatDate(item.date)}</span>
                         </div>
                         <div className="text-sm text-zinc-200 truncate">{item.title}</div>
                         <div className="text-xs text-zinc-500">by {item.actor}{item.additions ? ` · +${item.additions}` : ''}{item.deletions ? ` −${item.deletions}` : ''}</div>

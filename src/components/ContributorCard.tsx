@@ -60,7 +60,7 @@ function VelocitySparkline({ values }: { values: number[] }) {
     <div className="flex items-end gap-0.5 h-6" title="8-week velocity">
       {values.map((v, i) => {
         const h = v > 0 ? Math.max(3, (v / max) * 24) : 0;
-        return <div key={i} className="w-1.5 rounded-sm bg-indigo-400/50" style={{ height: `${h}px` }} />;
+        return <div key={i} className="w-1.5 rounded-sm bg-accent" style={{ height: `${h}px` }} />;
       })}
     </div>
   );
@@ -156,14 +156,14 @@ export function ContributorCard({
           <Avatar src={contributor.avatarUrl} name={contributor.username} size={44} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold truncate hover:text-indigo-300 transition-colors">{contributor.username}</h3>
+              <h3 className="text-sm font-semibold truncate hover:text-accent transition-colors">{contributor.username}</h3>
               <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${persona.chip}`}>{contributor.role}</span>
             </div>
             <p className="text-xs text-zinc-400 leading-snug mt-0.5 line-clamp-2">{tagline}</p>
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">
-            <div className="text-xl font-black text-indigo-400 leading-none">{contributor.impactScore}</div>
-            <div className="text-[9px] uppercase text-zinc-600 tracking-wider">Impact</div>
+            <div className="text-xl font-black text-accent leading-none">{contributor.impactScore}</div>
+            <div className="text-[9px] uppercase text-zinc-400 tracking-wider">Impact</div>
           </div>
         </div>
       </Link>
@@ -180,7 +180,7 @@ export function ContributorCard({
       {/* Velocity + Streak + Collab score row */}
       <div className="flex items-center gap-4 mb-3 pb-3 border-b border-white/5">
         <div className="shrink-0">
-          <div className="text-[9px] uppercase text-zinc-600 tracking-wider mb-1">Velocity</div>
+          <div className="text-[9px] uppercase text-zinc-400 tracking-wider mb-1">Velocity</div>
           <VelocitySparkline values={contributor.velocity} />
         </div>
         {contributor.currentStreak > 0 && (
@@ -193,7 +193,7 @@ export function ContributorCard({
           <div className="shrink-0 flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-emerald-400" />
             <CollabRing score={contributor.collaborationScore} />
-            <div className="text-[9px] uppercase text-zinc-600 tracking-wider">Collab</div>
+            <div className="text-[9px] uppercase text-zinc-400 tracking-wider">Collab</div>
           </div>
         )}
       </div>
@@ -201,7 +201,7 @@ export function ContributorCard({
       {/* Work distribution */}
       {Object.keys(contributor.workDistribution).length > 0 && (
         <div className="mb-3">
-          <div className="text-[9px] uppercase text-zinc-600 tracking-wider mb-1.5">Work mix</div>
+          <div className="text-[9px] uppercase text-zinc-400 tracking-wider mb-1.5">Work mix</div>
           <WorkDistributionBar distribution={contributor.workDistribution} />
         </div>
       )}
@@ -209,7 +209,7 @@ export function ContributorCard({
       {focusAreas.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           {focusAreas.slice(0, 4).map((area, i) => (
-            <span key={i} className="rounded-full bg-indigo-500/10 border border-indigo-500/30 px-2 py-0.5 text-[10px] text-indigo-300">
+            <span key={i} className="rounded-full bg-accent border border-accent px-2 py-0.5 text-[10px] text-accent">
               {area}
             </span>
           ))}
@@ -220,7 +220,7 @@ export function ContributorCard({
         <button
           type="button"
           onClick={showImpactEvidence}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-300 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:text-white transition-colors"
         >
           <HelpCircle className="w-3.5 h-3.5" />
           Why this score?

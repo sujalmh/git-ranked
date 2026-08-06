@@ -46,7 +46,7 @@ export default function AboutPage() {
             </div>
 
             <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-              <Cpu className="w-8 h-8 text-indigo-400 mb-3" />
+              <Cpu className="w-8 h-8 text-accent mb-3" />
               <h3 className="text-xl font-bold uppercase tracking-tight text-white mb-2">AI-Powered Insights</h3>
               <p className="text-sm text-zinc-400">
                 Leverage generative AI models to summarize complex pull request diffs, highlight key architectural changes, and score review quality.

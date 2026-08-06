@@ -55,7 +55,7 @@ export default async function SharedRepoAnalysis(
               <Link href={canonicalUrl} className="hover:text-white transition-colors">View on GitRanked</Link>
             </div>
             <h1 className="text-2xl font-bold flex items-center gap-2.5 mb-1">
-              <GitBranch className="w-6 h-6 text-indigo-400" />
+              <GitBranch className="w-6 h-6 text-accent" />
               {repo.owner} / {repo.name}
             </h1>
             <p className="text-base text-zinc-400 max-w-2xl">

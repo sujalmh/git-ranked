@@ -79,7 +79,7 @@ export function HealthRadar({
           </div>
           <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mt-1">Overall Health</div>
         </div>
-        <span className="text-[10px] text-zinc-600 hidden sm:block">Click a metric for evidence</span>
+        <span className="text-[10px] text-zinc-400 hidden sm:block">Click a metric for evidence</span>
       </div>
 
       <div className="h-44 -mx-2">

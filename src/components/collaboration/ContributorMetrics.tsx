@@ -3,7 +3,7 @@ import { ContributorStats } from '@/lib/collaboration-analytics';
 
 export function VelocitySparkline({ values, color = '#818cf8' }: { values: number[]; color?: string }) {
   if (!values || values.length === 0) {
-    return <div className="text-xs text-zinc-600">No data</div>;
+    return <div className="text-xs text-zinc-400">No data</div>;
   }
 
   const max = Math.max(...values, 1);

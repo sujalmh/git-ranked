@@ -62,7 +62,7 @@ function Avatar({
 function RankChange({ delta }: { delta: number | null }) {
   if (delta === null || delta === 0) {
     return (
-      <span className="inline-flex items-center gap-0.5 text-[10px] text-zinc-600" title="No change vs last period">
+      <span className="inline-flex items-center gap-0.5 text-[10px] text-zinc-400" title="No change vs last period">
         <Minus className="w-3 h-3" />
       </span>
     );
@@ -250,7 +250,7 @@ function PodiumCard({
         <div className="mt-1">
           <span className="text-3xl font-black text-white">
             {contributor.impactScore}
-            <span className="text-base text-zinc-600 font-medium">/100</span>
+            <span className="text-base text-zinc-400 font-medium">/100</span>
           </span>
         </div>
         {contributor.currentStreak > 0 && <StreakBadge days={contributor.currentStreak} />}
@@ -295,7 +295,7 @@ function CompactRow({
       <div className="text-right shrink-0 w-12">
         <span className="text-base font-bold text-white">
           {contributor.impactScore}
-          <span className="text-sm text-zinc-600 ml-0.5">/100</span>
+          <span className="text-sm text-zinc-400 ml-0.5">/100</span>
         </span>
       </div>
     </Link>
@@ -423,7 +423,7 @@ export function Leaderboard({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search contributors…"
-                className="w-full rounded-none bg-white/5 border border-white/10 pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-accent/50"
+                className="w-full rounded-none bg-white/5 border border-white/10 pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-zinc-400 focus:outline-none focus:border-accent/50"
               />
             </div>
             <select
@@ -451,7 +451,7 @@ export function Leaderboard({
               />
             ))}
             {visibleRest.length === 0 && (
-              <div className="text-center text-xs text-zinc-600 py-4 flex items-center justify-center gap-1.5">
+              <div className="text-center text-xs text-zinc-400 py-4 flex items-center justify-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
                 No contributors match &ldquo;{query}&rdquo;
               </div>

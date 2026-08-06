@@ -88,10 +88,10 @@ export function AddRepoModal({
               <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-950 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
                 <div className="space-y-2.5 flex-1">
                   <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
+                    <div className="p-1.5 rounded-lg bg-accent border border-accent text-accent">
                       <Lock className="w-4 h-4" />
                     </div>
-                    <span className="text-[11px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                    <span className="text-[11px] font-mono font-bold text-accent bg-accent px-2 py-0.5 rounded border border-accent">
                       PRIVATE & PERSONAL
                     </span>
 

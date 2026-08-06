@@ -282,7 +282,7 @@ export function AnalyseButton({
                       ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                       : isComplete
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                        : 'bg-accent text-accent border border-accent'
                   }`}
                 >
                   <span
@@ -291,7 +291,7 @@ export function AnalyseButton({
                         ? 'bg-amber-400'
                         : isComplete
                           ? 'bg-emerald-400'
-                          : 'bg-indigo-400 animate-pulse'
+                          : 'bg-accent animate-pulse'
                     }`}
                   />
                   {hasError ? 'ERROR' : isComplete ? 'COMPLETE' : 'RUNNING'}
@@ -305,14 +305,14 @@ export function AnalyseButton({
                 <span className="font-mono text-zinc-400">
                   Progress: <strong className="text-zinc-200">{completedCount}</strong>/{steps.length} tasks
                 </span>
-                <span className="font-mono text-indigo-400 font-bold">{progressPct}%</span>
+                <span className="font-mono text-accent font-bold">{progressPct}%</span>
               </div>
 
               {/* Progress bar */}
               <div className="flex-1 max-w-xs h-2 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800/80">
                 <div
                   className={`h-full rounded-full transition-all duration-300 ${
-                    hasError ? 'bg-amber-500' : isComplete ? 'bg-emerald-500' : 'bg-indigo-500'
+                    hasError ? 'bg-amber-500' : isComplete ? 'bg-emerald-500' : 'bg-accent'
                   }`}
                   style={{ width: `${progressPct}%` }}
                 />
@@ -338,7 +338,7 @@ export function AnalyseButton({
                   badgeColor = 'text-amber-400 border-amber-500/30 bg-amber-950/40';
                   textColor = 'text-amber-300';
                 } else if (log.status === 'info') {
-                  badgeColor = 'text-indigo-400 border-indigo-500/30 bg-indigo-950/40';
+                  badgeColor = 'text-accent border-accent bg-accent';
                   textColor = 'text-zinc-400';
                 }
 
@@ -355,7 +355,7 @@ export function AnalyseButton({
 
               {/* Blinking prompt line */}
               <div className="flex items-center gap-2 pt-1 text-zinc-500">
-                <span className="text-indigo-400 font-bold">❯</span>
+                <span className="text-accent font-bold">❯</span>
                 {loading ? (
                   <span className="animate-pulse text-cyan-400">Processing stream data...</span>
                 ) : isComplete ? (
@@ -363,7 +363,7 @@ export function AnalyseButton({
                 ) : (
                   <span className="text-zinc-600">Idle</span>
                 )}
-                <span className="w-2 h-4 bg-indigo-400 animate-pulse inline-block" />
+                <span className="w-2 h-4 bg-accent animate-pulse inline-block" />
               </div>
 
               {/* Dummy element for smooth auto-scroll */}

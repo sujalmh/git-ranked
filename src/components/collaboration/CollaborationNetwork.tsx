@@ -160,7 +160,7 @@ export function CollaborationNetwork({
       {/* Legend */}
       <div className="flex flex-wrap gap-2 text-xs text-zinc-500">
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-0.5 bg-indigo-400/60" /> reviewed →
+          <span className="w-3 h-0.5 bg-accent" /> reviewed →
         </span>
         <span> thicker line = more reviews</span>
       </div>
