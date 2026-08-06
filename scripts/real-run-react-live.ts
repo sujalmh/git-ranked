@@ -31,12 +31,26 @@ async function main() {
 
   // 2. Fetch real data from GitHub API
   console.log('\n--- Step 1: Fetching Real GitHub Activity via GitHub REST API ---');
-  const backfillResult = await backfillRepoActivity({
-    id: repoId,
-    github_installation_id: 0,
-    owner: 'facebook',
-    name: 'react',
-  });
+
+  // Prefer an installation token (set GITHUB_INSTALLATION_ID) or the
+  // GITHUB_TOKEN; otherwise this falls back to unauthenticated GitHub API,
+  // which is heavily rate-limited for facebook/react.
+  const installationId = process.env.GITHUB_INSTALLATION_ID
+    ? Number(process.env.GITHUB_INSTALLATION_ID)
+    : undefined;
+  if (!installationId) {
+    console.warn('GITHUB_INSTALLATION_ID not set — backfill will be unauthenticated (rate-limited).');
+  }
+
+  const backfillResult = await backfillRepoActivity(
+    {
+      id: repoId,
+      github_installation_id: installationId || 0,
+      owner: 'facebook',
+      name: 'react',
+    },
+    process.env.GITHUB_TOKEN
+  );
   console.log(`Inserted ${backfillResult.inserted} real events into Neon DB.`);
 
   // 3. Aggregate work unit candidates
@@ -49,8 +63,9 @@ async function main() {
     process.exit(0);
   }
 
-  // 4. Clear cache and reset status to pending so all candidates undergo full fresh classification
-  await sql`DELETE FROM classification_cache`;
+  // 4. Reset this repo's candidates so they undergo fresh classification.
+  // NOTE: do NOT wipe classification_cache globally — it is shared across
+  // repos, and content-hash hits simply reuse prior AI answers.
   await sql`DELETE FROM work_units WHERE repo_id = ${repoId}`;
   await sql`
     UPDATE work_unit_candidates
@@ -67,8 +82,14 @@ async function main() {
   // 6. Monitor job progress in real-time
   console.log('Monitoring live worker execution on GCP...');
   let lastProgressStr = '';
+  const JOB_POLL_TIMEOUT_MS = 30 * 60 * 1000;
+  const monitorStart = Date.now();
 
   while (true) {
+    if (Date.now() - monitorStart > JOB_POLL_TIMEOUT_MS) {
+      throw new Error(`Worker job ${jobId} did not finish within 30 minutes`);
+    }
+
     const rows = await sql<{
       status: string;
       done: number;

@@ -6,12 +6,10 @@ import {
   GitBranch,
   Loader2,
   CheckCircle2,
-  AlertCircle,
   Download,
   Terminal,
   Copy,
   Check,
-  RefreshCw,
 } from 'lucide-react';
 
 export type LogEntry = {
@@ -194,10 +192,10 @@ export function InitializeButton({ owner, name }: { owner: string; name: string 
         disabled={loading}
         className={`flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-bold uppercase tracking-wider transition-all shadow-lg ${
           loading
-            ? 'bg-indigo-600/50 text-indigo-200 cursor-not-allowed'
+            ? 'bg-accent/50 text-black/70 cursor-not-allowed'
             : isComplete
               ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/30'
-              : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-900/30'
+              : 'bg-accent text-black hover:bg-white hover:text-black'
         }`}
       >
         {loading ? (
@@ -213,6 +211,9 @@ export function InitializeButton({ owner, name }: { owner: string; name: string 
       {/* Terminal Progress Overlay Modal */}
       {showProgress && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Initialization progress for ${owner}/${name}`}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-6"
           onClick={() => !loading && setShowProgress(false)}
         >

@@ -9,3 +9,11 @@ declare module 'next-auth' {
     } & DefaultSession['user'];
   }
 }
+
+declare module 'next-auth/jwt' {
+  interface JWT {
+    accessToken?: string;
+    githubId?: string | number;
+    userDbId?: string;
+  }
+}

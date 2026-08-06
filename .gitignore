@@ -44,9 +44,6 @@ next-env.d.ts
 src/app/mock/
 src/app/mock-*/
 
-# scripts
-src/scripts/
-
 # agent tooling artifacts
 .kilo/
 .playwright-mcp/

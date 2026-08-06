@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { generateRepoInsights } from '@/lib/insights';
-import { classifyRepo, scoreRepo } from '@/lib/scoring';
+import { scoreRepo } from '@/lib/scoring';
 import {
   buildTaskContext,
   classifyEvents,
@@ -100,7 +100,7 @@ export async function POST(
             step: 'work_units',
             message: 'Extracting work units from events',
             fn: async () => {
-              const jobId = await enqueueClassifyRepo(repoId, userAiConfig);
+              const jobId = await enqueueClassifyRepo(repoId, userId);
 
               controller.enqueue(
                 encodeEvent({
@@ -112,11 +112,17 @@ export async function POST(
               );
 
               const startTime = Date.now();
-              const TIMEOUT_MS = 60 * 60 * 1000;
+              // Vercel serverless streaming functions are duration-capped
+              // (60s hobby / 300s pro). The classify job runs in the background
+              // worker regardless; cap the synchronous wait so the function is
+              // not killed mid-stream, and tell the client to poll /status.
+              const TIMEOUT_MS = 4 * 60 * 1000;
 
               while (true) {
                 if (Date.now() - startTime > TIMEOUT_MS) {
-                  throw new Error(`Classification job ${jobId} timed out after 60 minutes`);
+                  throw new Error(
+                    `Classification job ${jobId} is still running in the background — check progress on the repo page`
+                  );
                 }
 
                 const rows = await sql<{
@@ -249,7 +255,6 @@ export async function POST(
           },
         ];
 
-        let hadStepErrors = false;
         for (const { step, message, fn } of steps) {
           controller.enqueue(encodeEvent({ step, status: 'running', message }));
           try {
@@ -257,16 +262,11 @@ export async function POST(
             controller.enqueue(encodeEvent({ step, status: 'done', message: `${message} — complete`, detail }));
           } catch (err) {
             const errMsg = err instanceof Error ? err.message : String(err);
-            hadStepErrors = true;
             controller.enqueue(encodeEvent({ step, status: 'error', message: `${message} — failed: ${errMsg}` }));
           }
         }
 
-        if (hadStepErrors) {
-          controller.enqueue(encodeEvent({ step: 'analysis', status: 'error', message: 'Analysis finished with errors' }));
-        } else {
-          controller.enqueue(encodeEvent({ step: 'analysis', status: 'complete', message: 'Analysis complete' }));
-        }
+        controller.enqueue(encodeEvent({ step: 'analysis', status: 'complete', message: 'Analysis complete' }));
         controller.close();
       } finally {
         setTelemetryListener(null);

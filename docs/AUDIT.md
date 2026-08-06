@@ -42,20 +42,24 @@ Introduced in commit `4825cb6`, present in ≥5 commits (`f38fede`, `13a5adb`, `
       `/github/{owner}/{name}` showcase page now only serve public (`installation_id IS NULL`) or
       explicitly shared (`share_enabled = true`) repos.
 - [x] `api/repos/public/route.ts` — `catch (error: any)` returns `error.message` to the client
-- [ ] `queue.ts` — user OpenRouter API key persisted in plaintext in the pg-boss job payload (DB at rest)
+- [x] `queue.ts` — user OpenRouter API key persisted in plaintext in the pg-boss job payload.
+      Payload now stores only `userId`; the worker resolves the config via `getUserAiConfig(userId)`
+      at run time (`worker.ts`), so the key is never written to the DB.
 
-> **DB migration required:** `npm run db:migrate` adds `repositories.added_by_user_id`. Public repos
-> added before this change have `added_by_user_id = NULL` and are no longer manageable/visible in the
-> dashboard — owners must re-add them (the add-public-repo flow adopts existing rows on re-add).
+> **DB migration:** `npm run db:migrate` now applies idempotent schema migrations (adds
+> `repositories.added_by_user_id`) without dropping data. Destructive wipe requires `--reset`.
+> Migrated successfully on 2026-08-07.
 
 ## 🟠 High — Cost / DoS vectors on unauthenticated pages
 
-- `getRepoAnalysisData()` generates **paid AI summaries server-side on every uncached view**
-  (`github/[owner]/[name]`, `shared/[token]`, `analysis.ts:300-309`)
-- `api/repos/[owner]/[name]/scores/route.ts` triggers `scoreRepo()` (full recompute) when scores are
-  missing — no auth, no rate limit
-- `analyse/route.ts` polls `job_progress` up to **60 min** in a streaming response — exceeds Vercel
-  serverless function duration limits
+- [x] `getRepoAnalysisData()` — `scoreRepo()` auto-compute on public page views removed. Only the
+      authenticated repo board computes scores (`{ computeScores: true }`); public showcase + share
+      pages read stored scores only. AI summaries were already cache-only (generateIfMissing=false).
+- [x] `api/repos/[owner]/[name]/scores/route.ts` — removed the unauthenticated `scoreRepo()` trigger;
+      returns stored scores only.
+- [x] `analyse/route.ts` — stream wait capped at 4 min (was 60 min) so the function is not killed by
+      Vercel's serverless duration limit; message tells the client the worker job continues in
+      background.
 
 ## 🟠 High — Logic bugs
 
@@ -78,33 +82,46 @@ Introduced in commit `4825cb6`, present in ≥5 commits (`f38fede`, `13a5adb`, `
 - [x] No `loading.tsx`/`error.tsx` — added root `src/app/loading.tsx` and `src/app/error.tsx`.
 - [x] Dead code: `mock/page.tsx`, `mock-dashboard/page.tsx` (+ empty `mock-leaderboard/`) deleted;
       `/mock/` removed from robots.ts.
-- `github/[owner]/[name]` fetches `getPublicRepository` twice (layout metadata + page)
-- `instrumentation.ts` runs `initSchema()` (~60 DDL + constraint swap) on every cold start
-- `pg-boss` not in `serverExternalPackages` but bundled into 2 API routes
-- `mv_contributor_leaderboard` is a plain table, not a materialized view
-- `auth.ts` session callback hits the DB on every request
-- No installation-token caching in `github-api.ts`
-- `scripts/real-run-react-live.ts` — `github_installation_id: 0` → unauthenticated backfill; global
-  `DELETE FROM classification_cache`
-- `test-e2e-react.ts` — no poll timeout; fake `github_id`s can clobber real users
-- Accessibility: no `role="dialog"`/focus-trap/Escape on modals; hamburger lacks `aria-expanded`
+- [x] `github/[owner]/[name]` fetches `getPublicRepository` twice (layout metadata + page) — deduped
+      with React `cache()` via `getPublicRepositoryCached` (`github-api.ts`)
+- [x] `instrumentation.ts` runs `initSchema()` on every cold start — now opt-in via
+      `ENABLE_STARTUP_SCHEMA_INIT=true`; schema changes are applied by `npm run db:migrate`
+- [x] `pg-boss` not in `serverExternalPackages` — added `pg-boss` + `pg` (`next.config.ts`)
+- `mv_contributor_leaderboard` is a plain table, not a materialized view — **by design**: it is a
+      cache table refreshed by `scoreRepo` (matviews can't use ON CONFLICT upserts)
+- [x] `auth.ts` session callback hits the DB on every request — app_users.id is now resolved once at
+      sign-in (`token.userDbId`); session callback reads it without a query (DB fallback for old tokens)
+- [x] No installation-token caching in `github-api.ts` — added a per-instance TTL cache (50 min)
+- [x] `scripts/real-run-react-live.ts` — `github_installation_id: 0` now reads
+      `GITHUB_INSTALLATION_ID`/`GITHUB_TOKEN`; global `DELETE FROM classification_cache` removed; poll
+      timeout added
+- [x] `test-e2e-react.ts` — no poll timeout (added 30 min); fake `github_id`s switched to
+      implausible values + `DO NOTHING` so real users aren't clobbered
+- [x] Accessibility: added `role="dialog"`/`aria-modal` to Analyse/Initialize/AddRepo/ShareLeaderboard
+      modals and `aria-expanded`/`aria-controls` to the mobile hamburger
 
 ## 🔵 Low / Missing features
 
-- No leaderboard pagination beyond "show more"; no collapse
-- Dashboard `getRepoInsights` per-repo N+1 (uncapped)
-- `src/scripts/migrate-db.ts` is a destructive drop-tables wipe labeled a "migration"
-- `.gitignore` declares `src/scripts/` ignored but files are tracked (dead rule)
-- `vercel.json` project name vs `.vercel/project.json` mismatch
-- `analyse/route.ts` runs `classifyEvents` **and** `enqueueClassifyRepo` in sequence (double work)
+- [x] No leaderboard pagination beyond "show more"; no collapse — added a "Show fewer" collapse toggle
+- [x] Dashboard `getRepoInsights` per-repo N+1 (uncapped) — replaced with a single batched
+      `getRepoInsightsBatch(repoIds)` query
+- [x] `src/scripts/migrate-db.ts` is a destructive drop-tables wipe labeled a "migration" — now
+      idempotent by default; destructive wipe requires `--reset`
+- [x] `.gitignore` declares `src/scripts/` ignored but files are tracked — removed the dead rule
+- [x] `vercel.json` project name vs `.vercel/project.json` mismatch — name now `repo-tracker` to match
+- `analyse/route.ts` runs `classifyEvents` **and** `enqueueClassifyRepo` in sequence — **investigated**:
+      these are distinct phases (per-event classification vs work-unit extraction), not duplicated work;
+      left as-is
 
 ## Priority order (status)
 
 1. ✅ Rotate leaked credentials + purge git history (CRITICAL)
 2. ✅ Ownership checks on `remove`, admin auth, and the `installation_id IS NULL` hole
 3. ✅ `insights.ts` inversion, hardcoded `scoreBreakdown`, Leaderboard ranks
-4. ⬜ Cost/rate-limit the unauthenticated AI-generation paths (`getRepoAnalysisData` on public pages,
-   `scores` route triggering `scoreRepo`, 60-min streaming wait in `analyse/route.ts`)
+4. ✅ Cost/rate-limit the unauthenticated AI-generation paths (public pages read-only, scores route
+   no recompute, analyse stream capped)
 5. ✅ Delete `mock` pages, add `loading.tsx`/`error.tsx`, fix contact form
 6. ✅ Fix lint errors
-7. ⬜ Default model switched to `nvidia/nemotron-3-super-120b-a12b:free` (server key) — done 2026-08-07
+7. ✅ Default model switched to `nvidia/nemotron-3-super-120b-a12b:free` (server key) — done 2026-08-07
+8. ✅ API key out of queue payload; scripts hardened; a11y; dashboard batching; deploy safe
+   (`npm run db:migrate`)

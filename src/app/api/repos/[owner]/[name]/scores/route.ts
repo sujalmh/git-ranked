@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { getRepoScoringConfig, scoreRepo } from '@/lib/scoring';
+import { getRepoScoringConfig } from '@/lib/scoring';
 import type { DimensionScores } from '@/lib/scoring';
 
 type ContributorSummary = {
@@ -31,31 +31,15 @@ export async function GET(
     const repoId = repoQuery[0].id;
     const config = await getRepoScoringConfig(repoId);
 
-    // Fetch stored dimension scores for repo
-    let scoreRows = await sql`
+    // Fetch stored dimension scores for repo. This endpoint is unauthenticated,
+    // so it must NOT trigger a recompute (scoreRepo is expensive) — it returns
+    // whatever has already been computed by the worker/analyse flow.
+    const scoreRows = await sql`
       SELECT contributor_id, decay_profile, impact, quality, collaboration, consistency, composite,
              window_start, window_end, scoring_config_version, computed_at
       FROM dimension_scores
       WHERE repo_id = ${repoId} AND scoring_config_version = ${config.version}
     `;
-
-    // If no scores computed yet, trigger scoreRepo
-    if (scoreRows.length === 0) {
-      const computed = await scoreRepo(repoId);
-      scoreRows = computed.map((s) => ({
-        contributor_id: s.contributor_id,
-        decay_profile: s.decay_profile,
-        impact: s.impact,
-        quality: s.quality,
-        collaboration: s.collaboration,
-        consistency: s.consistency,
-        composite: s.composite,
-        window_start: s.window_start,
-        window_end: s.window_end,
-        scoring_config_version: s.scoring_config_version,
-        computed_at: s.computed_at,
-      }));
-    }
 
     const contributorQuery = await sql`
       SELECT id, username, avatar_url FROM github_contributors

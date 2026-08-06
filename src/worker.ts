@@ -2,6 +2,13 @@ import 'dotenv/config';
 import { getBoss } from './lib/queue';
 import { classifyRepo } from './lib/scoring';
 import { sql } from './lib/db';
+import { getUserAiConfig } from './lib/ai/openrouter';
+import type { Job } from 'pg-boss';
+
+type ClassifyRepoData = {
+  repoId: number;
+  userId?: number | null;
+};
 
 async function main() {
   const boss = await getBoss();
@@ -9,17 +16,18 @@ async function main() {
 
   console.log(`[Worker] Starting pg-boss worker with teamConcurrency = ${teamConcurrency}...`);
 
-  await boss.work(
+  await boss.work<ClassifyRepoData>(
     'classify-repo',
     { localConcurrency: teamConcurrency },
-    async (jobOrJobs: any) => {
+    async (jobOrJobs: Job<ClassifyRepoData> | Job<ClassifyRepoData>[]) => {
       const jobs = Array.isArray(jobOrJobs) ? jobOrJobs : [jobOrJobs];
       for (const job of jobs) {
         const { id: jobId, data } = job;
         const repoId = Number(data.repoId);
-        const apiKey = typeof data?.apiKey === 'string' ? data.apiKey : undefined;
-        const model = typeof data?.model === 'string' ? data.model : undefined;
-        const aiOptions = { apiKey, model };
+        // Resolve the user's AI config from the DB at run time so the API key is
+        // never stored in the job payload (it is read here, not persisted).
+        const userId = typeof data?.userId === 'number' ? data.userId : undefined;
+        const aiOptions = userId !== undefined ? await getUserAiConfig(userId) : undefined;
 
         console.log(`[Worker] Processing job ${jobId} for repo ${repoId}`);
 

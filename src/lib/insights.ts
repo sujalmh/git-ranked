@@ -215,6 +215,32 @@ export async function generateRepoInsights(repoId: number) {
 const HEALTH_STALE_MS = 6 * 60 * 60 * 1000;
 const HEALTH_METRICS_PROMPT_VERSION = '2.2.0';
 
+/**
+ * Batch-read cached health metrics for many repos in a single query so the
+ * dashboard doesn't run one query per repo (N+1). Returns a Map repoId -> metrics
+ * for repos that have a valid, non-stale cache entry.
+ */
+export async function getRepoInsightsBatch(repoIds: number[]): Promise<Map<number, HealthMetrics>> {
+  const result = new Map<number, HealthMetrics>();
+  if (repoIds.length === 0) return result;
+
+  const rows = await sql`
+    SELECT repo_id, payload, generated_at, prompt_version
+    FROM insight_caches
+    WHERE contributor_id IS NULL
+      AND insight_type = 'health_metrics'
+      AND repo_id = ANY(${repoIds}::integer[])
+  `;
+
+  const cutoff = new Date(Date.now() - HEALTH_STALE_MS).getTime();
+  for (const row of rows) {
+    if (row.prompt_version !== HEALTH_METRICS_PROMPT_VERSION) continue;
+    if (new Date(row.generated_at).getTime() < cutoff) continue;
+    result.set(row.repo_id as number, row.payload as HealthMetrics);
+  }
+  return result;
+}
+
 export async function getRepoInsights(repoId: number, generateIfMissing: boolean = false): Promise<HealthMetrics | null> {
   const cache = await sql`
     SELECT payload, generated_at, prompt_version

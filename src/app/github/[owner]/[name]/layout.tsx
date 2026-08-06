@@ -1,6 +1,5 @@
 import { Metadata } from 'next';
-import { getPublicRepository } from '@/lib/github-api';
-import { notFound } from 'next/navigation';
+import { getPublicRepositoryCached } from '@/lib/github-api';
 
 export async function generateMetadata(
   props: { params: Promise<{ owner: string; name: string }> }
@@ -8,7 +7,7 @@ export async function generateMetadata(
   const params = await props.params;
   const { owner, name } = params;
   
-  const repo = await getPublicRepository(owner, name);
+  const repo = await getPublicRepositoryCached(owner, name);
   if (!repo) {
     return {
       title: 'Repository Not Found | GitRanked',

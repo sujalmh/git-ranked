@@ -1,6 +1,5 @@
 import { PgBoss } from 'pg-boss';
 import { sql } from './db';
-import type { AiCallOptions } from './ai/openrouter';
 
 let bossInstance: PgBoss | null = null;
 let bossInitPromise: Promise<PgBoss> | null = null;
@@ -48,15 +47,16 @@ export async function getBoss(): Promise<PgBoss> {
 
 export async function enqueueClassifyRepo(
   repoId: number,
-  aiOptions?: AiCallOptions
+  userId?: number
 ): Promise<string> {
   const boss = await getBoss();
   const singletonKey = `classify-repo-${repoId}`;
 
+  // Never persist the user's OpenRouter API key in the pg-boss payload (DB at
+  // rest). The worker resolves the user's AI config from app_users at run time.
   const payload = {
     repoId,
-    apiKey: aiOptions?.apiKey,
-    model: aiOptions?.model,
+    userId: typeof userId === 'number' && Number.isInteger(userId) ? userId : null,
   };
 
   const jobId = await boss.send('classify-repo', payload, {

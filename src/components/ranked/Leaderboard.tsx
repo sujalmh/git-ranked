@@ -11,6 +11,7 @@ import {
   Minus,
   Search,
   ChevronDown,
+  ChevronUp,
   Sparkles,
 } from 'lucide-react';
 import type { ContributorInsight } from '@/lib/contributor-insights';
@@ -465,6 +466,16 @@ export function Leaderboard({
             >
               <ChevronDown className="w-3.5 h-3.5" />
               Show {hiddenCount} more
+            </button>
+          )}
+          {expanded && filteredSorted.length > INITIAL_ROWS && (
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white border border-white/5 rounded-none py-2 hover:bg-white/5 transition-colors"
+            >
+              <ChevronUp className="w-3.5 h-3.5" />
+              Show fewer
             </button>
           )}
         </div>

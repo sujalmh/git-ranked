@@ -38,8 +38,8 @@ export function NavbarClient({ user, githubAppSlug, signOutAction, signInAction 
               href="/showcase"
               className={`transition-colors ${
                 isShowcaseActive
-                  ? 'text-[#ccff00] font-black'
-                  : 'text-zinc-300 hover:text-[#ccff00]'
+                  ? 'text-accent font-black'
+                  : 'text-zinc-300 hover:text-accent'
               }`}
             >
               SHOWCASE
@@ -54,7 +54,7 @@ export function NavbarClient({ user, githubAppSlug, signOutAction, signInAction 
               <Link href="/dashboard" className="px-5 py-2 accent-panel text-sm">
                 DASHBOARD
               </Link>
-              <Link href="/settings" className="text-sm font-bold tracking-wider hover:text-[#ccff00] transition-colors uppercase text-zinc-300">
+              <Link href="/settings" className="text-sm font-bold tracking-wider hover:text-accent transition-colors uppercase text-zinc-300">
                 SETTINGS
               </Link>
               <div className="h-6 w-px bg-white/20" />
@@ -85,7 +85,7 @@ export function NavbarClient({ user, githubAppSlug, signOutAction, signInAction 
           ) : (
             <div className="flex items-center gap-6">
               <form action={signInAction}>
-                <button type="submit" className="text-sm font-bold tracking-wider hover:text-[#ccff00] transition-colors uppercase cursor-pointer">
+                <button type="submit" className="text-sm font-bold tracking-wider hover:text-accent transition-colors uppercase cursor-pointer">
                   Log In
                 </button>
               </form>
@@ -105,8 +105,10 @@ export function NavbarClient({ user, githubAppSlug, signOutAction, signInAction 
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-white hover:text-[#ccff00] focus:outline-none transition-colors"
+            className="p-2 text-white hover:text-accent focus:outline-none transition-colors"
             aria-label="Toggle Menu"
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-menu"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -115,14 +117,14 @@ export function NavbarClient({ user, githubAppSlug, signOutAction, signInAction 
 
       {/* Mobile Drawer Navigation */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-white/10 bg-black/95 backdrop-blur-md px-4 py-6 space-y-4">
+        <div id="mobile-menu" className="md:hidden border-t border-white/10 bg-black/95 backdrop-blur-md px-4 py-6 space-y-4">
           <Link
             href="/showcase"
             onClick={() => setMobileMenuOpen(false)}
             className={`block w-full py-3 border text-center text-sm font-bold tracking-wider uppercase transition-colors ${
               isShowcaseActive
-                ? 'bg-[#ccff00]/10 border-[#ccff00]/50 text-[#ccff00]'
-                : 'bg-zinc-900 border-zinc-700 text-zinc-200 hover:text-[#ccff00]'
+                ? 'bg-accent/10 border-accent/50 text-accent'
+                : 'bg-zinc-900 border-zinc-700 text-zinc-200 hover:text-accent'
             }`}
           >
             SHOWCASE
@@ -160,7 +162,7 @@ export function NavbarClient({ user, githubAppSlug, signOutAction, signInAction 
               <Link
                 href="/settings"
                 onClick={() => setMobileMenuOpen(false)}
-                className="w-full py-3 bg-zinc-900 border border-zinc-700 text-center text-sm font-bold tracking-wider hover:text-[#ccff00] uppercase text-zinc-200"
+                className="w-full py-3 bg-zinc-900 border border-zinc-700 text-center text-sm font-bold tracking-wider hover:text-accent uppercase text-zinc-200"
               >
                 SETTINGS
               </Link>
@@ -179,7 +181,7 @@ export function NavbarClient({ user, githubAppSlug, signOutAction, signInAction 
               <form action={signInAction} className="w-full">
                 <button
                   type="submit"
-                  className="w-full py-3 bg-zinc-900 border border-zinc-700 text-center text-sm font-bold tracking-wider text-white hover:text-[#ccff00] uppercase cursor-pointer"
+                  className="w-full py-3 bg-zinc-900 border border-zinc-700 text-center text-sm font-bold tracking-wider text-white hover:text-accent uppercase cursor-pointer"
                 >
                   Log In
                 </button>

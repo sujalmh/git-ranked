@@ -1,8 +1,13 @@
 export async function register() {
-  // Run database migrations on server startup so every Vercel deploy
-  // auto-applies schema changes without a manual `init-db` run.
-  // This is idempotent (uses IF NOT EXISTS / guarded constraint swaps).
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
+  // Database schema changes are applied explicitly via `npm run db:migrate`.
+  // Running initSchema() (60+ DDL statements + a constraint swap) on every
+  // serverless cold start slows cold boots and risks ACCESS EXCLUSIVE lock
+  // contention under concurrent cold starts. Opt-in via env var if you want a
+  // deploy to auto-verify the schema.
+  if (
+    process.env.NEXT_RUNTIME === 'nodejs' &&
+    process.env.ENABLE_STARTUP_SCHEMA_INIT === 'true'
+  ) {
     try {
       const { initSchema } = await import('./src/lib/db');
       await initSchema();

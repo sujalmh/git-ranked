@@ -25,19 +25,25 @@ async function main() {
     console.log(`Created repository ID: ${repoId} (facebook/react)`);
   }
 
-  // 2. Ensure test contributors exist
-  const contrib1 = await sql`
+  // 2. Ensure test contributors exist. Use implausibly high fake github_ids so
+  // we never clobber a real early-GitHub user (ids ~10000+ are real accounts),
+  // and DO NOTHING on conflict so an existing row's username is preserved.
+  const FAKE_GITHUB_ID_A = 9_000_000_001;
+  const FAKE_GITHUB_ID_B = 9_000_000_002;
+
+  await sql`
     INSERT INTO github_contributors (github_id, username)
-    VALUES (10001, 'gaearon')
-    ON CONFLICT (github_id) DO UPDATE SET username = EXCLUDED.username
-    RETURNING id
+    VALUES (${FAKE_GITHUB_ID_A}, 'gaearon')
+    ON CONFLICT (github_id) DO NOTHING
   `;
-  const contrib2 = await sql`
+  await sql`
     INSERT INTO github_contributors (github_id, username)
-    VALUES (10002, 'acdlite')
-    ON CONFLICT (github_id) DO UPDATE SET username = EXCLUDED.username
-    RETURNING id
+    VALUES (${FAKE_GITHUB_ID_B}, 'acdlite')
+    ON CONFLICT (github_id) DO NOTHING
   `;
+
+  const contrib1 = await sql`SELECT id FROM github_contributors WHERE github_id = ${FAKE_GITHUB_ID_A}`;
+  const contrib2 = await sql`SELECT id FROM github_contributors WHERE github_id = ${FAKE_GITHUB_ID_B}`;
 
   const gaearonId = contrib1[0].id;
   const acdliteId = contrib2[0].id;
@@ -133,8 +139,13 @@ async function main() {
   let total = 0;
   let resultUnits = 0;
   let error: string | null = null;
+  const JOB_POLL_TIMEOUT_MS = 30 * 60 * 1000;
 
   while (true) {
+    if (Date.now() - startTime > JOB_POLL_TIMEOUT_MS) {
+      throw new Error(`Worker job ${jobId} did not finish within 30 minutes`);
+    }
+
     const progress = await sql`
       SELECT status, done, total, result_units, error, updated_at
       FROM job_progress

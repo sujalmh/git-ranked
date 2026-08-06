@@ -2,12 +2,13 @@ import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
+import Image from 'next/image';
 import { GitBranch, ArrowRight, LayoutDashboard, Settings } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { RemoveRepoButton } from '@/components/RemoveRepoButton';
 import { AddRepoModal } from '@/components/AddRepoModal';
 
-import { getRepoInsights, HealthMetrics } from '@/lib/insights';
+import { getRepoInsightsBatch, HealthMetrics } from '@/lib/insights';
 
 type DashboardRepo = {
   id: number;
@@ -48,15 +49,20 @@ export default async function Dashboard() {
       ORDER BY r.added_at DESC
     `) as DashboardRepo[];
     
-    // Fetch insights in parallel for repos that have activity
-    await Promise.all(repos.map(async (repo) => {
-      if (repo.event_count === 0) return;
+    // Fetch cached health metrics for all repos in a single batched query
+    // (avoid N+1 queries per repo).
+    const repoIdsWithActivity = repos.filter((r) => r.event_count > 0).map((r) => r.id);
+    if (repoIdsWithActivity.length > 0) {
       try {
-        repo.healthMetrics = await getRepoInsights(repo.id, false);
+        const batch = await getRepoInsightsBatch(repoIdsWithActivity);
+        for (const repo of repos) {
+          const metrics = batch.get(repo.id);
+          if (metrics) repo.healthMetrics = metrics;
+        }
       } catch (err) {
-        console.error(`Failed to fetch insights for repo ${repo.id}`, err);
+        console.error('Failed to fetch insights for repos:', err);
       }
-    }));
+    }
   } catch (error) {
     console.error('Failed to fetch repos:', error);
   }
@@ -136,9 +142,11 @@ export default async function Dashboard() {
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-white/5 border border-white/20 group-hover:bg-black group-hover:border-black transition-colors shrink-0 flex items-center justify-center overflow-hidden">
-                      <img
+                      <Image
                         src={`https://github.com/${repo.owner}.png`}
                         alt={repo.owner}
+                        width={40}
+                        height={40}
                         className="w-full h-full object-cover"
                       />
                     </div>

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getUserAiConfig } from '@/lib/ai/openrouter';
 import { enqueueClassifyRepo } from '@/lib/queue';
 import { getUserRepoId } from '@/lib/repo-access';
 
@@ -22,10 +21,9 @@ export async function POST(
   }
 
   const userId = Number(session.user.id);
-  const userAiConfig = await getUserAiConfig(userId);
 
   try {
-    const jobId = await enqueueClassifyRepo(repoId, userAiConfig);
+    const jobId = await enqueueClassifyRepo(repoId, userId);
     return NextResponse.json({ jobId, repoId });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);

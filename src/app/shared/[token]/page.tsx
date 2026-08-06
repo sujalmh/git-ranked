@@ -22,7 +22,7 @@ export default async function SharedRepoAnalysis(
             <p className="text-sm text-zinc-400 mb-5 max-w-md mx-auto">
               This share link is no longer valid. The repository owner may have revoked it.
             </p>
-            <Link href="/" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 transition-colors font-semibold text-sm">
+            <Link href="/" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-black hover:bg-white transition-colors font-semibold text-sm">
               <ArrowLeft className="w-4 h-4" /> Go home
             </Link>
           </div>
@@ -33,7 +33,7 @@ export default async function SharedRepoAnalysis(
 
   const repoId = repo.id;
   await fetchRepoEvents(repoId);
-  const data = await getRepoAnalysisData(repoId);
+  const data = await getRepoAnalysisData(repoId, { computeScores: false });
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
   const canonicalUrl = `${appUrl}/repos/${repo.owner}/${repo.name}`;

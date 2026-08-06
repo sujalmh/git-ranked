@@ -202,6 +202,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       } else if (user?.id) {
         token.githubId = user.id;
       }
+
+      // Resolve the internal app_users.id ONCE at sign-in (user is only present
+      // on the initial sign-in callback, not on every request) so the session
+      // callback below does not query the DB on every request.
+      if (user && token.githubId && !token.userDbId) {
+        try {
+          const githubId = Number(token.githubId);
+          if (!isNaN(githubId)) {
+            const dbUser = await sql`
+              SELECT id FROM app_users WHERE github_id = ${githubId}
+            `;
+            if (dbUser.length > 0) {
+              token.userDbId = dbUser[0].id.toString();
+            }
+          }
+        } catch (e) {
+          console.error('Error resolving user id at sign-in:', e);
+        }
+      }
       return token;
     },
 
@@ -209,6 +228,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token.accessToken) {
         session.accessToken = token.accessToken as string;
       }
+
+      if (typeof token.userDbId === 'string') {
+        session.user.id = token.userDbId;
+        if (token.githubId) {
+          const gid = Number(token.githubId);
+          if (!isNaN(gid)) session.user.githubId = gid;
+        }
+        return session;
+      }
+
+      // Fallback for tokens minted before userDbId existed: resolve via DB.
       const rawId = token.githubId ?? token.sub;
       if (rawId) {
         try {

@@ -1,5 +1,6 @@
 import { sql } from './db';
 import { type ClassificationMap } from './scoring';
+import type { DimensionScores } from './scoring/types';
 import { getRepoInsights } from './insights';
 import { runTaskById, getCachedContributorResults } from './ai';
 import type { AiResult, ContributorProfile, ImpactAnalysis, RepositorySummary, TeamInsights, ClassificationItem } from './ai/types';
@@ -53,6 +54,13 @@ export type RepoAnalysisData = {
   contributorAiMap: Map<number, ContributorAiData>;
   reviewGraph: Array<{ reviewerId: number; reviewer: string; authorId: number; author: string; count: number }>;
 };
+
+export function getAnalysisPeriod(days = 30) {
+  const dateTo = new Date().toISOString().split('T')[0];
+  const dateFrom = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const periodText = `${new Date(dateFrom).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(dateTo).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  return { dateTo, dateFrom, periodText };
+}
 
 export function parseDiffFacts(raw: unknown): { directories?: string[] } | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
@@ -242,11 +250,17 @@ export async function fetchRepoEvents(repoId: number): Promise<RepoEventRow[]> {
   `) as RepoEventRow[];
 }
 
-export async function getRepoAnalysisData(repoId: number): Promise<RepoAnalysisData> {
+export async function getRepoAnalysisData(
+  repoId: number,
+  opts?: { computeScores?: boolean }
+): Promise<RepoAnalysisData> {
+  const computeScores = opts?.computeScores !== false;
   const eventsQuery = await fetchRepoEvents(repoId);
   const { contributors: rawContributors, highlights, activityFeed, reviewGraph } = buildContributorInsights(eventsQuery);
 
-  // Fetch v3 dimension scores
+  // Fetch v3 dimension scores. Only the authenticated repo board should trigger
+  // a recompute when scores are missing; public/shared pages (SEO + share links)
+  // must not pay that cost, so they just read whatever is already stored.
   let dimensionRows = await sql`
     SELECT contributor_id, decay_profile, impact, quality, collaboration, consistency, composite,
            window_start, window_end, scoring_config_version, computed_at
@@ -254,18 +268,18 @@ export async function getRepoAnalysisData(repoId: number): Promise<RepoAnalysisD
     WHERE repo_id = ${repoId}
   `;
 
-  if (dimensionRows.length === 0) {
+  if (dimensionRows.length === 0 && computeScores) {
     const { scoreRepo } = await import('./scoring');
     const computed = await scoreRepo(repoId);
     dimensionRows = computed as unknown as typeof dimensionRows;
   }
 
-  const dimMap = new Map<number, { current?: any; all_time?: any }>();
+  const dimMap = new Map<number, { current?: DimensionScores; all_time?: DimensionScores }>();
   for (const row of dimensionRows) {
     const cid = row.contributor_id as number;
     const existing = dimMap.get(cid) ?? {};
-    if (row.decay_profile === 'current') existing.current = row;
-    else existing.all_time = row;
+    if (row.decay_profile === 'current') existing.current = row as DimensionScores;
+    else existing.all_time = row as DimensionScores;
     dimMap.set(cid, existing);
   }
 

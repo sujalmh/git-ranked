@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { cache } from 'react';
 import githubAppJwt from 'universal-github-app-jwt';
 import { isBotUsername } from './contributor-insights';
 import { emitTelemetry } from './ai/openrouter';
@@ -92,7 +93,18 @@ export function getGitHubAppConfig() {
   return { appId, privateKey };
 }
 
+// Installation access tokens are valid for 1 hour. Cache them (per instance)
+// so backfills that make many requests don't mint a fresh JWT + token per call.
+const INSTALLATION_TOKEN_TTL_MS = 50 * 60 * 1000;
+const installationTokenCache = new Map<string, { token: string; expiresAt: number }>();
+
 export async function getInstallationAccessToken(installationId: number | string) {
+  const cacheKey = String(installationId);
+  const cached = installationTokenCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.token;
+  }
+
   const config = getGitHubAppConfig();
   if (!config) return null;
 
@@ -119,6 +131,7 @@ export async function getInstallationAccessToken(installationId: number | string
   }
 
   const data = (await response.json()) as { token: string };
+  installationTokenCache.set(cacheKey, { token: data.token, expiresAt: Date.now() + INSTALLATION_TOKEN_TTL_MS });
   return data.token;
 }
 
@@ -320,6 +333,7 @@ export type PublicGitHubRepo = {
   id: number;
   name: string;
   full_name: string;
+  default_branch: string;
   owner: {
     login: string;
     avatar_url: string;
@@ -365,3 +379,7 @@ export async function getPublicRepository(owner: string, name: string): Promise<
     return null;
   }
 }
+
+// Dedupe within a single render so generateMetadata (layout) and the page body
+// share one GitHub API call per request instead of two.
+export const getPublicRepositoryCached = cache(getPublicRepository);

@@ -122,12 +122,17 @@ export function ShareLeaderboardButton({
         data-no-capture="true"
         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-sm font-semibold text-white transition-all shadow-sm shrink-0 cursor-pointer"
       >
-        <Share2 className="w-4 h-4 text-[#ccff00]" />
+        <Share2 className="w-4 h-4 text-accent" />
         <span>Share Leaderboard</span>
       </button>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Share leaderboard"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+        >
           <div
             ref={modalRef}
             className="w-full max-w-4xl max-h-[90vh] flex flex-col bg-black border border-white p-6 shadow-[6px_6px_0_0_#fff]"
@@ -175,7 +180,7 @@ export function ShareLeaderboardButton({
 
               <button
                 onClick={handleDownload}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#ccff00] hover:bg-white text-black font-extrabold text-base transition-colors cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent hover:bg-white text-black font-extrabold text-base transition-colors cursor-pointer"
               >
                 <Download className="w-5 h-5" />
                 <span>Download Image</span>

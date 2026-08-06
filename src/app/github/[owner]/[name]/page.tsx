@@ -1,9 +1,9 @@
 import { sql } from '@/lib/db';
-import { getPublicRepository } from '@/lib/github-api';
+import { getPublicRepositoryCached } from '@/lib/github-api';
 import { notFound } from 'next/navigation';
+import Image from 'next/image';
 import { Navbar } from '@/components/Navbar';
 import { GitBranch, Star, GitFork, AlertCircle, ArrowRight, Brain, Code, Calendar } from 'lucide-react';
-import Link from 'next/link';
 import { fetchRepoEvents, getRepoAnalysisData, getAnalysisPeriod } from '@/lib/analysis';
 import { RepoAnalysisView } from '@/components/RepoAnalysisView';
 import { ShareButton } from '@/components/ShareButton';
@@ -15,8 +15,9 @@ export default async function PublicRepoPage(
   const params = await props.params;
   const { owner, name } = params;
 
-  // 1. Fetch public info to verify it exists and is public
-  const githubRepo = await getPublicRepository(owner, name);
+  // 1. Fetch public info to verify it exists and is public (deduped with the
+  // layout's generateMetadata via React cache).
+  const githubRepo = await getPublicRepositoryCached(owner, name);
   if (!githubRepo) {
     notFound();
   }
@@ -41,7 +42,7 @@ export default async function PublicRepoPage(
     hasEvents = eventsQuery.length > 0;
     
     if (hasEvents) {
-      analysisData = await getRepoAnalysisData(repoId);
+      analysisData = await getRepoAnalysisData(repoId, { computeScores: false });
     }
   }
 
@@ -124,7 +125,7 @@ export default async function PublicRepoPage(
           <div className="absolute top-0 right-0 w-64 h-64 bg-accent opacity-5 blur-[100px] rounded-full pointer-events-none" />
           
           <div className="flex items-center gap-3 mb-6 relative z-10">
-            <img src={githubRepo.owner.avatar_url} alt={githubRepo.owner.login} className="w-12 h-12 rounded-lg border border-white/10" />
+            <Image src={githubRepo.owner.avatar_url} alt={githubRepo.owner.login} width={48} height={48} className="w-12 h-12 rounded-lg border border-white/10" />
             <div>
               <h1 className="text-3xl font-black uppercase tracking-tighter">{githubRepo.full_name}</h1>
               <div className="text-zinc-500 font-medium text-sm flex items-center gap-4 mt-1">

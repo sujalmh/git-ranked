@@ -5,9 +5,7 @@ import {
   Plus,
   X,
   Lock,
-  Globe,
   ShieldCheck,
-  Sparkles,
   ExternalLink,
   GitBranch,
 } from 'lucide-react';
@@ -40,7 +38,7 @@ export function AddRepoModal({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="px-5 py-2.5 bg-[#ccff00] hover:bg-[#b8e600] text-black font-black text-xs uppercase tracking-wider rounded-xl flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(204,255,0,0.15)]"
+        className="px-5 py-2.5 bg-accent hover:bg-[#b8e600] text-black font-black text-xs uppercase tracking-wider rounded-xl flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(204,255,0,0.15)]"
       >
         <Plus className="w-4 h-4 stroke-[3]" />
         <span>Add Repository</span>
@@ -49,6 +47,9 @@ export function AddRepoModal({
       {/* Modal Overlay */}
       {isOpen && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add repository"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-6 overflow-y-auto"
           onClick={() => setIsOpen(false)}
         >
@@ -59,7 +60,7 @@ export function AddRepoModal({
             {/* Modal Top Header */}
             <div className="p-5 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-[#ccff00]/10 border border-[#ccff00]/30 text-[#ccff00]">
+                <div className="p-2 rounded-xl bg-accent/10 border border-accent/30 text-accent">
                   <GitBranch className="w-5 h-5" />
                 </div>
                 <div>
@@ -130,7 +131,7 @@ export function AddRepoModal({
                   href={installUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full sm:w-auto py-3 px-5 rounded-xl bg-[#ccff00] hover:bg-[#b8e600] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(204,255,0,0.15)] shrink-0 cursor-pointer text-center"
+                  className="w-full sm:w-auto py-3 px-5 rounded-xl bg-accent hover:bg-[#b8e600] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(204,255,0,0.15)] shrink-0 cursor-pointer text-center"
                 >
                   <GithubIcon className="w-4 h-4 fill-current" />
                   <span>Connect Private Repositories</span>
