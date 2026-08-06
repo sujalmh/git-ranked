@@ -1,9 +1,8 @@
 import { sql } from '../db';
-import { emitTelemetry, type ApiTelemetryEvent } from './telemetry';
+import { emitTelemetry } from './telemetry';
 export { DEFAULT_AI_MODEL, RECOMMENDED_AI_MODELS } from './models';
 export { emitTelemetry, setTelemetryListener, type ApiTelemetryEvent, type TelemetryListener } from './telemetry';
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const APP_REFERER = process.env.OPENROUTER_REFERER || 'https://gitranked.dev';
 const APP_TITLE = process.env.OPENROUTER_TITLE || 'GitRanked';
@@ -41,7 +40,7 @@ export async function getAiModel(): Promise<string> {
   } catch {
     // fallback if table does not exist yet
   }
-  const fallback = process.env.OPENROUTER_MODEL || 'tencent/hy3:free';
+  const fallback = process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-super-120b-a12b:free';
   cachedModel = { model: fallback, fetchedAt: now };
   return fallback;
 }
@@ -62,7 +61,7 @@ export async function setAiModel(model: string): Promise<string> {
 }
 
 // Backward compatibility export
-export const AI_MODEL = process.env.OPENROUTER_MODEL || 'tencent/hy3:free';
+export const AI_MODEL = process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-super-120b-a12b:free';
 
 type OpenRouterResponse = {
   choices?: Array<{

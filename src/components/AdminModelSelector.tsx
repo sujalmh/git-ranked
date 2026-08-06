@@ -5,11 +5,24 @@ import { Cpu, CheckCircle2, Loader2, Sparkles, Server } from 'lucide-react';
 import { RECOMMENDED_AI_MODELS } from '@/lib/ai/models';
 
 export function AdminModelSelector({ initialModel }: { initialModel?: string }) {
-  const [currentModel, setCurrentModel] = useState<string>(initialModel || 'tencent/hy3:free');
+  const [currentModel, setCurrentModel] = useState<string>(initialModel || 'nvidia/nemotron-3-super-120b-a12b:free');
   const [customModel, setCustomModel] = useState<string>('');
   const [isCustomMode, setIsCustomMode] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Keep custom mode in sync with the currently selected model.
+  const [prevModel, setPrevModel] = useState(currentModel);
+  if (prevModel !== currentModel) {
+    setPrevModel(currentModel);
+    const isPreset = RECOMMENDED_AI_MODELS.some((m) => m.id === currentModel);
+    if (!isPreset && currentModel) {
+      setIsCustomMode(true);
+      setCustomModel(currentModel);
+    } else {
+      setIsCustomMode(false);
+    }
+  }
 
   useEffect(() => {
     if (!initialModel) {
@@ -23,17 +36,6 @@ export function AdminModelSelector({ initialModel }: { initialModel?: string }) 
         .catch(() => {});
     }
   }, [initialModel]);
-
-  useEffect(() => {
-    // If initial model isn't in recommended list, turn on custom mode
-    const isPreset = RECOMMENDED_AI_MODELS.some((m) => m.id === currentModel);
-    if (!isPreset && currentModel) {
-      setIsCustomMode(true);
-      setCustomModel(currentModel);
-    } else {
-      setIsCustomMode(false);
-    }
-  }, [currentModel]);
 
   const handleSaveModel = async (modelToSave: string) => {
     if (!modelToSave.trim()) return;
@@ -76,12 +78,10 @@ export function AdminModelSelector({ initialModel }: { initialModel?: string }) 
     }
   };
 
-  const activePreset = RECOMMENDED_AI_MODELS.find((m) => m.id === currentModel);
-
   return (
     <div className="p-8 rounded-2xl bg-zinc-950 border border-zinc-900 shadow-2xl relative overflow-hidden">
       {/* Glow highlight */}
-      <div className="absolute -top-24 -right-24 w-60 h-60 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -top-24 -right-24 w-60 h-60 bg-accent text-black/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="flex items-center justify-between gap-4 mb-3">
         <div className="flex items-center gap-3">
@@ -114,7 +114,7 @@ export function AdminModelSelector({ initialModel }: { initialModel?: string }) 
               value={isCustomMode ? 'CUSTOM' : currentModel}
               disabled={loading}
               onChange={handlePresetSelect}
-              className="w-full bg-zinc-900/90 text-zinc-100 text-sm font-medium border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 appearance-none cursor-pointer transition-all pr-10"
+              className="w-full bg-zinc-900/90 text-zinc-100 text-sm font-medium border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent appearance-none cursor-pointer transition-all pr-10"
             >
               {RECOMMENDED_AI_MODELS.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -149,13 +149,13 @@ export function AdminModelSelector({ initialModel }: { initialModel?: string }) 
                 value={customModel}
                 onChange={(e) => setCustomModel(e.target.value)}
                 placeholder="e.g. anthropic/claude-3.5-sonnet or meta-llama/llama-3.1-405b-instruct"
-                className="flex-1 bg-black text-zinc-100 text-sm font-mono border border-zinc-800 rounded-lg px-3.5 py-2 focus:outline-none focus:border-indigo-500"
+                className="flex-1 bg-black text-zinc-100 text-sm font-mono border border-zinc-800 rounded-lg px-3.5 py-2 focus:outline-none focus:border-accent"
               />
               <button
                 type="button"
                 onClick={() => handleSaveModel(customModel)}
                 disabled={loading || !customModel.trim()}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors inline-flex items-center gap-1.5 shrink-0"
+                className="px-4 py-2 bg-accent text-black hover:bg-white disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors inline-flex items-center gap-1.5 shrink-0"
               >
                 {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 Save Custom Model
@@ -183,7 +183,7 @@ export function AdminModelSelector({ initialModel }: { initialModel?: string }) 
                   }}
                   className={`text-xs px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
                     isActive
-                      ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-200 font-semibold'
+                      ? 'bg-accent/20 border-accent/50 text-accent font-semibold'
                       : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
                   }`}
                 >

@@ -28,40 +28,46 @@ export function UserAiSettings() {
   const [selectedModel, setSelectedModel] = useState('');
   const [customModelInput, setCustomModelInput] = useState('');
   const [isCustomMode, setIsCustomMode] = useState(false);
-  const [defaultModel, setDefaultModel] = useState('tencent/hy3:free');
+  const [defaultModel, setDefaultModel] = useState('nvidia/nemotron-3-super-120b-a12b:free');
   const [presets, setPresets] = useState<PresetModel[]>([]);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
-    fetchSettings();
+    let cancelled = false;
+
+    fetch('/api/user/ai-settings')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch user AI settings');
+        return res.json() as Promise<UserAiSettingsData>;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setUseCustomKey(data.useCustomKey);
+        setHasCustomKeySet(data.hasCustomKeySet);
+        setApiKeyInput(data.apiKeyMasked);
+        setSelectedModel(data.aiModel);
+        setDefaultModel(data.defaultModel);
+        if (data.presets) setPresets(data.presets);
+
+        const isPreset = data.presets?.some((p) => p.id === data.aiModel);
+        if (!isPreset && data.aiModel) {
+          setIsCustomMode(true);
+          setCustomModelInput(data.aiModel);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(err);
+        setStatusMessage({ text: 'Failed to load AI settings', type: 'error' });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
-
-  const fetchSettings = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch('/api/user/ai-settings');
-      if (!res.ok) throw new Error('Failed to fetch user AI settings');
-      const data: UserAiSettingsData = await res.json();
-
-      setUseCustomKey(data.useCustomKey);
-      setHasCustomKeySet(data.hasCustomKeySet);
-      setApiKeyInput(data.apiKeyMasked);
-      setSelectedModel(data.aiModel);
-      setDefaultModel(data.defaultModel);
-      if (data.presets) setPresets(data.presets);
-
-      const isPreset = data.presets?.some((p) => p.id === data.aiModel);
-      if (!isPreset && data.aiModel) {
-        setIsCustomMode(true);
-        setCustomModelInput(data.aiModel);
-      }
-    } catch (err) {
-      console.error(err);
-      setStatusMessage({ text: 'Failed to load AI settings', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const isApiKeySet = useCustomKey && (hasCustomKeySet || apiKeyInput.trim().length > 0);
 
@@ -107,7 +113,7 @@ export function UserAiSettings() {
   if (loading) {
     return (
       <div className="p-8 brutal-card flex items-center justify-center min-h-[300px]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#ccff00]" />
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
       </div>
     );
   }
@@ -118,7 +124,7 @@ export function UserAiSettings() {
       <div className="flex items-center justify-between border-b border-zinc-800 pb-5">
         <div>
           <div className="flex items-center gap-3">
-            <Sparkles className="w-6 h-6 text-[#ccff00]" />
+            <Sparkles className="w-6 h-6 text-accent" />
             <h2 className="text-xl font-bold tracking-tight uppercase">AI Key & Model Configuration</h2>
           </div>
           <p className="text-sm text-zinc-400 mt-1">
@@ -148,7 +154,7 @@ export function UserAiSettings() {
       <div className="p-4 sm:p-6 border border-zinc-800 bg-zinc-950 flex items-center justify-between gap-4">
         <div className="space-y-1">
           <label className="text-base font-bold text-white uppercase flex items-center gap-2">
-            <Key className="w-4 h-4 text-[#ccff00]" />
+            <Key className="w-4 h-4 text-accent" />
             Use Personal OpenRouter API Key
           </label>
           <p className="text-xs text-zinc-400">
@@ -161,7 +167,7 @@ export function UserAiSettings() {
           type="button"
           onClick={() => setUseCustomKey(!useCustomKey)}
           className={`relative inline-flex h-7 w-14 flex-shrink-0 cursor-pointer transition-colors duration-200 ease-in-out border-2 ${
-            useCustomKey ? 'bg-[#ccff00] border-[#ccff00]' : 'bg-zinc-800 border-zinc-700'
+            useCustomKey ? 'bg-accent border-accent' : 'bg-zinc-800 border-zinc-700'
           }`}
         >
           <span
@@ -184,7 +190,7 @@ export function UserAiSettings() {
               value={apiKeyInput}
               onChange={(e) => setApiKeyInput(e.target.value)}
               placeholder="sk-or-v1-..."
-              className="w-full bg-black border border-zinc-700 px-4 py-3 text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-[#ccff00]"
+              className="w-full bg-black border border-zinc-700 px-4 py-3 text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-accent"
             />
             <button
               type="button"
@@ -204,7 +210,7 @@ export function UserAiSettings() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <label className="text-sm font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-[#ccff00]" />
+            <Cpu className="w-4 h-4 text-accent" />
             AI Model Preference
           </label>
           <div className="flex items-center gap-2">
@@ -214,7 +220,7 @@ export function UserAiSettings() {
               onClick={() => setIsCustomMode(false)}
               className={`text-xs px-3 py-1 font-bold border transition-colors ${
                 !isCustomMode
-                  ? 'bg-[#ccff00] text-black border-[#ccff00]'
+                  ? 'bg-accent text-black border-accent'
                   : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
               } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
@@ -226,7 +232,7 @@ export function UserAiSettings() {
               onClick={() => setIsCustomMode(true)}
               className={`text-xs px-3 py-1 font-bold border transition-colors ${
                 isCustomMode
-                  ? 'bg-[#ccff00] text-black border-[#ccff00]'
+                  ? 'bg-accent text-black border-accent'
                   : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
               } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
@@ -256,7 +262,7 @@ export function UserAiSettings() {
                   onClick={() => setSelectedModel(preset.id)}
                   className={`p-4 text-left border transition-all flex items-center justify-between ${
                     isSelected
-                      ? 'bg-[#ccff00]/10 border-[#ccff00] text-white'
+                      ? 'bg-accent/10 border-accent text-white'
                       : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
                   } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
@@ -264,7 +270,7 @@ export function UserAiSettings() {
                     <div className="font-bold text-sm">{preset.name}</div>
                     <div className="text-xs font-mono text-zinc-500 mt-1">{preset.id}</div>
                   </div>
-                  {isSelected && <Check className="w-4 h-4 text-[#ccff00] flex-shrink-0" />}
+                  {isSelected && <Check className="w-4 h-4 text-accent flex-shrink-0" />}
                 </button>
               );
             })}
@@ -277,7 +283,7 @@ export function UserAiSettings() {
               value={customModelInput}
               onChange={(e) => setCustomModelInput(e.target.value)}
               placeholder="e.g. google/gemini-2.0-flash-lite-001 or nvidia/nemotron-3-super-120b-a12b:free"
-              className="w-full bg-black border border-zinc-700 px-4 py-3 text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-[#ccff00] disabled:opacity-40 disabled:cursor-not-allowed disabled:border-zinc-800"
+              className="w-full bg-black border border-zinc-700 px-4 py-3 text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-accent disabled:opacity-40 disabled:cursor-not-allowed disabled:border-zinc-800"
             />
             <p className="text-xs text-zinc-500">
               Enter any supported OpenRouter model slug.
@@ -292,7 +298,7 @@ export function UserAiSettings() {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-3 bg-[#ccff00] text-black font-bold uppercase tracking-wider text-sm hover:bg-[#b8e600] disabled:opacity-50 transition-colors flex items-center gap-2"
+          className="px-6 py-3 bg-accent text-black font-bold uppercase tracking-wider text-sm hover:bg-[#b8e600] disabled:opacity-50 transition-colors flex items-center gap-2"
         >
           {saving && <Loader2 className="w-4 h-4 animate-spin" />}
           SAVE AI SETTINGS
