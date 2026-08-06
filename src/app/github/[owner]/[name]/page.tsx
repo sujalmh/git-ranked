@@ -1,12 +1,16 @@
 import { sql } from '@/lib/db';
 import { getPublicRepositoryCached } from '@/lib/github-api';
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
 import { Navbar } from '@/components/Navbar';
+import { auth } from '@/lib/auth';
+import { getUserRepoId } from '@/lib/repo-access';
 import { GitBranch, Star, GitFork, AlertCircle, ArrowRight, Brain, Code, Calendar } from 'lucide-react';
 import { fetchRepoEvents, getRepoAnalysisData, getAnalysisPeriod } from '@/lib/analysis';
 import { RepoAnalysisView } from '@/components/RepoAnalysisView';
 import { ShareButton } from '@/components/ShareButton';
+import { AnalyseButton } from '@/components/AnalyseButton';
 import { formatDistanceToNow } from 'date-fns';
 
 export default async function PublicRepoPage(
@@ -14,6 +18,8 @@ export default async function PublicRepoPage(
 ) {
   const params = await props.params;
   const { owner, name } = params;
+  const session = await auth();
+  const installUrl = `https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`;
 
   // 1. Fetch public info to verify it exists and is public (deduped with the
   // layout's generateMetadata via React cache).
@@ -32,6 +38,11 @@ export default async function PublicRepoPage(
       AND is_active = true
     LIMIT 1
   `;
+
+  // 3. Determine whether the signed-in user owns this repo so the public
+  // placeholder can start analysis directly instead of redirecting to the
+  // GitHub App install page.
+  const isOwner = !!session?.user?.id && (await getUserRepoId(owner, name, session.user.id)) !== null;
 
   let analysisData = null;
   let hasEvents = false;
@@ -162,15 +173,42 @@ export default async function PublicRepoPage(
           <div className="bg-black/50 border border-accent/30 rounded-2xl p-8 text-center relative z-10">
             <Brain className="w-12 h-12 text-accent mx-auto mb-4" />
             <h2 className="text-2xl font-black uppercase tracking-tight mb-3">AI Analysis Pending</h2>
-            <p className="text-zinc-400 mb-8 max-w-md mx-auto">
-              This repository has not been fully analyzed by GitRanked yet. Connect your GitHub account to generate deep engineering metrics, PR review stats, and contributor analytics.
-            </p>
-            <a
-              href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-accent text-black font-black uppercase tracking-wider hover:bg-white transition-colors"
-            >
-              Analyze this repository <ArrowRight className="w-5 h-5" />
-            </a>
+            {isOwner ? (
+              <p className="text-zinc-400 mb-8 max-w-md mx-auto">
+                This repository is listed on the showcase but has not been fully analyzed yet. Run the analysis below to generate deep engineering metrics, PR review stats, and contributor analytics.
+              </p>
+            ) : (
+              <p className="text-zinc-400 mb-8 max-w-md mx-auto">
+                This repository has not been fully analyzed by GitRanked yet. Connect your GitHub account to generate deep engineering metrics, PR review stats, and contributor analytics.
+              </p>
+            )}
+            {isOwner ? (
+              hasEvents ? (
+                <div className="flex flex-col items-center gap-3">
+                  <AnalyseButton owner={owner} name={name} />
+                  <Link
+                    href={`/repos/${owner}/${name}`}
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/5 border border-white/10 text-white font-bold uppercase tracking-wider hover:bg-white/10 transition-colors text-xs"
+                  >
+                    Open Analysis Dashboard <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              ) : (
+                <Link
+                  href={`/repos/${owner}/${name}`}
+                  className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-accent text-black font-black uppercase tracking-wider hover:bg-white transition-colors"
+                >
+                  Open Analysis Dashboard <ArrowRight className="w-5 h-5" />
+                </Link>
+              )
+            ) : (
+              <a
+                href={installUrl}
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-accent text-black font-black uppercase tracking-wider hover:bg-white transition-colors"
+              >
+                Analyze this repository <ArrowRight className="w-5 h-5" />
+              </a>
+            )}
           </div>
         </div>
       </main>
