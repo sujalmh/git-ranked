@@ -52,7 +52,7 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
 
             <a
               href={installUrl}
-              className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2"
+              className="px-6 py-3 rounded-xl bg-accent text-black hover:bg-white hover:text-black font-semibold text-sm transition-all flex items-center gap-2"
             >
               <GitBranch className="w-4 h-4" />
               Install GitRanked

@@ -29,9 +29,9 @@ export function VisualPipeline() {
         className="flex flex-col md:flex-row items-stretch justify-center gap-6"
       >
         {/* Step 1 */}
-        <motion.div variants={itemVariants} className="flex-1 bg-black text-white border-b-2 border-r-2 border-zinc-800 hover:border-[#ccff00] p-6 sm:p-10 text-center group hover:bg-white hover:text-black transition-all duration-300 shadow-[6px_6px_0_0_#333] sm:shadow-[8px_8px_0_0_#333] hover:shadow-[8px_8px_0_0_#ccff00] relative overflow-hidden">
+        <motion.div variants={itemVariants} className="flex-1 bg-black text-white border-b-2 border-r-2 border-zinc-800 hover:border-accent p-6 sm:p-10 text-center group hover:bg-white hover:text-black transition-all duration-300 shadow-[6px_6px_0_0_#333] sm:shadow-[8px_8px_0_0_#333] hover:shadow-[8px_8px_0_0_#ccff00] relative overflow-hidden">
           <div className="relative z-10">
-            <div className="text-[#ccff00] text-5xl sm:text-6xl font-black mb-4 sm:mb-6 tracking-tighter">01</div>
+            <div className="text-accent text-5xl sm:text-6xl font-black mb-4 sm:mb-6 tracking-tighter">01</div>
             <h3 className="text-2xl sm:text-3xl font-black uppercase tracking-tight mb-3 sm:mb-4 text-white group-hover:text-black transition-colors">Sync</h3>
             <p className="text-sm sm:text-base font-medium text-zinc-300 group-hover:text-black transition-colors">Index PRs, commits, and reviews instantly.</p>
           </div>
@@ -46,9 +46,9 @@ export function VisualPipeline() {
         </motion.div>
 
         {/* Step 2 */}
-        <motion.div variants={itemVariants} className="flex-1 bg-[#ccff00] text-black border-b-2 border-r-2 border-[#ccff00] hover:border-[#ccff00] p-6 sm:p-10 text-center group hover:bg-white transition-all duration-300 shadow-[6px_6px_0_0_#fff] sm:shadow-[8px_8px_0_0_#fff] hover:shadow-[8px_8px_0_0_#ccff00] relative overflow-hidden">
+        <motion.div variants={itemVariants} className="flex-1 bg-accent text-black border-b-2 border-r-2 border-accent hover:border-accent p-6 sm:p-10 text-center group hover:bg-white transition-all duration-300 shadow-[6px_6px_0_0_#fff] sm:shadow-[8px_8px_0_0_#fff] hover:shadow-[8px_8px_0_0_#ccff00] relative overflow-hidden">
           <div className="relative z-10">
-            <div className="text-black group-hover:text-[#ccff00] text-5xl sm:text-6xl font-black mb-4 sm:mb-6 tracking-tighter transition-colors">02</div>
+            <div className="text-black group-hover:text-accent text-5xl sm:text-6xl font-black mb-4 sm:mb-6 tracking-tighter transition-colors">02</div>
             <h3 className="text-2xl sm:text-3xl font-black uppercase tracking-tight mb-3 sm:mb-4 text-black">Evaluate</h3>
             <p className="text-sm sm:text-base font-medium text-black">AI determines each contributor&apos;s true impact and role.</p>
           </div>
@@ -63,9 +63,9 @@ export function VisualPipeline() {
         </motion.div>
 
         {/* Step 3 */}
-        <motion.div variants={itemVariants} className="flex-1 bg-black text-white border-b-2 border-r-2 border-zinc-800 hover:border-[#ccff00] p-6 sm:p-10 text-center group hover:bg-white hover:text-black transition-all duration-300 shadow-[6px_6px_0_0_#333] sm:shadow-[8px_8px_0_0_#333] hover:shadow-[8px_8px_0_0_#ccff00] relative overflow-hidden">
+        <motion.div variants={itemVariants} className="flex-1 bg-black text-white border-b-2 border-r-2 border-zinc-800 hover:border-accent p-6 sm:p-10 text-center group hover:bg-white hover:text-black transition-all duration-300 shadow-[6px_6px_0_0_#333] sm:shadow-[8px_8px_0_0_#333] hover:shadow-[8px_8px_0_0_#ccff00] relative overflow-hidden">
           <div className="relative z-10">
-            <div className="text-[#ccff00] text-5xl sm:text-6xl font-black mb-4 sm:mb-6 tracking-tighter">03</div>
+            <div className="text-accent text-5xl sm:text-6xl font-black mb-4 sm:mb-6 tracking-tighter">03</div>
             <h3 className="text-2xl sm:text-3xl font-black uppercase tracking-tight mb-3 sm:mb-4 text-white group-hover:text-black transition-colors">Rank</h3>
             <p className="text-sm sm:text-base font-medium text-zinc-300 group-hover:text-black transition-colors">Clear dashboards highlighting your true MVPs.</p>
           </div>

@@ -79,7 +79,7 @@ function WorkDistributionBar({ distribution }: { distribution: Record<string, nu
         })}
       </div>
       <div className="flex flex-wrap gap-x-2.5 gap-y-0.5 mt-1">
-        {entries.slice(0, 4).map(([type, count]) => (
+        {entries.slice(0, 4).map(([type]) => (
           <span key={type} className="text-[10px] text-zinc-500 flex items-center gap-1">
             <span className={`w-1.5 h-1.5 rounded-full ${WORK_TYPE_COLORS[type] ?? 'bg-zinc-500'}`} />
             {type}

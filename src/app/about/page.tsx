@@ -16,7 +16,7 @@ export default function AboutPage() {
       <main className="flex-1 w-full px-6 md:px-12 lg:px-16 py-12">
         <div className="text-left max-w-4xl mb-12">
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-black uppercase tracking-tighter leading-[0.95] mb-4">
-            ABOUT <span className="text-[#ccff00]">GITRANKED</span>.
+            ABOUT <span className="text-accent">GITRANKED</span>.
           </h1>
           <p className="text-base sm:text-lg text-zinc-400 font-medium leading-relaxed">
             Empowering modern engineering organizations with objective, AI-assisted repository metrics and contributor impact analysis.
@@ -26,7 +26,7 @@ export default function AboutPage() {
         <div className="sleek-panel p-8 sm:p-12 space-y-10 text-zinc-300 leading-relaxed font-medium max-w-5xl">
           <section className="space-y-4">
             <h2 className="text-2xl font-black uppercase tracking-tight text-white flex items-center gap-2">
-              <Zap className="w-6 h-6 text-[#ccff00]" /> Why We Built GitRanked
+              <Zap className="w-6 h-6 text-accent" /> Why We Built GitRanked
             </h2>
             <p>
               Traditional developer metrics focus on naive counts: lines of code added, raw commit counts, or story points completed. These vanity metrics fail to capture real engineering value, incentivize shallow contributions, and completely ignore critical &quot;glue work&quot; such as thorough code reviews, mentoring, and technical debt maintenance.
@@ -38,7 +38,7 @@ export default function AboutPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 my-8">
             <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-              <BarChart3 className="w-8 h-8 text-[#ccff00] mb-3" />
+              <BarChart3 className="w-8 h-8 text-accent mb-3" />
               <h3 className="text-xl font-bold uppercase tracking-tight text-white mb-2">PR Review Velocity</h3>
               <p className="text-sm text-zinc-400">
                 Pinpoint code review bottlenecks before they slow down release cycles or burn out senior developers.
@@ -78,7 +78,7 @@ export default function AboutPage() {
             <div className="pt-2">
               <Link
                 href="/showcase"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-[#ccff00] text-black font-black uppercase tracking-wider hover:bg-white transition-colors text-sm"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-black font-black uppercase tracking-wider hover:bg-white transition-colors text-sm"
               >
                 Browse Public Showcase
               </Link>

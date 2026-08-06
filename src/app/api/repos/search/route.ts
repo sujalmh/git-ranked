@@ -2,6 +2,53 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 
+type GitHubRepoItem = {
+  id: number;
+  name: string;
+  full_name: string;
+  owner: { login: string; avatar_url?: string };
+  description: string | null;
+  stargazers_count: number;
+  forks_count: number;
+  language: string | null;
+};
+
+type LocalDbRepo = {
+  owner: string;
+  name: string;
+  default_branch?: string;
+};
+
+type SearchResultItem = GitHubRepoItem & { isTracked: boolean };
+
+function toGitHubRepoItem(r: LocalDbRepo): GitHubRepoItem {
+  return {
+    id: 0,
+    name: r.name,
+    full_name: `${r.owner}/${r.name}`,
+    owner: { login: r.owner, avatar_url: `https://github.com/${r.owner}.png` },
+    description: 'Tracked repository on GitRanked',
+    stargazers_count: 0,
+    forks_count: 0,
+    language: 'Code',
+  };
+}
+
+function formatRepoItem(item: GitHubRepoItem, trackedSet: Set<string>): SearchResultItem {
+  return {
+    ...item,
+    description: item.description || '',
+    stargazers_count: item.stargazers_count || 0,
+    forks_count: item.forks_count || 0,
+    language: item.language || '',
+    owner: {
+      login: item.owner?.login || '',
+      avatar_url: item.owner?.avatar_url || `https://github.com/${item.owner?.login}.png`,
+    },
+    isTracked: trackedSet.has((item.full_name || '').toLowerCase()),
+  };
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q')?.trim();
@@ -11,7 +58,7 @@ export async function GET(req: Request) {
   }
 
   const session = await auth();
-  const token = (session as any)?.accessToken || process.env.GITHUB_TOKEN;
+  const token = session?.accessToken || process.env.GITHUB_TOKEN;
 
   const headers: Record<string, string> = {
     'User-Agent': 'GitRanked-App',
@@ -30,9 +77,9 @@ export async function GET(req: Request) {
       { headers, next: { revalidate: 300 } }
     );
 
-    let items: any[] = [];
+    let items: GitHubRepoItem[] = [];
     if (ghRes.ok) {
-      const data = await ghRes.json();
+      const data = (await ghRes.json()) as { items?: GitHubRepoItem[] };
       items = data.items || [];
     } else {
       console.warn(`GitHub search API returned HTTP ${ghRes.status}`);
@@ -45,15 +92,7 @@ export async function GET(req: Request) {
         LIMIT 8
       `;
 
-      items = dbRepos.map((r: any) => ({
-        id: `${r.owner}/${r.name}`,
-        name: r.name,
-        full_name: `${r.owner}/${r.name}`,
-        owner: { login: r.owner, avatar_url: `https://github.com/${r.owner}.png` },
-        description: 'Tracked repository on GitRanked',
-        stargazers_count: 0,
-        language: 'Code',
-      }));
+      items = (dbRepos as LocalDbRepo[]).map(toGitHubRepoItem);
     }
 
     // 2. Cross-reference with tracked repositories in local DB
@@ -71,20 +110,7 @@ export async function GET(req: Request) {
         dbTracked.map((r) => `${r.owner.toLowerCase()}/${r.name.toLowerCase()}`)
       );
 
-      const formattedItems = items.map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        full_name: item.full_name,
-        owner: {
-          login: item.owner?.login || '',
-          avatar_url: item.owner?.avatar_url || `https://github.com/${item.owner?.login}.png`,
-        },
-        description: item.description || '',
-        stargazers_count: item.stargazers_count || 0,
-        forks_count: item.forks_count || 0,
-        language: item.language || '',
-        isTracked: trackedSet.has((item.full_name || '').toLowerCase()),
-      }));
+      const formattedItems = items.map((item) => formatRepoItem(item, trackedSet));
 
       return NextResponse.json({ items: formattedItems });
     }

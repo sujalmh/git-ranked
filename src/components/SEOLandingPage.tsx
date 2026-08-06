@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { ContributionGrid } from '@/components/ContributionGrid';
 import type { SEOPageData } from '@/lib/seo-content';
@@ -18,12 +19,12 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
       <header className="sticky top-0 z-50 bg-black/90 backdrop-blur-md border-b-2 border-white/10 w-full">
         <div className="flex items-center justify-between px-6 md:px-12 py-4 w-full">
           <Link href="/" className="flex items-center gap-3">
-            <img src="/logo.png" alt="GitRanked Logo" className="w-8 h-8 rounded-none" />
+            <Image src="/logo.png" alt="GitRanked Logo" width={32} height={32} className="w-8 h-8 rounded-none" />
             <span className="text-xl sm:text-2xl font-black tracking-tighter uppercase">GitRanked</span>
           </Link>
 
           <nav className="hidden md:flex gap-6 items-center">
-            <Link href="/api/auth/signin" className="text-sm font-bold tracking-wider hover:text-[#ccff00] transition-colors uppercase">
+            <Link href="/api/auth/signin" className="text-sm font-bold tracking-wider hover:text-accent transition-colors uppercase">
               Log In
             </Link>
             <a 
@@ -38,7 +39,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-white hover:text-[#ccff00] focus:outline-none transition-colors"
+              className="p-2 text-white hover:text-accent focus:outline-none transition-colors"
               aria-label="Toggle Menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -51,7 +52,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
             <Link
               href="/api/auth/signin"
               onClick={() => setMobileMenuOpen(false)}
-              className="block w-full py-3 bg-zinc-900 border border-zinc-700 text-center text-sm font-bold tracking-wider text-white hover:text-[#ccff00] uppercase"
+              className="block w-full py-3 bg-zinc-900 border border-zinc-700 text-center text-sm font-bold tracking-wider text-white hover:text-accent uppercase"
             >
               Log In
             </Link>
@@ -77,7 +78,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
             className="relative z-10"
           >
-            <div className="inline-block px-4 py-1 mb-8 border-2 border-[#ccff00] text-[#ccff00] text-xs font-black uppercase tracking-widest">
+            <div className="inline-block px-4 py-1 mb-8 border-2 border-accent text-accent text-xs font-black uppercase tracking-widest">
               GIT RANKED FOR TEAMS
             </div>
           </motion.div>
@@ -89,7 +90,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
             className="text-5xl md:text-7xl font-black tracking-tighter uppercase leading-[0.9] mb-8 max-w-5xl mx-auto relative z-10 px-4"
           >
             {data.heroTitle} <br />
-            <span className="text-[#ccff00]">{data.heroHighlight}</span>.
+            <span className="text-accent">{data.heroHighlight}</span>.
           </motion.h1>
 
           <motion.p 
@@ -109,7 +110,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
           >
             <a
               href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
-              className="px-8 py-4 bg-[#ccff00] text-black border-2 border-[#ccff00] font-black uppercase tracking-wider hover:bg-white hover:border-white transition-colors flex items-center justify-center gap-2"
+              className="px-8 py-4 bg-accent text-black border-2 border-accent font-black uppercase tracking-wider hover:bg-white hover:border-white transition-colors flex items-center justify-center gap-2"
             >
               Analyze Your Repo <ArrowRight className="w-5 h-5" />
             </a>
@@ -120,7 +121,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
         <div className="max-w-4xl mx-auto px-6 py-12">
           {/* About GitRanked Section */}
           <div className="mb-20 p-8 sm:p-10 border-2 border-white/10 bg-zinc-950/80 relative">
-            <div className="inline-block px-3 py-1 mb-4 border border-[#ccff00] bg-[#ccff00]/10 text-[#ccff00] text-xs font-black uppercase tracking-widest">
+            <div className="inline-block px-3 py-1 mb-4 border border-accent bg-accent/10 text-accent text-xs font-black uppercase tracking-widest">
               ABOUT GITRANKED
             </div>
             <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tight mb-4 text-white">
@@ -132,24 +133,24 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="p-5 border border-white/10 bg-black/60">
-                <div className="text-[#ccff00] text-2xl font-black mb-2">01</div>
+                <div className="text-accent text-2xl font-black mb-2">01</div>
                 <h3 className="text-white font-bold uppercase text-base mb-1">Instant Setup</h3>
                 <p className="text-zinc-400 text-sm">Connect your GitHub organization or repositories with a single click via GitHub App.</p>
               </div>
               <div className="p-5 border border-white/10 bg-black/60">
-                <div className="text-[#ccff00] text-2xl font-black mb-2">02</div>
+                <div className="text-accent text-2xl font-black mb-2">02</div>
                 <h3 className="text-white font-bold uppercase text-base mb-1">PR & Review Insights</h3>
                 <p className="text-zinc-400 text-sm">Identify cycle time delays, review burdens, and code churn before bottlenecks impact delivery.</p>
               </div>
               <div className="p-5 border border-white/10 bg-black/60">
-                <div className="text-[#ccff00] text-2xl font-black mb-2">03</div>
+                <div className="text-accent text-2xl font-black mb-2">03</div>
                 <h3 className="text-white font-bold uppercase text-base mb-1">AI Health Scoring</h3>
                 <p className="text-zinc-400 text-sm">Automated impact scoring and repository health metrics powered by advanced AI models.</p>
               </div>
             </div>
 
             {/* Connect to GitHub Card */}
-            <div className="p-6 sm:p-8 bg-[#ccff00] text-black flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="p-6 sm:p-8 bg-accent text-black flex flex-col md:flex-row items-center justify-between gap-6">
               <div>
                 <h3 className="text-2xl font-black uppercase tracking-tight mb-2">
                   Connect to GitHub & Start Using GitRanked
@@ -162,7 +163,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
                 href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
                 className="px-6 py-4 bg-black text-white font-black uppercase tracking-wider hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 shrink-0 w-full md:w-auto text-center"
               >
-                Connect to GitHub <ArrowRight className="w-5 h-5 text-[#ccff00]" />
+                Connect to GitHub <ArrowRight className="w-5 h-5 text-accent" />
               </a>
             </div>
           </div>
@@ -171,7 +172,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
             {data.sections.map((section, index) => (
               <div key={index} className="mb-16">
                 <h2 className="text-3xl font-black tracking-tight mb-6 uppercase text-white">{section.title}</h2>
-                <div className="w-12 h-1 bg-[#ccff00] mb-6"></div>
+                <div className="w-12 h-1 bg-accent mb-6"></div>
                 <p className="text-zinc-300 leading-relaxed text-lg">
                   {section.content}
                 </p>
@@ -187,7 +188,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
             {data.faqs.map((faq, index) => (
               <div key={index} className="sleek-panel p-6 sm:p-8 hover:border-white/20 transition-colors">
                 <h3 className="text-xl font-bold mb-3 flex items-start gap-3">
-                  <ChevronRight className="w-6 h-6 text-[#ccff00] shrink-0 mt-0.5" />
+                  <ChevronRight className="w-6 h-6 text-accent shrink-0 mt-0.5" />
                   {faq.question}
                 </h3>
                 <p className="text-zinc-400 leading-relaxed ml-9">
@@ -199,7 +200,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
         </div>
 
         {/* Bottom CTA */}
-        <div className="w-full bg-[#ccff00] text-black py-20 text-center px-6">
+        <div className="w-full bg-accent text-black py-20 text-center px-6">
           <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-6">Ready to see the data?</h2>
           <p className="text-xl font-medium max-w-2xl mx-auto mb-10 text-black/80">
             Join the engineering teams using GitRanked to measure what actually matters.
@@ -208,7 +209,7 @@ export function SEOLandingPage({ data }: { data: SEOPageData }) {
             href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
             className="inline-flex px-8 py-4 bg-black text-white font-black uppercase tracking-wider hover:bg-zinc-800 transition-colors items-center justify-center gap-3"
           >
-            Connect to GitHub & Start Free <ArrowRight className="w-5 h-5 text-[#ccff00]" />
+            Connect to GitHub & Start Free <ArrowRight className="w-5 h-5 text-accent" />
           </a>
         </div>
       </main>

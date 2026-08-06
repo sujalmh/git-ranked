@@ -45,7 +45,6 @@ export async function enrichOutcomes(repoId: number, contributorId?: number): Pr
     const outcome: OutcomeFacts = {};
 
     for (const evt of outcomeEvents) {
-      const payload = (evt.payload || {}) as Record<string, unknown>;
       if (evt.event_type === 'release') {
         outcome.released = true;
       }

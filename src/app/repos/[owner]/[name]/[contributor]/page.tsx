@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { Navbar } from '@/components/Navbar';
-import { ArrowLeft, Crown, Star, CheckCircle, AlertTriangle, ShieldCheck, Flame, GitMerge, FileText, Cpu, Shield } from 'lucide-react';
+import { ArrowLeft, Star, CheckCircle, Cpu } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { sql } from '@/lib/db';
@@ -8,7 +8,6 @@ import { getRepoScoringConfig, scoreRepo, type DimensionScores, type WorkUnit } 
 import { runTaskById } from '@/lib/ai';
 import type { AiResult, ContributorProfile, ImpactAnalysis } from '@/lib/ai/types';
 import { ContributorProfileCard, ImpactExplanation } from '@/components/ai';
-import { formatRelativeDate } from '@/lib/contributor-insights';
 import { getAnalysisPeriod } from '@/lib/analysis';
 
 function StarRating({ count }: { count: number }) {

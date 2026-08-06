@@ -1,12 +1,9 @@
-import Link from 'next/link';
-import Image from 'next/image';
-import { GithubIcon } from '@/components/icons/GithubIcon';
 import { AnimatedHeroContent } from '@/components/AnimatedHeroContent';
 import { AnimatedFeatures } from '@/components/AnimatedFeatures';
 import { VisualPipeline } from '@/components/VisualPipeline';
 import { AnimatedCards } from '@/components/AnimatedCards';
 import { Footer } from '@/components/Footer';
-import { auth, signOut } from '@/lib/auth';
+import { auth } from '@/lib/auth';
 
 import { Navbar } from '@/components/Navbar';
 

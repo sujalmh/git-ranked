@@ -22,7 +22,7 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
             className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter uppercase leading-[0.95] mb-6 relative z-10"
           >
             RANK YOUR <br />
-            <span className="text-[#ccff00]">CONTRIBUTORS</span>.
+            <span className="text-accent">CONTRIBUTORS</span>.
           </motion.h1>
 
           <motion.p 
@@ -43,14 +43,14 @@ export function AnimatedHeroContent({ isSignedIn }: { isSignedIn?: boolean }) {
             {isSignedIn ? (
               <Link
                 href="/dashboard"
-                className="px-8 py-4 bg-[#ccff00] text-black border-2 border-[#ccff00] font-black uppercase tracking-wider hover:bg-white hover:border-white transition-colors flex items-center justify-center gap-2 text-sm"
+                className="px-8 py-4 bg-accent text-black border-2 border-accent font-black uppercase tracking-wider hover:bg-white hover:border-white transition-colors flex items-center justify-center gap-2 text-sm"
               >
                 Go to Dashboard <ArrowRight className="w-4 h-4" />
               </Link>
             ) : (
               <a
                 href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
-                className="px-8 py-4 bg-white text-black border-2 border-white font-black uppercase tracking-wider hover:bg-[#ccff00] hover:border-[#ccff00] transition-colors flex items-center justify-center gap-2 text-sm"
+                className="px-8 py-4 bg-white text-black border-2 border-white font-black uppercase tracking-wider hover:bg-accent hover:border-accent transition-colors flex items-center justify-center gap-2 text-sm"
               >
                 <GithubIcon className="w-5 h-5" />
                 CONNECT TO GITHUB

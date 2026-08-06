@@ -2,7 +2,7 @@ import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
-import { ArrowLeft, Zap, Code, MessageSquare, ShieldCheck, Activity } from 'lucide-react';
+import { ArrowLeft, Zap, MessageSquare, ShieldCheck, Activity } from 'lucide-react';
 import Image from 'next/image';
 import { getRepoScoringConfig, scoreRepo, type DimensionScores } from '@/lib/scoring';
 import { getCachedContributorResults } from '@/lib/ai';

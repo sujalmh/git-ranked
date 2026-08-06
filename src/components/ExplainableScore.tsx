@@ -30,7 +30,7 @@ export function ExplainableScore({ total, breakdown }: { total: number, breakdow
               d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
             />
             <path
-              className="text-[#ccff00] transition-all duration-1000 ease-out"
+              className="text-accent transition-all duration-1000 ease-out"
               strokeDasharray={`${total}, 100`}
               strokeWidth="3.5"
               strokeLinecap="round"
@@ -45,7 +45,7 @@ export function ExplainableScore({ total, breakdown }: { total: number, breakdow
           </div>
         </div>
         <div className="flex-1">
-          <div className="text-lg font-bold text-white uppercase tracking-wider flex items-center gap-1 group-hover:text-[#ccff00] transition-colors">
+          <div className="text-lg font-bold text-white uppercase tracking-wider flex items-center gap-1 group-hover:text-accent transition-colors">
             AI Impact Score
             {expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
           </div>
@@ -56,7 +56,7 @@ export function ExplainableScore({ total, breakdown }: { total: number, breakdow
       </div>
 
       {expanded && (
-        <div className="mt-4 p-4 rounded-xl bg-white/5 border border-white/5 space-y-3">
+        <div className="mt-4 p-4 rounded-none bg-white/5 border border-white/5 space-y-3">
           <ScoreRow label="Feature Delivery" value={breakdown.featureDelivery} />
           <ScoreRow label="Code Quality" value={breakdown.codeQuality} />
           <ScoreRow label="Reviews" value={breakdown.reviews} />

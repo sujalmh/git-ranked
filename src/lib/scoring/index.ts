@@ -2,7 +2,7 @@ import pLimit from 'p-limit';
 import { sql } from '../db';
 import { aggregateRepoCandidates } from './aggregator';
 import { getRepoScoringConfig } from './config';
-import { extractAndPersistWorkUnits, extractAndPersistBatchWorkUnits } from './extract';
+import { extractAndPersistBatchWorkUnits } from './extract';
 import { enrichOutcomes } from './outcome';
 import { scoreContributor } from './scoring-engine';
 import type { DimensionScores, RawEvent, WorkUnit } from './types';
@@ -152,7 +152,6 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
     JOIN work_unit_contributors wuc ON wu.id = wuc.work_unit_id
     WHERE wu.repo_id = ${repoId}
   `;
-  const t3 = Date.now();
 
   const workUnitsByContributor = new Map<number, WorkUnit[]>();
   for (const row of workUnitsQuery) {

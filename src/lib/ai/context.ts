@@ -20,6 +20,8 @@ export type EventRow = {
   classification?: unknown;
   classified_at?: Date | string | null;
   diff_facts?: unknown;
+  unit_work_type?: string;
+  unit_facts?: unknown;
 };
 
 export async function fetchEvents(
@@ -89,12 +91,12 @@ export async function normalizeEvents(
     }
 
     let classification = parseClassification(row.classification);
-    if ((row as any).unit_work_type) {
+    if (row.unit_work_type) {
       classification = {
         event_id: row.id,
-        work_type: (row as any).unit_work_type,
-        categories: [(row as any).unit_work_type],
-        work_areas: [(row as any).unit_work_type],
+        work_type: row.unit_work_type,
+        categories: [row.unit_work_type],
+        work_areas: [row.unit_work_type],
         technologies: [],
         confidence: 1.0,
         reasoning: title,

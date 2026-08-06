@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function Footer() {
   return (
@@ -6,7 +7,7 @@ export function Footer() {
       <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-10">
         <div className="space-y-4 sm:col-span-2 md:col-span-1">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="GitRanked Logo" className="w-7 h-7" />
+            <Image src="/logo.png" alt="GitRanked Logo" width={28} height={28} className="w-7 h-7" />
             <span className="text-xl font-black tracking-tighter uppercase text-white">GitRanked</span>
           </div>
           <p className="text-zinc-400 text-sm leading-relaxed">
@@ -15,7 +16,7 @@ export function Footer() {
         </div>
 
         <div>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-[#ccff00] mb-4">Solutions & Metrics</h3>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-accent mb-4">Solutions & Metrics</h3>
           <ul className="space-y-2.5 text-sm text-zinc-400">
             <li>
               <Link href="/github-insights" className="hover:text-white transition-colors">
@@ -46,10 +47,10 @@ export function Footer() {
         </div>
 
         <div>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-[#ccff00] mb-4">Showcase & Product</h3>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-accent mb-4">Showcase & Product</h3>
           <ul className="space-y-2.5 text-sm text-zinc-400">
             <li>
-              <Link href="/showcase" className="hover:text-white font-medium text-[#ccff00]/90 transition-colors">
+              <Link href="/showcase" className="hover:text-white font-medium text-accent/90 transition-colors">
                 Public Repositories Showcase
               </Link>
             </li>
@@ -75,7 +76,7 @@ export function Footer() {
         </div>
 
         <div>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-[#ccff00] mb-4">Legal & Company</h3>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-accent mb-4">Legal & Company</h3>
           <ul className="space-y-2.5 text-sm text-zinc-400">
             <li>
               <Link href="/about" className="hover:text-white transition-colors">
@@ -101,7 +102,7 @@ export function Footer() {
         </div>
 
         <div>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-[#ccff00] mb-4">Resources</h3>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-accent mb-4">Resources</h3>
           <ul className="space-y-2.5 text-sm text-zinc-400">
             <li>
               <a href="/sitemap.xml" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">

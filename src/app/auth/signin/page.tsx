@@ -22,12 +22,12 @@ export default async function SignInPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Top Brand & Header */}
           <div className="text-center space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#ccff00]/10 border border-[#ccff00]/30 text-[#ccff00] text-xs font-mono font-bold uppercase tracking-widest">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-accent/10 border border-accent/30 text-accent text-xs font-mono font-bold uppercase tracking-widest">
               <Sparkles className="w-3.5 h-3.5" />
               AUTHENTICATION HUB
             </div>
             <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-white">
-              SIGN IN TO <span className="text-[#ccff00]">GITRANKED</span>
+              SIGN IN TO <span className="text-accent">GITRANKED</span>
             </h1>
             <p className="text-sm text-zinc-400 font-medium max-w-sm mx-auto">
               Access real-time developer impact scoring, repository health checks, and PR analytics.
@@ -45,7 +45,7 @@ export default async function SignInPage() {
             >
               <button
                 type="submit"
-                className="w-full py-3.5 px-5 bg-white text-black hover:bg-[#ccff00] hover:border-[#ccff00] font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-3 cursor-pointer group shadow-[4px_4px_0_0_#ccff00]"
+                className="w-full py-3.5 px-5 bg-white text-black hover:bg-accent hover:border-accent font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-3 cursor-pointer group shadow-[4px_4px_0_0_#ccff00]"
               >
                 <GithubIcon className="w-5 h-5 fill-current" />
                 <span>SIGN IN WITH GITHUB</span>

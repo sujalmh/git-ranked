@@ -109,7 +109,7 @@ async function main() {
     const newTitle = extractBestTitle(eventsAsRecords, eventType);
     const commitMessages = extractCommitMessages(eventsAsRecords);
     const prBody = extractPrBody(eventsAsRecords);
-    const newSize = extractMergedSizeMetrics(eventsAsRecords, eventType);
+    const newSize = extractMergedSizeMetrics(eventsAsRecords);
 
     console.log('\n✅ NEW extraction (all events scanned):');
     console.log(`  Title: "${newTitle}"`);

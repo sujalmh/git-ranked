@@ -24,7 +24,7 @@ function StatCard({
 }) {
   return (
     <div className="bg-black border-b border-r border-white p-3 sm:p-5 flex items-center gap-2.5 sm:gap-5 transition-all">
-      <div className={`w-10 h-10 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${accent}`}>
+      <div className={`w-10 h-10 sm:w-14 sm:h-14 rounded-none sm:rounded-none flex items-center justify-center shrink-0 ${accent}`}>
         {icon}
       </div>
       <div className="min-w-0 flex-1">
@@ -58,11 +58,11 @@ export function StatsStrip({
         accent="bg-[#00ffff]/10 border border-[#00ffff]/20"
       />
       <StatCard
-        icon={<Zap className="w-5 h-5 sm:w-7 sm:h-7 text-[#ccff00]" />}
+        icon={<Zap className="w-5 h-5 sm:w-7 sm:h-7 text-accent" />}
         label="Total Impact"
         value={totalImpact.toLocaleString()}
         sub="sum of impact scores"
-        accent="bg-[#ccff00]/10 border border-[#ccff00]/20"
+        accent="bg-accent/10 border border-accent/20"
       />
       <StatCard
         icon={<HeartPulse className={`w-5 h-5 sm:w-7 sm:h-7 ${SEVERITY[healthSev].text}`} />}

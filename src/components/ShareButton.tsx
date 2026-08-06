@@ -134,7 +134,7 @@ export function ShareButton({
                 />
                 <button
                   onClick={copyLink}
-                  className="rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors"
+                  className="rounded-lg bg-accent text-black hover:bg-white px-4 py-2.5 text-sm font-semibold text-white transition-colors"
                   title="Copy link"
                 >
                   {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
@@ -165,7 +165,7 @@ export function ShareButton({
               <button
                 onClick={enableSharing}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-accent text-black hover:bg-white px-4 py-2.5 text-sm font-semibold text-white transition-colors"
               >
                 <Share2 className="w-4 h-4" />
                 Create share link

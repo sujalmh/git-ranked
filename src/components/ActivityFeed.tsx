@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { GitCommit, GitMerge, GitPullRequest, MessageSquare, Play, Tag, Bug, Star } from 'lucide-react';
 
 export type ActivityItem = {
@@ -32,11 +32,7 @@ function formatRelativeDate(date: Date | string) {
 }
 
 export function ActivityFeed({ items, identityColors }: { items: ActivityItem[]; identityColors?: Map<string, string> }) {
-  const [revealed, setRevealed] = useState(() => items.length);
-
-  useEffect(() => {
-    setRevealed(items.length);
-  }, [items.length]);
+  const revealed = items.length;
 
   if (items.length === 0) {
     return (

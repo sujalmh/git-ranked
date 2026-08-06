@@ -4,7 +4,7 @@ import { sql } from "@/lib/db";
 import { getAiModel } from "@/lib/ai/openrouter";
 import { Users, Database, Package } from "lucide-react";
 import Link from "next/link";
-import { AdminProfileSelector } from "@/components/AdminProfileSelector";
+import { AdminProfileSelector, type RepoProfileItem } from "@/components/AdminProfileSelector";
 import { AdminModelSelector } from "@/components/AdminModelSelector";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +56,7 @@ export default async function AdminDashboardPage() {
   const totalUsers = parseInt(usersRes[0]?.count || "0", 10);
   const totalRepos = parseInt(reposRes[0]?.count || "0", 10);
   const activeInstalls = parseInt(installsRes[0]?.count || "0", 10);
-  const activeReposList = reposListRes as unknown as Array<{ id: number; owner: string; name: string; scoring_profile: any }>;
+  const activeReposList = reposListRes as unknown as RepoProfileItem[];
 
   return (
     <div className="min-h-screen bg-black text-white p-8 md:p-16">

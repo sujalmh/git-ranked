@@ -72,7 +72,7 @@ type Chip = { kind: ChipKind; text: string };
 const CHIP_STYLE: Record<ChipKind, string> = {
   highlight: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300',
   risk: 'bg-red-500/10 border-red-500/20 text-red-300',
-  next: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300',
+  next: 'bg-accent/10 border-accent/20 text-accent',
 };
 
 const CHIP_ICON: Record<ChipKind, React.ReactNode> = {
@@ -114,7 +114,7 @@ function FindingRow({
   };
 
   return (
-    <div className={`rounded-r-lg rounded-l border-l-2 ${sev.border} bg-white/[0.03] py-3 pl-3 pr-3 flex gap-3`}>
+    <div className={`rounded-none border-l-2 ${sev.border} bg-white/[0.03] py-3 pl-3 pr-3 flex gap-3`}>
       <div className="shrink-0 mt-0.5">
         <Icon className={`w-4 h-4 ${sev.text}`} />
       </div>
@@ -125,7 +125,7 @@ function FindingRow({
       <button
         type="button"
         onClick={showWhy}
-        className="self-start shrink-0 inline-flex items-center gap-1 text-xs font-medium text-indigo-300 hover:text-white transition-colors"
+        className="self-start shrink-0 inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-white transition-colors"
         title="See supporting evidence"
       >
         <HelpCircle className="w-3.5 h-3.5" />
@@ -167,7 +167,7 @@ export function AiInsights({
     return (
       <div className="sleek-panel p-5">
         <div className="flex items-center gap-2 mb-2">
-          <Sparkles className="w-5 h-5 text-indigo-300" />
+          <Sparkles className="w-5 h-5 text-accent" />
           <h2 className="text-lg font-bold text-white">AI Insights</h2>
         </div>
         <p className="text-base text-zinc-400">No notable insights surfaced for this period.</p>
@@ -178,7 +178,7 @@ export function AiInsights({
   return (
     <div className="sleek-panel p-5">
       <div className="flex items-center gap-2 mb-4">
-        <Sparkles className="w-5 h-5 text-indigo-300" />
+        <Sparkles className="w-5 h-5 text-accent" />
         <h2 className="text-lg font-bold text-white">AI Insights</h2>
         <span className="text-sm text-zinc-400 ml-2">
           {smallTeam ? 'Per-person findings' : 'Team-distribution patterns'}
@@ -211,7 +211,7 @@ export function AiInsights({
           {!expanded && hiddenCount > 0 && (
             <button
               onClick={() => setExpanded(true)}
-              className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white border border-white/5 rounded-lg py-2 hover:bg-white/5 transition-colors mt-2"
+              className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white border border-white/5 rounded-none py-2 hover:bg-white/5 transition-colors mt-2"
             >
               Show {hiddenCount} more finding{hiddenCount === 1 ? '' : 's'}
             </button>

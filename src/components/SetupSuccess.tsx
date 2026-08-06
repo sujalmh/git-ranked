@@ -37,10 +37,10 @@ export function SetupSuccess() {
       </p>
 
       <div className="mb-8">
-        <span className="text-xs font-bold uppercase tracking-wider text-[#ccff00] bg-[#ccff00]/10 border border-[#ccff00]/30 px-4 py-2 rounded-full inline-flex items-center gap-2">
+        <span className="text-xs font-bold uppercase tracking-wider text-accent bg-accent/10 border border-accent/30 px-4 py-2 rounded-full inline-flex items-center gap-2">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ccff00] opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ccff00]"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
           </span>
           Redirecting to dashboard in {countdown}s...
         </span>
@@ -49,7 +49,7 @@ export function SetupSuccess() {
       <div>
         <Link
           href="/dashboard"
-          className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-500/20 inline-flex items-center gap-2"
+          className="px-6 py-3 rounded-xl bg-accent text-black hover:bg-white hover:text-black font-semibold text-sm transition-all inline-flex items-center gap-2"
         >
           Go to Dashboard Now <ArrowRight className="w-4 h-4" />
         </Link>

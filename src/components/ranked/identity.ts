@@ -3,6 +3,7 @@ import type { ContributorInsight, ContributionCategory } from '@/lib/contributor
 export const SMALL_TEAM_THRESHOLD = 5;
 
 export function isSmallTeam(count: number): boolean {
+  void count;
   return false;
 }
 
@@ -94,7 +95,7 @@ export const SEVERITY: Record<Severity, SeverityStyle> = {
 };
 
 const IDENTITY_PALETTE = [
-  { ring: 'ring-[#ccff00]', border: 'border-[#ccff00]/30', dot: 'bg-[#ccff00]', hex: '#ccff00' },
+  { ring: 'ring-accent', border: 'border-accent/30', dot: 'bg-accent', hex: '#ccff00' },
   { ring: 'ring-[#00ffff]', border: 'border-[#00ffff]/30', dot: 'bg-[#00ffff]', hex: '#00ffff' },
   { ring: 'ring-[#ff00ff]', border: 'border-[#ff00ff]/30', dot: 'bg-[#ff00ff]', hex: '#ff00ff' },
   { ring: 'ring-[#ff5500]', border: 'border-[#ff5500]/30', dot: 'bg-[#ff5500]', hex: '#ff5500' },
@@ -165,7 +166,7 @@ export type BreakdownSegment = {
 };
 
 const BREAKDOWN_SEGMENTS: Array<Omit<BreakdownSegment, 'value'>> = [
-  { key: 'featureDelivery', label: 'Shipping', className: 'bg-[#ccff00]' },
+  { key: 'featureDelivery', label: 'Shipping', className: 'bg-accent' },
   { key: 'codeQuality', label: 'Quality', className: 'bg-[#00ffff]' },
   { key: 'reviews', label: 'Reviews', className: 'bg-[#ff00ff]' },
   { key: 'collaboration', label: 'Collab', className: 'bg-[#ff5500]' },

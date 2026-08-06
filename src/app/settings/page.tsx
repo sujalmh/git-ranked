@@ -14,7 +14,7 @@ export default async function SettingsPage() {
       <main className="flex-1 w-full px-4 sm:px-6 py-8 sm:py-12 space-y-8">
         <div className="border-b border-zinc-800 pb-6">
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight uppercase flex items-center gap-3">
-            <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-[#ccff00]" />
+            <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-accent" />
             SETTINGS & PREFERENCES
           </h1>
           <p className="text-zinc-400 text-xs sm:text-sm mt-1">
@@ -38,7 +38,7 @@ export default async function SettingsPage() {
             >
               <button
                 type="submit"
-                className="px-6 py-3 bg-[#ccff00] text-black font-bold uppercase text-sm tracking-wider hover:bg-[#b8e600] inline-flex items-center gap-2"
+                className="px-6 py-3 bg-accent text-black font-bold uppercase text-sm tracking-wider hover:bg-[#b8e600] inline-flex items-center gap-2"
               >
                 LOG IN WITH GITHUB <ArrowRight className="w-4 h-4" />
               </button>

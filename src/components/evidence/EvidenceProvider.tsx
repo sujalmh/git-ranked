@@ -102,11 +102,11 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
             <>
               <div className="flex items-start justify-between gap-4 p-5 border-b border-white/10">
                 <div className="min-w-0">
-                  <div className="text-xs uppercase tracking-wider text-indigo-300 font-semibold mb-1">Evidence</div>
+                  <div className="text-xs uppercase tracking-wider text-accent font-semibold mb-1">Evidence</div>
                   <h3 className="text-base font-semibold text-white leading-tight">{payload.title}</h3>
                   {payload.blurb && <p className="text-xs text-zinc-400 mt-1 leading-relaxed">{payload.blurb}</p>}
                 </div>
-                <button onClick={close} className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors shrink-0" aria-label="Close evidence">
+                <button onClick={close} className="p-1.5 rounded-none hover:bg-white/10 text-zinc-400 hover:text-white transition-colors shrink-0" aria-label="Close evidence">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -114,7 +114,7 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
               {payload.signals && payload.signals.length > 0 && (
                 <div className="grid grid-cols-3 gap-2 p-4 border-b border-white/10">
                   {payload.signals.map((s) => (
-                    <div key={s.label} className="rounded-lg bg-white/5 border border-white/5 px-2 py-2 text-center">
+                    <div key={s.label} className="rounded-none bg-white/5 border border-white/5 px-2 py-2 text-center">
                       <div className="text-base font-bold text-white leading-none">{s.value}</div>
                       <div className="text-[10px] text-zinc-500 mt-1 leading-tight">{s.label}</div>
                     </div>
@@ -131,14 +131,14 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
                   </div>
                 ) : (
                   payload.items.slice(0, revealed).map((item) => (
-                    <div key={item.id} className="flex gap-3 rounded-lg border border-white/5 bg-white/5 p-3 hover:bg-white/10 transition-colors">
+                    <div key={item.id} className="flex gap-3 rounded-none border border-white/5 bg-white/5 p-3 hover:bg-white/10 transition-colors">
                       <div className="w-7 h-7 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center shrink-0">
                         {KIND_ICON[item.kind]}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-0.5">
                           <span className="text-[10px] uppercase tracking-wide text-zinc-500">{KIND_LABEL[item.kind]}</span>
-                          {item.prNumber && <span className="text-[10px] text-indigo-300 font-medium">#{item.prNumber}</span>}
+                          {item.prNumber && <span className="text-[10px] text-accent font-medium">#{item.prNumber}</span>}
                           <span className="text-[10px] text-zinc-600 ml-auto">{formatDate(item.date)}</span>
                         </div>
                         <div className="text-sm text-zinc-200 truncate">{item.title}</div>

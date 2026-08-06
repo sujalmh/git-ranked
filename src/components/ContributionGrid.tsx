@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useSyncExternalStore } from 'react';
+
+const emptySubscribe = () => () => {};
 
 export function ContributionGrid() {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [mousePos, setMousePos] = useState({ x: -1000, y: -1000 });
   const containerRef = useRef<HTMLDivElement>(null);
   const rows = 20;
@@ -11,8 +13,6 @@ export function ContributionGrid() {
   const totalTiles = rows * cols;
 
   useEffect(() => {
-    setMounted(true);
-
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
@@ -120,7 +120,7 @@ export function ContributionGrid() {
           {Array.from({ length: totalTiles }).map((_, i) => (
             <div
               key={i}
-              className="w-full aspect-square rounded-[2px] bg-[#ccff00]"
+              className="w-full aspect-square rounded-[2px] bg-accent"
               style={{
                 boxShadow: '0 0 10px rgba(204, 255, 0, 0.4)',
               }}

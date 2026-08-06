@@ -205,17 +205,7 @@ export async function runTask<T>(
   const { generateIfMissing = false, aiOptions } = options;
 
   const cached = await getCachedResult(task, ctx.repoId, ctx.dateFrom, ctx.dateTo, ctx.contributorId);
-  if (cached) {
-    if (!generateIfMissing) return cached;
-    const hasUpdates = await hasNewRepoDataSince(
-      ctx.repoId,
-      ctx.dateFrom,
-      ctx.dateTo,
-      ctx.contributorId,
-      cached.generatedAt
-    );
-    if (!hasUpdates) return cached;
-  }
+  if (cached) return cached;
 
   if (!generateIfMissing) return null;
 
@@ -258,35 +248,6 @@ export async function runTask<T>(
   await persistResult(task, ctx.repoId, ctx.dateFrom, ctx.dateTo, ctx.contributorId, result);
 
   return result;
-}
-
-async function hasNewRepoDataSince(
-  repoId: number,
-  dateFrom: string,
-  dateTo: string,
-  contributorId: number | undefined,
-  generatedAt: Date
-): Promise<boolean> {
-  const rows = contributorId
-    ? await sql<{ latest_data_at: string | Date | null }>`
-        SELECT MAX(GREATEST(e.created_at, COALESCE(e.classified_at, e.created_at))) AS latest_data_at
-        FROM github_events e
-        WHERE e.repo_id = ${repoId}
-          AND e.contributor_id = ${contributorId}
-          AND e.created_at >= ${dateFrom}::date
-          AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
-      `
-    : await sql<{ latest_data_at: string | Date | null }>`
-        SELECT MAX(GREATEST(e.created_at, COALESCE(e.classified_at, e.created_at))) AS latest_data_at
-        FROM github_events e
-        WHERE e.repo_id = ${repoId}
-          AND e.created_at >= ${dateFrom}::date
-          AND e.created_at < ${dateTo}::date + INTERVAL '1 day'
-      `;
-
-  if (rows.length === 0 || !rows[0].latest_data_at) return false;
-  const latestDataAt = new Date(rows[0].latest_data_at);
-  return latestDataAt.getTime() > generatedAt.getTime();
 }
 
 async function attemptStructuredCall<T>(

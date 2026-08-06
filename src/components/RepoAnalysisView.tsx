@@ -9,7 +9,6 @@ import {
   UsersRound,
   Crown,
   Activity,
-  Grid,
 } from 'lucide-react';
 import Link from 'next/link';
 import { ActivityFeed } from '@/components/ActivityFeed';
@@ -67,13 +66,13 @@ export function RepoAnalysisView({
   if (contributors.length === 0) {
     return (
       <div className="sleek-panel p-8 text-center max-w-2xl mx-auto mt-12">
-        <Sparkles className="w-9 h-9 text-indigo-300 mx-auto mb-3" />
+        <Sparkles className="w-9 h-9 text-accent mx-auto mb-3" />
         <h2 className="text-xl font-bold mb-2">No contribution story yet</h2>
         <p className="text-sm text-zinc-400 leading-relaxed mb-5 max-w-lg mx-auto">
           The app is installed, but GitRanked needs GitHub activity before it can rank collaborators and build insights.
         </p>
         {!readOnly && (
-          <Link href="/dashboard" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 transition-colors font-semibold text-sm">
+          <Link href="/dashboard" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-none bg-accent text-black hover:bg-white transition-colors font-semibold text-sm">
             Back to repositories <ArrowRight className="w-4 h-4" />
           </Link>
         )}
@@ -85,7 +84,7 @@ export function RepoAnalysisView({
     if (readOnly) {
       return (
         <div className="sleek-panel p-8 text-center max-w-2xl mx-auto mt-12 flex flex-col items-center">
-          <Brain className="w-10 h-10 text-indigo-400 mb-3" />
+          <Brain className="w-10 h-10 text-accent mb-3" />
           <h2 className="text-xl font-bold mb-2">Collaborator Insights Not Generated</h2>
           <p className="text-sm text-zinc-400 leading-relaxed mb-5 max-w-lg">
             The repository owner has not generated AI insights yet. Please check back later.
@@ -179,7 +178,7 @@ export function RepoAnalysisView({
 
           <div className="sleek-panel p-5">
             <div className="flex items-center gap-2 mb-4">
-              <Layers3 className="w-6 h-6 text-indigo-300" />
+              <Layers3 className="w-6 h-6 text-accent" />
               <h2 className="text-xl font-bold text-white">Activity Feed</h2>
               <span className="text-base text-zinc-300 ml-2">most recent first</span>
             </div>
@@ -191,7 +190,7 @@ export function RepoAnalysisView({
       {/* 3. Contributor profiles */}
       <section className="mb-6">
         <div className="flex items-center gap-2 mb-4">
-          <UsersRound className="w-6 h-6 text-indigo-400" />
+          <UsersRound className="w-6 h-6 text-accent" />
           <h2 className="text-xl font-bold text-white">Contributor Profiles</h2>
           <span className="text-base text-zinc-300 ml-2">
             {smallTeam ? 'Stat tiles + AI work summary' : `Top ${Math.min(contributors.length, 9)} of ${contributors.length} — open a profile for full detail`}

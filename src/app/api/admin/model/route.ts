@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { sql } from '@/lib/db';
 import { getAiModel, setAiModel, RECOMMENDED_AI_MODELS } from '@/lib/ai/openrouter';
 import { isAdminGithubId } from '@/lib/admin';
 

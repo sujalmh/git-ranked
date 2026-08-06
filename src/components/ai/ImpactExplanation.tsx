@@ -21,10 +21,10 @@ export function ImpactExplanation({
       {result ? (
         <>
           <div className="flex items-center gap-2 pt-2 mb-2">
-            <Brain className="w-6 h-6 text-[#ccff00]" />
+            <Brain className="w-6 h-6 text-accent" />
             <span className="text-xl font-bold text-white uppercase tracking-wider">{result.payload.contributor_role}</span>
           </div>
-          <p className="text-xl text-zinc-200 leading-relaxed border-l-2 border-[#ccff00]/40 pl-4 font-medium">{result.payload.explanation}</p>
+          <p className="text-xl text-zinc-200 leading-relaxed border-l-2 border-accent/40 pl-4 font-medium">{result.payload.explanation}</p>
           {result.payload.key_signals.length > 0 && (
             <div className="pt-3">
               <h4 className="text-base uppercase tracking-wider font-bold mb-3 flex items-center gap-2 text-[#00bbff]">

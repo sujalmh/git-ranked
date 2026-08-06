@@ -34,6 +34,143 @@ const PALETTE = [
   { fill: '#422006', stroke: '#facc15', text: '#fef9c3', glow: 'rgba(250,204,21,0.35)' }, // Yellow
 ];
 
+type TreeArea = { name: string; size: number };
+type TreeAreaNode = { name: string; children: TreeArea[] };
+
+type CustomizedContentProps = {
+  depth?: number;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  index?: number;
+  name?: string;
+  value?: number;
+  hovered: HoverState;
+  onHover: (state: HoverState) => void;
+  grandTotal: number;
+  treeData: TreeAreaNode[];
+};
+
+function CustomizedContent({
+  depth,
+  x,
+  y,
+  width,
+  height,
+  index,
+  name,
+  value,
+  hovered,
+  onHover,
+  grandTotal,
+  treeData,
+}: CustomizedContentProps) {
+  if (depth !== 1) return null;
+
+  const theme = PALETTE[(index ?? 0) % PALETTE.length];
+  const areaTotal = value ?? 0;
+  const percent = grandTotal > 0 ? Math.round((areaTotal / grandTotal) * 100) : 0;
+  const areaContributors = (treeData[index ?? 0]?.children ?? []).map((c) => ({
+    ...c,
+    pct: areaTotal > 0 ? Math.round((c.size / areaTotal) * 100) : 0,
+  }));
+
+  const clipId = `clip-${index}-${Math.round(x ?? 0)}-${Math.round(y ?? 0)}`;
+  const isHovered = hovered?.name === name;
+
+  // Minimum size requirements: do NOT display font if box is too small
+  const minWidthForLabel = 42;
+  const minHeightForLabel = 28;
+  const showLabel = (width ?? 0) >= minWidthForLabel && (height ?? 0) >= minHeightForLabel;
+  const showPct = showLabel && (height ?? 0) >= 48;
+
+  // Proportional font sizing: scale up font size for bigger boxes with a minimum of 10px
+  const rectArea = (width ?? 0) * (height ?? 0);
+  let fontSize = 10; // minimum font size
+  if (rectArea > 22000) {
+    fontSize = Math.min(22, Math.max(14, Math.floor((width ?? 0) / 9)));
+  } else if (rectArea > 9000) {
+    fontSize = Math.min(16, Math.max(12, Math.floor((width ?? 0) / 8.5)));
+  } else if (rectArea > 3500) {
+    fontSize = Math.min(13, Math.max(11, Math.floor((width ?? 0) / 7.5)));
+  } else {
+    fontSize = 10;
+  }
+
+  const pctSize = Math.max(9, Math.floor(fontSize * 0.8));
+
+  // Truncate name cleanly if needed for available width
+  const maxChars = Math.max(3, Math.floor(((width ?? 0) - 6) / (fontSize * 0.62)));
+  const displayName = (name ?? '').length > maxChars ? (name ?? '').slice(0, maxChars - 1) + '…' : name;
+
+  return (
+    <g
+      style={{ cursor: 'pointer' }}
+      onMouseEnter={() =>
+        onHover({ name: name ?? '', value: areaTotal, percent, color: theme.stroke, contributors: areaContributors })
+      }
+      onMouseLeave={() => onHover(null)}
+    >
+      <defs>
+        <clipPath id={clipId}>
+          <rect x={(x ?? 0) + 3} y={(y ?? 0) + 3} width={(width ?? 0) - 6} height={(height ?? 0) - 6} />
+        </clipPath>
+      </defs>
+
+      <rect
+        x={(x ?? 0) + 1}
+        y={(y ?? 0) + 1}
+        width={(width ?? 0) - 2}
+        height={(height ?? 0) - 2}
+        rx={6}
+        ry={6}
+        style={{
+          fill: theme.fill,
+          stroke: theme.stroke,
+          strokeWidth: isHovered ? 3.5 : 2,
+          strokeOpacity: 0.95,
+          fillOpacity: isHovered ? 0.95 : 0.75,
+          filter: isHovered ? `drop-shadow(0 0 12px ${theme.glow})` : undefined,
+        }}
+      />
+
+      {showLabel && (
+        <g clipPath={`url(#${clipId})`} style={{ pointerEvents: 'none' }}>
+          <text
+            x={(x ?? 0) + (width ?? 0) / 2}
+            y={showPct ? (y ?? 0) + (height ?? 0) / 2 - (fontSize * 0.5) : (y ?? 0) + (height ?? 0) / 2}
+            textAnchor="middle"
+            fill="#ffffff"
+            stroke="none"
+            fontSize={fontSize}
+            fontWeight={fontSize >= 14 ? 900 : 700}
+            fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
+            dominantBaseline="middle"
+          >
+            {displayName}
+          </text>
+          {showPct && (
+            <text
+              x={(x ?? 0) + (width ?? 0) / 2}
+              y={(y ?? 0) + (height ?? 0) / 2 + (fontSize * 0.6)}
+              textAnchor="middle"
+              fill={theme.text}
+              stroke="none"
+              fontSize={pctSize}
+              fontWeight={500}
+              fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
+              dominantBaseline="middle"
+            >
+              {percent}%
+            </text>
+          )}
+        </g>
+      )}
+    </g>
+  );
+}
+
 export function WorkAreasHeatmap({
   contributors,
 }: {
@@ -77,114 +214,6 @@ export function WorkAreasHeatmap({
     return <div className="sleek-panel p-5 text-sm text-zinc-500 font-mono">No work-area data yet.</div>;
   }
 
-  const CustomizedContent = (props: any) => {
-    const { depth, x, y, width, height, index, name, value } = props;
-
-    if (depth !== 1) return null;
-
-    const theme = PALETTE[index % PALETTE.length];
-    const areaTotal = value ?? 0;
-    const percent = grandTotal > 0 ? Math.round((areaTotal / grandTotal) * 100) : 0;
-    const areaContributors = (treeData[index]?.children ?? []).map((c) => ({
-      ...c,
-      pct: areaTotal > 0 ? Math.round((c.size / areaTotal) * 100) : 0,
-    }));
-
-    const clipId = `clip-${index}-${Math.round(x)}-${Math.round(y)}`;
-    const isHovered = hovered?.name === name;
-
-    // Minimum size requirements: do NOT display font if box is too small
-    const minWidthForLabel = 42;
-    const minHeightForLabel = 28;
-    const showLabel = width >= minWidthForLabel && height >= minHeightForLabel;
-    const showPct = showLabel && height >= 48;
-
-    // Proportional font sizing: scale up font size for bigger boxes with a minimum of 10px
-    const rectArea = width * height;
-    let fontSize = 10; // minimum font size
-    if (rectArea > 22000) {
-      fontSize = Math.min(22, Math.max(14, Math.floor(width / 9)));
-    } else if (rectArea > 9000) {
-      fontSize = Math.min(16, Math.max(12, Math.floor(width / 8.5)));
-    } else if (rectArea > 3500) {
-      fontSize = Math.min(13, Math.max(11, Math.floor(width / 7.5)));
-    } else {
-      fontSize = 10;
-    }
-
-    const pctSize = Math.max(9, Math.floor(fontSize * 0.8));
-
-    // Truncate name cleanly if needed for available width
-    const maxChars = Math.max(3, Math.floor((width - 6) / (fontSize * 0.62)));
-    const displayName = name.length > maxChars ? name.slice(0, maxChars - 1) + '…' : name;
-
-    return (
-      <g
-        style={{ cursor: 'pointer' }}
-        onMouseEnter={() =>
-          setHovered({ name, value: areaTotal, percent, color: theme.stroke, contributors: areaContributors })
-        }
-        onMouseLeave={() => setHovered(null)}
-      >
-        <defs>
-          <clipPath id={clipId}>
-            <rect x={x + 3} y={y + 3} width={width - 6} height={height - 6} />
-          </clipPath>
-        </defs>
-
-        <rect
-          x={x + 1}
-          y={y + 1}
-          width={width - 2}
-          height={height - 2}
-          rx={6}
-          ry={6}
-          style={{
-            fill: theme.fill,
-            stroke: theme.stroke,
-            strokeWidth: isHovered ? 3.5 : 2,
-            strokeOpacity: 0.95,
-            fillOpacity: isHovered ? 0.95 : 0.75,
-            filter: isHovered ? `drop-shadow(0 0 12px ${theme.glow})` : undefined,
-          }}
-        />
-
-        {showLabel && (
-          <g clipPath={`url(#${clipId})`} style={{ pointerEvents: 'none' }}>
-            <text
-              x={x + width / 2}
-              y={showPct ? y + height / 2 - (fontSize * 0.5) : y + height / 2}
-              textAnchor="middle"
-              fill="#ffffff"
-              stroke="none"
-              fontSize={fontSize}
-              fontWeight={fontSize >= 14 ? 900 : 700}
-              fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
-              dominantBaseline="middle"
-            >
-              {displayName}
-            </text>
-            {showPct && (
-              <text
-                x={x + width / 2}
-                y={y + height / 2 + (fontSize * 0.6)}
-                textAnchor="middle"
-                fill={theme.text}
-                stroke="none"
-                fontSize={pctSize}
-                fontWeight={500}
-                fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
-                dominantBaseline="middle"
-              >
-                {percent}%
-              </text>
-            )}
-          </g>
-        )}
-      </g>
-    );
-  };
-
   return (
     <div className="sleek-panel p-5 font-mono">
       <div className="flex items-center justify-between mb-4">
@@ -204,7 +233,9 @@ export function WorkAreasHeatmap({
               dataKey="size"
               stroke="#000"
               fill="#8884d8"
-              content={<CustomizedContent />}
+              content={
+                <CustomizedContent hovered={hovered} onHover={setHovered} grandTotal={grandTotal} treeData={treeData} />
+              }
             />
           </ResponsiveContainer>
         </div>
@@ -215,17 +246,17 @@ export function WorkAreasHeatmap({
             <div className="flex flex-col h-full">
               {/* Header */}
               <div
-                className="rounded-t-lg px-4 py-3 flex items-center justify-between gap-2"
+                className="px-4 py-3 flex items-center justify-between gap-2"
                 style={{ backgroundColor: hovered.color + 'cc' }}
               >
                 <span className="text-white font-bold text-sm truncate">{hovered.name}</span>
                 <span className="text-white/80 text-xs font-bold shrink-0">{hovered.percent}%</span>
               </div>
-              <div className="rounded-b-lg border border-white/10 border-t-0 bg-black/80 px-4 py-3 flex-1 flex flex-col">
+              <div className="rounded-none border border-white/10 border-t-0 bg-black/80 px-4 py-3 flex-1 flex flex-col">
                 <div className="text-xs text-zinc-500 mb-3">{hovered.value} total events</div>
                 {/* Scrollable contributor list */}
                 <div className="flex-1 overflow-y-auto space-y-2" style={{ maxHeight: '280px' }}>
-                  {hovered.contributors.map((c, i) => (
+                  {hovered.contributors.map((c) => (
                     <div key={c.name} className="flex flex-col gap-0.5">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-zinc-200 font-medium truncate">{c.name}</span>
@@ -247,7 +278,7 @@ export function WorkAreasHeatmap({
               </div>
             </div>
           ) : (
-            <div className="h-full rounded-lg border border-white/5 bg-white/[0.02] flex flex-col items-center justify-center text-center px-4 gap-3">
+            <div className="h-full rounded-none border border-white/5 bg-white/[0.02] flex flex-col items-center justify-center text-center px-4 gap-3">
               <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center">
                 <svg className="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

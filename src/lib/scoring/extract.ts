@@ -60,8 +60,7 @@ export function extractBestTitle(
  * but extraction previously only looked at firstEvent (pr_opened) which lacks them.
  */
 export function extractMergedSizeMetrics(
-  events: Array<Record<string, unknown>>,
-  eventType: string
+  events: Array<Record<string, unknown>>
 ): { additions: number; deletions: number; changedFiles: number; commitCount: number } {
   let bestAdditions = 0;
   let bestDeletions = 0;
@@ -107,51 +106,6 @@ export function extractPrBody(
     }
   }
   return null;
-}
-
-/**
- * Parse the `size_metrics` out of a single push event payload.
- * Push events store an array of commits; we sum their additions/deletions
- * if present, otherwise we fall back to top-level payload fields.
- */
-function parseSizeMetricsFromPayload(
-  eventType: string,
-  payload: Record<string, unknown>
-): { additions: number; deletions: number; changedFiles: number; commitCount: number } {
-  // Direct fields (present on pr_merged events with detail fetch)
-  const directAdditions = typeof payload.additions === 'number' ? payload.additions : 0;
-  const directDeletions = typeof payload.deletions === 'number' ? payload.deletions : 0;
-  const directChangedFiles = typeof payload.changed_files === 'number' ? payload.changed_files : 0;
-
-  if (eventType === 'push') {
-    // Push payloads have a `commits` array; each commit may have stats.
-    const commits = Array.isArray(payload.commits) ? payload.commits : [];
-    const commitCount = typeof payload.commit_count === 'number' ? payload.commit_count : commits.length;
-
-    let sumAdditions = 0;
-    let sumDeletions = 0;
-    for (const c of commits) {
-      if (c && typeof c === 'object') {
-        const co = c as Record<string, unknown>;
-        sumAdditions += typeof co.additions === 'number' ? co.additions : 0;
-        sumDeletions += typeof co.deletions === 'number' ? co.deletions : 0;
-      }
-    }
-
-    return {
-      additions: sumAdditions || directAdditions,
-      deletions: sumDeletions || directDeletions,
-      changedFiles: directChangedFiles,
-      commitCount,
-    };
-  }
-
-  return {
-    additions: directAdditions,
-    deletions: directDeletions,
-    changedFiles: directChangedFiles,
-    commitCount: 1,
-  };
 }
 
 /**
@@ -271,7 +225,7 @@ export async function extractAndPersistWorkUnits(
   const commitMessages = extractCommitMessages(events as Array<Record<string, unknown>>);
   const prBody = extractPrBody(events as Array<Record<string, unknown>>);
   const { additions, deletions, changedFiles, commitCount } =
-    extractMergedSizeMetrics(events as Array<Record<string, unknown>>, eventType);
+    extractMergedSizeMetrics(events as Array<Record<string, unknown>>);
 
   // Use total lines for scope — for pushes we also use commit count as a
   // rough proxy if no line stats are available.
@@ -679,7 +633,7 @@ export async function persistExtractedItemsForCandidate(
   const eventType = String(firstEvent.event_type || '');
 
   const titleOrMessage = extractBestTitle(events, eventType);
-  const { additions, deletions, changedFiles, commitCount } = extractMergedSizeMetrics(events, eventType);
+  const { additions, deletions, changedFiles, commitCount } = extractMergedSizeMetrics(events);
 
   let persistedCount = 0;
   const isShipped = eventType === 'pr_merged' || eventType === 'push' || eventType === 'issue_closed';
@@ -817,7 +771,7 @@ export async function extractAndPersistBatchWorkUnits(
     return extractAndPersistWorkUnits(candidates[0], config, aiOptions);
   }
 
-  const candidateDataList: Array<{
+  type BatchCandidateData = {
     candidate: WorkUnitCandidate;
     events: Array<Record<string, unknown>>;
     titleOrMessage: string;
@@ -829,9 +783,9 @@ export async function extractAndPersistBatchWorkUnits(
     commitCount: number;
     eventType: string;
     contentHash: string;
-  }> = [];
+  };
 
-  const uncachedCandidates: typeof candidateDataList = [];
+  const uncachedCandidates: (BatchCandidateData | null)[] = [];
   let totalPersisted = 0;
 
   for (const candidate of candidates) {
@@ -858,7 +812,7 @@ export async function extractAndPersistBatchWorkUnits(
     const titleOrMessage = extractBestTitle(events, eventType);
     const commitMessages = extractCommitMessages(events);
     const prBody = extractPrBody(events);
-    const { additions, deletions, changedFiles, commitCount } = extractMergedSizeMetrics(events, eventType);
+    const { additions, deletions, changedFiles, commitCount } = extractMergedSizeMetrics(events);
 
     const contentToHash = `${candidate.correlation_key}:${titleOrMessage}:${config.version}:${EXTRACTION_PROMPT_VERSION}`;
     const contentHash = createHash('sha256').update(contentToHash).digest('hex');
@@ -903,7 +857,9 @@ export async function extractAndPersistBatchWorkUnits(
 
   if (hasApiKey(aiOptions)) {
     try {
-      const batchPrompt = buildBatchExtractionPrompt(uncachedCandidates);
+      const batchPrompt = buildBatchExtractionPrompt(
+        uncachedCandidates.filter((c): c is NonNullable<typeof c> => c !== null)
+      );
       await acquireSlot('openrouter');
 
       const aiResponse = await callStructured(
@@ -919,7 +875,7 @@ export async function extractAndPersistBatchWorkUnits(
       if (aiResponse) {
         const parsed = JSON.parse(stripCodeFences(aiResponse));
         if (Array.isArray(parsed.candidates)) {
-          const resultMap = new Map<string, any[]>();
+          const resultMap = new Map<string, Array<Record<string, unknown>>>();
           for (const cRes of parsed.candidates) {
             if (cRes && cRes.correlation_key && Array.isArray(cRes.items)) {
               resultMap.set(cRes.correlation_key, cRes.items);
@@ -951,7 +907,7 @@ export async function extractAndPersistBatchWorkUnits(
 
               const units = await persistExtractedItemsForCandidate(itemData.candidate, itemData.events, config, formattedItems, 'ai');
               totalPersisted += units;
-              (uncachedCandidates as any)[idx] = null;
+              uncachedCandidates[idx] = null;
             }
           }
         }

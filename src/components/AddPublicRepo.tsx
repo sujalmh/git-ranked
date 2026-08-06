@@ -1,8 +1,9 @@
 'use client';
 
+import Image from 'next/image';
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Loader2, Star, GitBranch, Check, X, Sparkles, ArrowRight, Globe } from 'lucide-react';
+import { Search, Loader2, Star, GitBranch, Check, X, ArrowRight, Globe } from 'lucide-react';
 
 interface SearchResultItem {
   id: number | string;
@@ -38,6 +39,17 @@ export function AddPublicRepo() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
+  // Reset stale search results when the query becomes too short to search.
+  const [prevQuery, setPrevQuery] = useState(repoQuery);
+  if (prevQuery !== repoQuery) {
+    setPrevQuery(repoQuery);
+    if (repoQuery.trim().length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      setShowDropdown(false);
+    }
+  }
+
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -52,11 +64,7 @@ export function AddPublicRepo() {
   // Debounced search
   useEffect(() => {
     const trimmed = repoQuery.trim();
-    if (trimmed.length < 2) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
-    }
+    if (trimmed.length < 2) return;
 
     const timer = setTimeout(async () => {
       setIsSearching(true);
@@ -179,7 +187,7 @@ export function AddPublicRepo() {
                 setShowDropdown(true);
               }}
               placeholder="Search repository (e.g. facebook/react, vercel/next.js)..."
-              className="w-full bg-black border border-zinc-700 rounded-xl pl-11 pr-10 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#ccff00] transition-colors font-bold font-mono"
+              className="w-full bg-black border border-zinc-700 rounded-xl pl-11 pr-10 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-accent transition-colors font-bold font-mono"
             />
             {repoQuery && (
               <button
@@ -198,7 +206,7 @@ export function AddPublicRepo() {
           <button
             type="submit"
             disabled={isSubmitting || !repoQuery.trim()}
-            className="px-6 py-3 bg-[#ccff00] text-black font-black text-xs uppercase tracking-wider hover:bg-[#b8e600] transition-colors flex items-center justify-center gap-2 rounded-xl min-w-[130px] disabled:opacity-50 disabled:cursor-not-allowed shrink-0 cursor-pointer"
+            className="px-6 py-3 bg-accent text-black font-black text-xs uppercase tracking-wider hover:bg-[#b8e600] transition-colors flex items-center justify-center gap-2 rounded-xl min-w-[130px] disabled:opacity-50 disabled:cursor-not-allowed shrink-0 cursor-pointer"
           >
             {isSubmitting ? (
               <Loader2 className="w-4 h-4 animate-spin text-black" />
@@ -215,7 +223,7 @@ export function AddPublicRepo() {
           <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-950 border-2 border-zinc-800 rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto divide-y divide-zinc-800/60">
             {isSearching ? (
               <div className="p-4 text-center text-zinc-400 text-xs font-mono flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-[#ccff00]" />
+                <Loader2 className="w-4 h-4 animate-spin text-accent" />
                 Searching GitHub public repositories...
               </div>
             ) : searchResults.length > 0 ? (
@@ -227,9 +235,11 @@ export function AddPublicRepo() {
                   className="w-full p-3.5 text-left hover:bg-zinc-900 transition-colors flex items-start gap-3.5 group cursor-pointer"
                 >
                   {item.owner.avatar_url ? (
-                    <img
+                    <Image
                       src={item.owner.avatar_url}
                       alt={item.owner.login}
+                      width={28}
+                      height={28}
                       className="w-7 h-7 rounded-full border border-zinc-700 shrink-0 mt-0.5"
                     />
                   ) : (
@@ -239,11 +249,11 @@ export function AddPublicRepo() {
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-sm text-white group-hover:text-[#ccff00] transition-colors truncate font-mono">
+                      <span className="font-bold text-sm text-white group-hover:text-accent transition-colors truncate font-mono">
                         {item.full_name}
                       </span>
                       {item.isTracked && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-[#ccff00]/10 text-[#ccff00] border border-[#ccff00]/30 px-2 py-0.5 shrink-0 flex items-center gap-1 rounded">
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-accent/10 text-accent border border-accent/30 px-2 py-0.5 shrink-0 flex items-center gap-1 rounded">
                           <Check className="w-3 h-3" /> TRACKED
                         </span>
                       )}
@@ -285,7 +295,7 @@ export function AddPublicRepo() {
             type="button"
             disabled={isSubmitting}
             onClick={() => handleSelectFeatured(featured.name)}
-            className="px-3 py-1 bg-black border border-zinc-800 rounded-lg text-xs font-mono text-zinc-300 hover:border-[#ccff00] hover:text-[#ccff00] transition-colors disabled:opacity-50 cursor-pointer"
+            className="px-3 py-1 bg-black border border-zinc-800 rounded-lg text-xs font-mono text-zinc-300 hover:border-accent hover:text-accent transition-colors disabled:opacity-50 cursor-pointer"
           >
             {featured.name}
           </button>

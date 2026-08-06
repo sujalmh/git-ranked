@@ -1,6 +1,19 @@
 import type { Metadata } from "next";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-code",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "GitRanked - Code Analysis & Review Board",
@@ -25,7 +38,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         ></script>
       </head>
-      <body className="bg-black text-zinc-50 antialiased min-h-screen selection:bg-indigo-500/30">
+      <body className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} bg-black text-zinc-50 antialiased min-h-screen selection:bg-accent/30 font-sans`}>
         {children}
         <Analytics />
       </body>

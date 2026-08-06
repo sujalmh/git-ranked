@@ -1,3 +1,5 @@
+import type { ClassificationItem } from '../ai/types';
+
 export type WorkType =
   | 'Feature'
   | 'BugFix'
@@ -193,4 +195,4 @@ export interface ScoreDetails {
   };
 }
 
-export type ClassificationMap = Map<number, any>;
+export type ClassificationMap = Map<number, ClassificationItem>;

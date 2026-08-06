@@ -17,7 +17,7 @@ import { SEVERITY, type Severity } from './identity';
 type Row = { key: HealthMetricKey; label: string; short: string; value: number; bar: string; text: string };
 
 const ROWS: Row[] = [
-  { key: 'delivery', label: 'Delivery', short: 'Delivery', value: 0, bar: 'bg-[#ccff00]', text: 'text-[#ccff00]' },
+  { key: 'delivery', label: 'Delivery', short: 'Delivery', value: 0, bar: 'bg-accent', text: 'text-accent' },
   { key: 'collaboration', label: 'Collaboration', short: 'Collab', value: 0, bar: 'bg-[#00ffff]', text: 'text-[#00ffff]' },
   { key: 'codeQuality', label: 'Code Quality', short: 'Quality', value: 0, bar: 'bg-[#ff00ff]', text: 'text-[#ff00ff]' },
   { key: 'reviewHealth', label: 'Review Health', short: 'Reviews', value: 0, bar: 'bg-[#00ff66]', text: 'text-[#00ff66]' },

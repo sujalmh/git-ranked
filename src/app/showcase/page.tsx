@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
+import Image from 'next/image';
 import { sql } from '@/lib/db';
 import Link from 'next/link';
 import { Star, ArrowRight, Award, PlusCircle } from 'lucide-react';
@@ -109,7 +110,7 @@ export default async function ShowcasePage() {
         {/* Header */}
         <div className="text-left max-w-4xl mb-8">
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-black uppercase tracking-tighter leading-[0.95] mb-4">
-            PUBLIC REPOSITORIES <span className="text-[#ccff00]">SHOWCASE</span>.
+            PUBLIC REPOSITORIES <span className="text-accent">SHOWCASE</span>.
           </h1>
           <p className="text-sm sm:text-base md:text-lg text-zinc-400 font-medium leading-relaxed">
             Real-time engineering metrics, code review velocity, and contributor impact scores across public analyzed repositories.
@@ -120,7 +121,7 @@ export default async function ShowcasePage() {
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight flex items-center gap-2 text-white">
-              <Award className="w-6 h-6 text-[#ccff00]" /> Analyzed Repositories ({showcaseList.length})
+              <Award className="w-6 h-6 text-accent" /> Analyzed Repositories ({showcaseList.length})
             </h2>
           </div>
 
@@ -130,14 +131,16 @@ export default async function ShowcasePage() {
                 <Link
                   key={`${repo.owner}-${repo.name}-${repo.id}-${idx}`}
                   href={`/github/${repo.owner}/${repo.name}`}
-                  className="sleek-panel p-6 flex flex-col gap-4 group cursor-pointer border-2 border-white/10 hover:bg-[#ccff00] hover:border-[#ccff00] hover:text-black transition-all duration-200"
+                  className="sleek-panel p-6 flex flex-col gap-4 group cursor-pointer border-2 border-white/10 hover:bg-accent hover:border-accent hover:text-black transition-all duration-200"
                 >
                   {/* Top Row: Avatar Logo, Title, Stars, Language, and Health Score Badge */}
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-white/5 border border-white/20 group-hover:bg-black group-hover:border-black transition-colors shrink-0 flex items-center justify-center overflow-hidden rounded-lg">
-                      <img
+                      <Image
                         src={repo.avatarUrl}
                         alt={repo.owner}
+                        width={40}
+                        height={40}
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -159,7 +162,7 @@ export default async function ShowcasePage() {
                     </div>
 
                     <div className="text-right shrink-0">
-                      <div className="text-3xl font-black text-[#ccff00] group-hover:text-black leading-none transition-colors">
+                      <div className="text-3xl font-black text-accent group-hover:text-black leading-none transition-colors">
                         {repo.score}
                       </div>
                       <div className="text-[10px] font-bold uppercase text-zinc-400 group-hover:text-black/80 tracking-wider mt-1 transition-colors">
@@ -178,7 +181,7 @@ export default async function ShowcasePage() {
                     <span className="text-xs font-bold text-zinc-400 group-hover:text-black/80 uppercase tracking-wider transition-colors">
                       PUBLIC ANALYTICS
                     </span>
-                    <div className="flex items-center gap-2 text-[#ccff00] group-hover:text-black text-sm font-bold uppercase tracking-wider group-hover:translate-x-1 transition-all">
+                    <div className="flex items-center gap-2 text-accent group-hover:text-black text-sm font-bold uppercase tracking-wider group-hover:translate-x-1 transition-all">
                       <span>VIEW INSIGHTS</span>
                       <ArrowRight className="w-4 h-4" />
                     </div>
@@ -188,14 +191,14 @@ export default async function ShowcasePage() {
             </div>
           ) : (
             <div className="sleek-panel p-12 text-center max-w-xl mx-auto my-8 border-2 border-white/20">
-              <PlusCircle className="w-12 h-12 text-[#ccff00] mx-auto mb-4" />
+              <PlusCircle className="w-12 h-12 text-accent mx-auto mb-4" />
               <h3 className="text-2xl font-black uppercase tracking-tight text-white mb-2">No Analyzed Repositories Found</h3>
               <p className="text-zinc-400 text-sm mb-6">
                 Be the first to analyze a public open-source GitHub repository on GitRanked.
               </p>
               <a
                 href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#ccff00] text-black font-black uppercase tracking-wider hover:bg-white transition-colors text-xs font-bold"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-accent text-black font-black uppercase tracking-wider hover:bg-white transition-colors text-xs font-bold"
               >
                 Track a Public Repository
               </a>
@@ -204,14 +207,14 @@ export default async function ShowcasePage() {
         </section>
 
         {/* CTA Banner */}
-        <section className="sleek-panel p-10 sm:p-16 text-center border-[#ccff00]/30 bg-gradient-to-b from-transparent to-[#ccff00]/5 max-w-5xl mx-auto my-12 border-2">
+        <section className="sleek-panel p-10 sm:p-16 text-center border-accent/30 bg-gradient-to-b from-transparent to-accent/5 max-w-5xl mx-auto my-12 border-2">
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase tracking-tighter mb-4">Want your repository listed here?</h2>
           <p className="text-base sm:text-lg text-zinc-400 mb-8 max-w-xl mx-auto font-medium leading-relaxed">
             Connect your public GitHub repository to analyze PR review times, engineering velocity, and contributor impact scores.
           </p>
           <a
             href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
-            className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#ccff00] text-black font-black uppercase tracking-wider hover:bg-white transition-colors text-sm font-bold"
+            className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-accent text-black font-black uppercase tracking-wider hover:bg-white transition-colors text-sm font-bold"
           >
             Connect Repository <ArrowRight className="w-5 h-5" />
           </a>

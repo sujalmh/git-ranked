@@ -17,7 +17,7 @@ import type { ContributorInsight } from '@/lib/contributor-insights';
 import type { AiResult, ContributorProfile, ImpactAnalysis } from '@/lib/ai/types';
 import type { EvidenceItem } from '@/lib/evidence';
 import { useEvidence } from '@/components/evidence';
-import { topicChipClass, randomNeonHex, type IdentityColor } from './identity';
+import { topicChipClass, randomNeonHex } from './identity';
 
 export type StatKey = 'commits' | 'prsOpened' | 'prsMerged' | 'reviews' | 'issues' | 'fixes';
 
@@ -62,15 +62,15 @@ function StatTile({
   if (tile.value === 0 && !highlight) return null;
   return (
     <div
-      className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 ${
+      className={`flex items-center gap-1.5 rounded-none border px-2 py-1 ${
         highlight
-          ? 'border-indigo-500/50 bg-indigo-500/10'
+          ? 'border-accent/50 bg-accent/10'
           : 'border-white/10 bg-white/5'
       }`}
       title={`${tile.value} ${tile.label}`}
     >
-      <span className={highlight ? 'text-indigo-300' : ''}>{tile.icon}</span>
-      <span className={`text-sm font-semibold ${highlight ? 'text-indigo-200' : 'text-zinc-200'}`}>{tile.value}</span>
+      <span className={highlight ? 'text-accent' : ''}>{tile.icon}</span>
+      <span className={`text-sm font-semibold ${highlight ? 'text-accent' : 'text-zinc-200'}`}>{tile.value}</span>
     </div>
   );
 }
@@ -81,7 +81,6 @@ export function ContributorProfileCard({
   contributorEvidence,
   repoOwner,
   repoName,
-  identity,
   highlightStats,
 }: {
   contributor: ContributorInsight;
@@ -89,7 +88,6 @@ export function ContributorProfileCard({
   contributorEvidence: EvidenceItem[];
   repoOwner: string;
   repoName: string;
-  identity: IdentityColor;
   highlightStats?: Set<StatKey>;
 }) {
   const { open } = useEvidence();
@@ -131,7 +129,7 @@ export function ContributorProfileCard({
         '--tw-shadow-color': glowHex,
         '--tw-shadow-base': `${glowHex}0D`,
         '--tw-shadow-hover': `${glowHex}20`
-      } as any}
+      } as React.CSSProperties}
     >
       <Link href={`/repos/${repoOwner}/${repoName}/${contributor.username}`} className="block">
         <div className="flex items-start gap-3 mb-3">
@@ -147,7 +145,7 @@ export function ContributorProfileCard({
             <div className="rounded-none border border-white/10 bg-white/10" style={{ width: 44, height: 44 }} />
           )}
           <div className="min-w-0 flex-1">
-            <h3 className="text-base font-semibold text-white truncate hover:text-indigo-300 transition-colors">
+            <h3 className="text-base font-semibold text-white truncate hover:text-accent transition-colors">
               {contributor.username}
             </h3>
             <span className="text-xs uppercase tracking-wide text-zinc-400">{ROLE_TIER[contributor.role] ?? contributor.role}</span>
@@ -202,7 +200,7 @@ export function ContributorProfileCard({
         <button
           type="button"
           onClick={showImpactEvidence}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-300 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:text-white transition-colors"
         >
           <HelpCircle className="w-3.5 h-3.5" />
           Why this score?

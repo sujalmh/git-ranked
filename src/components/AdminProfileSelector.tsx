@@ -10,6 +10,8 @@ interface RepoProfileItem {
   scoring_profile: ProfileName | null;
 }
 
+export type { RepoProfileItem };
+
 export function AdminProfileSelector({ repos }: { repos: RepoProfileItem[] }) {
   const [repoList, setRepoList] = useState(repos);
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -47,7 +49,7 @@ export function AdminProfileSelector({ repos }: { repos: RepoProfileItem[] }) {
               value={r.scoring_profile ?? 'balanced'}
               disabled={savingId === r.id}
               onChange={(e) => handleProfileChange(r.id, e.target.value as ProfileName)}
-              className="bg-black text-white text-xs border border-zinc-700 rounded-lg px-3 py-1.5 focus:outline-none focus:border-indigo-500"
+              className="bg-black text-white text-xs border border-zinc-700 rounded-lg px-3 py-1.5 focus:outline-none focus:border-accent"
             >
               <option value="balanced">balanced</option>
               <option value="product">product</option>

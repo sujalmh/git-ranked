@@ -2,8 +2,8 @@ import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
+import Image from 'next/image';
 import { GitBranch, Brain, Calendar } from 'lucide-react';
-import { redirect } from 'next/navigation';
 import { AnalyseButton } from '@/components/AnalyseButton';
 import { RepoAnalysisView } from '@/components/RepoAnalysisView';
 import { ShareButton } from '@/components/ShareButton';
@@ -113,9 +113,11 @@ export default async function RepoAnalysisBoard(
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
             <h1 className="text-2xl sm:text-3xl font-black flex items-center gap-3 tracking-tighter text-white min-w-0 break-all">
-              <img
+              <Image
                 src={`https://github.com/${owner}.png`}
                 alt={owner}
+                width={36}
+                height={36}
                 className="w-8 h-8 sm:w-9 sm:h-9 border-2 border-white/20 object-cover shrink-0"
               />
               <span>{owner} / {name}</span>
