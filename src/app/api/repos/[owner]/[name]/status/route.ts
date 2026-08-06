@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
+import { getUserRepoId } from '@/lib/repo-access';
 
 export async function GET(
   req: Request,
@@ -13,19 +14,10 @@ export async function GET(
 
   const { owner, name } = await props.params;
 
-  const repoQuery = await sql`
-    SELECT r.id
-    FROM repositories r
-    LEFT JOIN installations i ON r.installation_id = i.id
-    WHERE r.owner = ${owner} AND r.name = ${name}
-      AND (i.linked_user_id = ${session.user.id} OR r.installation_id IS NULL)
-  `;
-
-  if (repoQuery.length === 0) {
+  const repoId = await getUserRepoId(owner, name, session.user.id);
+  if (repoId === null) {
     return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
   }
-
-  const repoId = repoQuery[0].id as number;
 
   const url = new URL(req.url);
   const jobId = url.searchParams.get('jobId');

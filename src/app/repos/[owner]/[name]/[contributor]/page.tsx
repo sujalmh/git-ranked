@@ -9,6 +9,7 @@ import { runTaskById } from '@/lib/ai';
 import type { AiResult, ContributorProfile, ImpactAnalysis } from '@/lib/ai/types';
 import { ContributorProfileCard, ImpactExplanation } from '@/components/ai';
 import { formatRelativeDate } from '@/lib/contributor-insights';
+import { getAnalysisPeriod } from '@/lib/analysis';
 
 function StarRating({ count }: { count: number }) {
   const stars = Math.min(5, Math.max(1, Math.round(count)));
@@ -40,6 +41,7 @@ export default async function ContributorDetail(
     FROM repositories r
     LEFT JOIN installations i ON r.installation_id = i.id
     WHERE r.owner = ${owner} AND r.name = ${name}
+      AND (i.linked_user_id = ${userId} OR r.added_by_user_id = ${userId})
   `;
 
   if (repoQuery.length === 0) return <div className="p-8">Repository not found.</div>;
@@ -96,8 +98,7 @@ export default async function ContributorDetail(
 
   const workUnits = workUnitsQuery as WorkUnit[];
 
-  const dateTo = new Date().toISOString().split('T')[0];
-  const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const { dateTo, dateFrom } = getAnalysisPeriod();
 
   let profileResult: AiResult<ContributorProfile> | null = null;
   let impactResult: AiResult<ImpactAnalysis> | null = null;
@@ -138,7 +139,7 @@ export default async function ContributorDetail(
 
           <div className="flex items-center gap-6">
             <div className="text-right">
-              <div className="text-3xl font-black text-indigo-400 leading-none">{Math.round(currentScore.composite)}</div>
+              <div className="text-3xl font-black text-accent leading-none">{Math.round(currentScore.composite)}</div>
               <div className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider mt-1">Composite Score</div>
             </div>
           </div>
@@ -175,7 +176,7 @@ export default async function ContributorDetail(
         {/* Extracted Work Units Section */}
         <div className="mb-8">
           <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-            <Cpu className="w-5 h-5 text-indigo-400" />
+            <Cpu className="w-5 h-5 text-accent" />
             Extracted Work Units & Explainable Scores ({workUnits.length})
           </h2>
 
@@ -189,11 +190,11 @@ export default async function ContributorDetail(
                 <div key={unit.id} className="sleek-panel p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="space-y-1 max-w-2xl">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-none bg-accent/20 text-accent border border-accent/30">
                         {unit.work_type}
                       </span>
                       {unit.shipped && (
-                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-none bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
                           <CheckCircle className="w-3 h-3" /> Shipped
                         </span>
                       )}
@@ -224,7 +225,7 @@ export default async function ContributorDetail(
                     </div>
                     <div className="text-right pl-2 border-l border-zinc-800">
                       <div className="text-xs text-zinc-500">Value</div>
-                      <div className="text-base font-bold text-indigo-400">
+                      <div className="text-base font-bold text-accent">
                         {((unit.derived?.value ?? 0) * 10).toFixed(1)}
                       </div>
                     </div>

@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { GitBranch, Star, GitFork, AlertCircle, ArrowRight, Brain, Code, Calendar } from 'lucide-react';
 import Link from 'next/link';
-import { fetchRepoEvents, getRepoAnalysisData } from '@/lib/analysis';
+import { fetchRepoEvents, getRepoAnalysisData, getAnalysisPeriod } from '@/lib/analysis';
 import { RepoAnalysisView } from '@/components/RepoAnalysisView';
 import { ShareButton } from '@/components/ShareButton';
 import { formatDistanceToNow } from 'date-fns';
@@ -21,9 +21,15 @@ export default async function PublicRepoPage(
     notFound();
   }
 
-  // 2. Check if it's tracked in GitRanked
+  // 2. Check if it's tracked in GitRanked. Only public (non-installation) repos
+  // or repos explicitly shared by their owner get a public showcase page —
+  // installation-tracked repos may be private and must not be exposed.
   const repoQuery = await sql`
-    SELECT id FROM repositories WHERE owner = ${owner} AND name = ${name} LIMIT 1
+    SELECT id FROM repositories
+    WHERE owner = ${owner} AND name = ${name}
+      AND (installation_id IS NULL OR share_enabled = true)
+      AND is_active = true
+    LIMIT 1
   `;
 
   let analysisData = null;
@@ -39,9 +45,7 @@ export default async function PublicRepoPage(
     }
   }
 
-  const dateToObj = new Date();
-  const dateFromObj = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const periodText = `${dateFromObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${dateToObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  const { periodText } = getAnalysisPeriod();
 
   // Render full analysis if available
   if (analysisData && analysisData.isAnalysed) {
@@ -50,7 +54,7 @@ export default async function PublicRepoPage(
         <Navbar />
         
         {/* Public Banner */}
-        <div className="w-full bg-[#ccff00] text-black py-3 px-6 text-center text-sm font-bold tracking-wide flex items-center justify-center gap-2">
+        <div className="w-full bg-accent text-black py-3 px-6 text-center text-sm font-bold tracking-wide flex items-center justify-center gap-2">
           <Brain className="w-4 h-4" />
           You are viewing a public GitRanked analysis for {githubRepo.full_name}.
           <a
@@ -65,11 +69,11 @@ export default async function PublicRepoPage(
           <div className="mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
               <h1 className="text-3xl font-black flex items-center gap-2.5 uppercase tracking-tighter">
-                <GitBranch className="w-8 h-8 text-[#ccff00]" />
+                <GitBranch className="w-8 h-8 text-accent" />
                 {owner} / {name}
               </h1>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 shrink-0 self-start sm:self-auto">
-                <Calendar className="w-3.5 h-3.5 text-[#ccff00]" />
+                <Calendar className="w-3.5 h-3.5 text-accent" />
                 <span>Analysis Period: 30 Days ({periodText})</span>
               </div>
             </div>
@@ -93,14 +97,14 @@ export default async function PublicRepoPage(
           <RepoAnalysisView data={analysisData} readOnly={true} repoOwner={owner} repoName={name} />
           
           {/* Bottom CTA for public users */}
-          <div className="mt-16 sleek-panel p-10 text-center border-[#ccff00]/20 bg-gradient-to-b from-transparent to-[#ccff00]/5">
+          <div className="mt-16 sleek-panel p-10 text-center border-accent/20 bg-gradient-to-b from-transparent to-accent/5">
             <h2 className="text-3xl font-black uppercase tracking-tighter mb-4">Want these insights for your team?</h2>
             <p className="text-zinc-400 mb-8 max-w-xl mx-auto font-medium">
               Join the engineering leaders using GitRanked to measure performance, identify bottlenecks, and recognize their top contributors.
             </p>
             <a
               href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#ccff00] text-black font-black uppercase tracking-wider hover:bg-white transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-accent text-black font-black uppercase tracking-wider hover:bg-white transition-colors"
             >
               Get Started Free <ArrowRight className="w-5 h-5" />
             </a>
@@ -117,7 +121,7 @@ export default async function PublicRepoPage(
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-16">
         <div className="sleek-panel p-10 relative overflow-hidden">
           {/* Background glow */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#ccff00] opacity-5 blur-[100px] rounded-full pointer-events-none" />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-accent opacity-5 blur-[100px] rounded-full pointer-events-none" />
           
           <div className="flex items-center gap-3 mb-6 relative z-10">
             <img src={githubRepo.owner.avatar_url} alt={githubRepo.owner.login} className="w-12 h-12 rounded-lg border border-white/10" />
@@ -154,15 +158,15 @@ export default async function PublicRepoPage(
             </div>
           </div>
 
-          <div className="bg-black/50 border border-[#ccff00]/30 rounded-2xl p-8 text-center relative z-10">
-            <Brain className="w-12 h-12 text-[#ccff00] mx-auto mb-4" />
+          <div className="bg-black/50 border border-accent/30 rounded-2xl p-8 text-center relative z-10">
+            <Brain className="w-12 h-12 text-accent mx-auto mb-4" />
             <h2 className="text-2xl font-black uppercase tracking-tight mb-3">AI Analysis Pending</h2>
             <p className="text-zinc-400 mb-8 max-w-md mx-auto">
               This repository has not been fully analyzed by GitRanked yet. Connect your GitHub account to generate deep engineering metrics, PR review stats, and contributor analytics.
             </p>
             <a
               href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#ccff00] text-black font-black uppercase tracking-wider hover:bg-white transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-accent text-black font-black uppercase tracking-wider hover:bg-white transition-colors"
             >
               Analyze this repository <ArrowRight className="w-5 h-5" />
             </a>

@@ -8,7 +8,7 @@ import { AnalyseButton } from '@/components/AnalyseButton';
 import { RepoAnalysisView } from '@/components/RepoAnalysisView';
 import { ShareButton } from '@/components/ShareButton';
 import { RepositoryNeedsInit } from '@/components/InitializeButton';
-import { fetchRepoEvents, getRepoAnalysisData } from '@/lib/analysis';
+import { fetchRepoEvents, getRepoAnalysisData, getAnalysisPeriod } from '@/lib/analysis';
 import { getShareState } from '@/lib/share';
 import { getPublicRepository } from '@/lib/github-api';
 
@@ -26,6 +26,7 @@ export default async function RepoAnalysisBoard(
     FROM repositories r
     LEFT JOIN installations i ON r.installation_id = i.id
     WHERE r.owner = ${owner} AND r.name = ${name}
+      AND (i.linked_user_id = ${userId} OR r.added_by_user_id = ${userId})
   `;
 
   if (repoQuery.length === 0) return <div>Repository not found or access denied.</div>;
@@ -42,7 +43,7 @@ export default async function RepoAnalysisBoard(
             </p>
             <a
               href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-none bg-accent text-black hover:bg-white hover:text-black text-sm font-medium transition-colors"
             >
               Reinstall GitHub App
             </a>
@@ -68,7 +69,7 @@ export default async function RepoAnalysisBoard(
               <span>{owner}</span>
             </div>
             <h1 className="text-2xl font-bold flex items-center gap-2.5 mb-1">
-              <GitBranch className="w-6 h-6 text-indigo-400" />
+              <GitBranch className="w-6 h-6 text-accent" />
               {owner} / {name}
             </h1>
           </div>
@@ -80,7 +81,7 @@ export default async function RepoAnalysisBoard(
               <p className="text-sm text-zinc-400 leading-relaxed mb-5 max-w-lg">
                 This repository has not been initialized yet. Please log in to initialize and analyze it.
               </p>
-              <Link href="/" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl transition-colors">
+              <Link href="/" className="px-5 py-2.5 bg-accent text-black hover:bg-white hover:text-black text-sm font-medium rounded-none transition-colors">
                 Log In
               </Link>
             </div>
@@ -97,9 +98,7 @@ export default async function RepoAnalysisBoard(
     : null;
   const githubRepo = await getPublicRepository(owner, name);
   const repoDescription = githubRepo?.description || 'AI Engineering Intelligence: Understand what shipped, where bottlenecks are, and how your team collaborates.';
-  const dateToObj = new Date();
-  const dateFromObj = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const periodText = `${dateFromObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${dateToObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  const { periodText } = getAnalysisPeriod();
 
   return (
     <div className="flex flex-col min-h-screen relative">
@@ -121,8 +120,8 @@ export default async function RepoAnalysisBoard(
               />
               <span>{owner} / {name}</span>
             </h1>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 shrink-0 self-start sm:self-auto">
-              <Calendar className="w-3.5 h-3.5 text-[#ccff00]" />
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-none bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 shrink-0 self-start sm:self-auto">
+              <Calendar className="w-3.5 h-3.5 text-accent" />
               <span>Analysis Period: 30 Days ({periodText})</span>
             </div>
           </div>
@@ -151,7 +150,7 @@ export default async function RepoAnalysisBoard(
                   isStatic={true}
                 />
               )}
-              <Link href={`/repos/${owner}/${name}/compare`} className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-4 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base text-white font-semibold flex items-center justify-center">
+              <Link href={`/repos/${owner}/${name}/compare`} className="rounded-none border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-4 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base text-white font-semibold flex items-center justify-center">
                 Compare Team
               </Link>
             </div>
@@ -160,7 +159,7 @@ export default async function RepoAnalysisBoard(
 
         {!data.isAnalysed && data.contributors.length > 0 ? (
           <div className="sleek-panel p-8 text-center max-w-2xl mx-auto mt-12 flex flex-col items-center">
-            <Brain className="w-10 h-10 text-indigo-400 mb-3" />
+            <Brain className="w-10 h-10 text-accent mb-3" />
             <h2 className="text-xl font-bold mb-2">Repository Insights Not Generated</h2>
             <p className="text-sm text-zinc-400 leading-relaxed mb-5 max-w-lg">
               This repository has contribution data, but the AI insights have not been generated yet. Click below to crunch the data and generate comprehensive health metrics, team summaries, and AI impact scores.
@@ -168,7 +167,7 @@ export default async function RepoAnalysisBoard(
             {session ? (
               <AnalyseButton owner={owner} name={name} />
             ) : (
-              <p className="text-sm text-indigo-400 mt-4">Please log in to analyze this repository.</p>
+              <p className="text-sm text-accent mt-4">Please log in to analyze this repository.</p>
             )}
           </div>
         ) : (

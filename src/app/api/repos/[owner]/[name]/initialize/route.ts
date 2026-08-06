@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { backfillRepoActivity } from '@/lib/github-backfill';
+import { getUserRepoId } from '@/lib/repo-access';
 
 const encoder = new TextEncoder();
 
@@ -27,12 +28,16 @@ export async function POST(
 
   const { owner, name } = await props.params;
 
+  const ownedRepoId = await getUserRepoId(owner, name, session.user.id);
+  if (ownedRepoId === null) {
+    return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
+  }
+
   const repoQuery = await sql`
     SELECT r.id, r.github_repo_id, i.github_installation_id, i.status as install_status
     FROM repositories r
     LEFT JOIN installations i ON r.installation_id = i.id
-    WHERE r.owner = ${owner} AND r.name = ${name} 
-      AND (i.linked_user_id = ${session.user.id} OR r.installation_id IS NULL)
+    WHERE r.id = ${ownedRepoId}
   `;
 
   if (repoQuery.length === 0) {
@@ -82,7 +87,7 @@ export async function POST(
           github_installation_id: repo.github_installation_id || '',
           owner,
           name,
-        }, (session as any).accessToken);
+        }, session.accessToken);
 
         if (result.skipped) {
           controller.enqueue(

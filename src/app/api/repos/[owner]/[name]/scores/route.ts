@@ -16,7 +16,15 @@ export async function GET(
   const { owner, name } = await params;
 
   try {
-    const repoQuery = await sql`SELECT id FROM repositories WHERE owner = ${owner} AND name = ${name}`;
+    // Public analytics endpoint: only serve public (non-installation) repos or
+    // repos explicitly shared by their owner. Installation-tracked repos may be
+    // private and must not be exposed here.
+    const repoQuery = await sql`
+      SELECT id FROM repositories
+      WHERE owner = ${owner} AND name = ${name}
+        AND (installation_id IS NULL OR share_enabled = true)
+        AND is_active = true
+    `;
     if (repoQuery.length === 0) {
       return NextResponse.json({ error: 'Repo not found' }, { status: 404 });
     }

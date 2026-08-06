@@ -1,20 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { sql } from '@/lib/db';
 import { ensureShareToken, revokeShareToken } from '@/lib/share';
-
-type RepoLookup = { id: number }[];
-
-async function getOwnedRepoId(owner: string, name: string, userId: string): Promise<number | null> {
-  const rows = (await sql`
-    SELECT r.id
-    FROM repositories r
-    LEFT JOIN installations i ON r.installation_id = i.id
-    WHERE r.owner = ${owner} AND r.name = ${name} 
-      AND (i.linked_user_id = ${userId} OR r.installation_id IS NULL)
-  `) as RepoLookup;
-  return rows.length > 0 ? rows[0].id : null;
-}
+import { getUserRepoId } from '@/lib/repo-access';
 
 export async function POST(
   _req: Request,
@@ -26,7 +13,7 @@ export async function POST(
   }
 
   const { owner, name } = await props.params;
-  const repoId = await getOwnedRepoId(owner, name, session.user.id);
+  const repoId = await getUserRepoId(owner, name, session.user.id);
   if (repoId === null) {
     return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
   }
@@ -46,7 +33,7 @@ export async function DELETE(
   }
 
   const { owner, name } = await props.params;
-  const repoId = await getOwnedRepoId(owner, name, session.user.id);
+  const repoId = await getUserRepoId(owner, name, session.user.id);
   if (repoId === null) {
     return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
   }

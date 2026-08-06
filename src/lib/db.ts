@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { neon } from '@neondatabase/serverless';
 
 let cachedDbUrl: string | null = null;
@@ -196,6 +197,12 @@ export async function initSchema() {
   // repositories: share_token for public read-only access, share_enabled toggle
   await sql`ALTER TABLE repositories ADD COLUMN IF NOT EXISTS share_token VARCHAR(32) UNIQUE`.catch(() => {});
   await sql`ALTER TABLE repositories ADD COLUMN IF NOT EXISTS share_enabled BOOLEAN DEFAULT false`.catch(() => {});
+
+  // Public repos added via the "add public repo" flow are scoped to the user
+  // who added them (added_by_user_id). Previously ALL public repos
+  // (installation_id IS NULL) were considered owned by EVERY user, which let
+  // any authenticated user classify/analyse/remove repos others had added.
+  await sql`ALTER TABLE repositories ADD COLUMN IF NOT EXISTS added_by_user_id INTEGER REFERENCES app_users(id)`.catch(() => {});
 
   // --- Scoring System v3 migrations ---
   await sql`ALTER TABLE repositories ADD COLUMN IF NOT EXISTS scoring_profile VARCHAR(24)`.catch(() => {});

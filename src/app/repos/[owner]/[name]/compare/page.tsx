@@ -33,6 +33,7 @@ export default async function ComparePage(
     FROM repositories r
     LEFT JOIN installations i ON r.installation_id = i.id
     WHERE r.owner = ${owner} AND r.name = ${name}
+      AND (i.linked_user_id = ${userId} OR r.added_by_user_id = ${userId})
   `;
 
   if (repoQuery.length === 0) return <div>Repository not found.</div>;
@@ -116,24 +117,24 @@ export default async function ComparePage(
                   )}
                   <div>
                     <h3 className="font-semibold">{c.username}</h3>
-                    <div className="text-xs text-indigo-400 font-bold">Composite: {c.impactScore}</div>
+                    <div className="text-xs text-accent font-bold">Composite: {c.impactScore}</div>
                   </div>
                 </div>
 
                 <div className="space-y-3 text-xs mb-4">
-                  <div className="flex justify-between items-center bg-zinc-900/60 p-2 rounded-lg">
+                  <div className="flex justify-between items-center bg-zinc-900/60 p-2 rounded-none">
                     <span className="flex items-center gap-1.5 text-zinc-400"><Zap className="w-3.5 h-3.5 text-amber-400" /> Impact</span>
                     <span className="font-bold">{c.dimensionScores.impact}</span>
                   </div>
-                  <div className="flex justify-between items-center bg-zinc-900/60 p-2 rounded-lg">
+                  <div className="flex justify-between items-center bg-zinc-900/60 p-2 rounded-none">
                     <span className="flex items-center gap-1.5 text-zinc-400"><ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Quality</span>
                     <span className="font-bold">{c.dimensionScores.quality}</span>
                   </div>
-                  <div className="flex justify-between items-center bg-zinc-900/60 p-2 rounded-lg">
+                  <div className="flex justify-between items-center bg-zinc-900/60 p-2 rounded-none">
                     <span className="flex items-center gap-1.5 text-zinc-400"><MessageSquare className="w-3.5 h-3.5 text-blue-400" /> Collaboration</span>
                     <span className="font-bold">{c.dimensionScores.collaboration}</span>
                   </div>
-                  <div className="flex justify-between items-center bg-zinc-900/60 p-2 rounded-lg">
+                  <div className="flex justify-between items-center bg-zinc-900/60 p-2 rounded-none">
                     <span className="flex items-center gap-1.5 text-zinc-400"><Activity className="w-3.5 h-3.5 text-purple-400" /> Consistency</span>
                     <span className="font-bold">{c.dimensionScores.consistency}</span>
                   </div>

@@ -42,7 +42,7 @@ export default async function Dashboard() {
              (SELECT COUNT(*) FROM github_events WHERE repo_id = r.id) as event_count
       FROM repositories r
       LEFT JOIN installations i ON r.installation_id = i.id
-      WHERE (i.linked_user_id = ${session.user.id} OR r.installation_id IS NULL)
+      WHERE (i.linked_user_id = ${session.user.id} OR r.added_by_user_id = ${session.user.id})
         AND r.is_active = true
         AND (i.status IS NULL OR i.status != 'deleted')
       ORDER BY r.added_at DESC
@@ -73,7 +73,7 @@ export default async function Dashboard() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
           <div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter flex items-center gap-3">
-              <LayoutDashboard className="w-7 h-7 sm:w-8 sm:h-8 text-[#ccff00]" />
+              <LayoutDashboard className="w-7 h-7 sm:w-8 sm:h-8 text-accent" />
               Your Repositories
             </h1>
             <p className="text-xs sm:text-sm md:text-base font-medium text-zinc-400 mt-1">
@@ -93,7 +93,7 @@ export default async function Dashboard() {
               className="px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-bold uppercase tracking-wider rounded-xl flex items-center gap-2 transition-colors shrink-0"
               title="Manage GitHub App Installations"
             >
-              <Settings className="w-4 h-4 text-[#ccff00]" />
+              <Settings className="w-4 h-4 text-accent" />
               <span>Manage App ({installationCount})</span>
             </a>
           </div>
@@ -103,7 +103,7 @@ export default async function Dashboard() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-black uppercase tracking-tight text-white flex items-center gap-2">
-              <GitBranch className="w-5 h-5 text-[#ccff00]" />
+              <GitBranch className="w-5 h-5 text-accent" />
               Tracked Repositories ({repos.length})
             </h2>
             {repos.length > 0 && (
@@ -116,7 +116,7 @@ export default async function Dashboard() {
           {repos.length === 0 ? (
             <div className="sleek-panel p-12 text-center flex flex-col items-center max-w-xl mx-auto my-12 border-2 border-white/20">
               <div className="w-14 h-14 bg-white/5 flex items-center justify-center mb-4 border border-white/20">
-                <GitBranch className="w-7 h-7 text-[#ccff00]" />
+                <GitBranch className="w-7 h-7 text-accent" />
               </div>
               <h3 className="text-xl font-black uppercase tracking-tight mb-2 text-white">
                 No Repositories Tracked Yet
@@ -132,7 +132,7 @@ export default async function Dashboard() {
                 <Link 
                   href={`/repos/${repo.owner}/${repo.name}`} 
                   key={repo.id}
-                  className="sleek-panel p-6 flex flex-col gap-4 group cursor-pointer border-2 border-white/10 hover:bg-[#ccff00] hover:border-[#ccff00] hover:text-black transition-all duration-200"
+                  className="sleek-panel p-6 flex flex-col gap-4 group cursor-pointer border-2 border-white/10 hover:bg-accent hover:border-accent hover:text-black transition-all duration-200"
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-white/5 border border-white/20 group-hover:bg-black group-hover:border-black transition-colors shrink-0 flex items-center justify-center overflow-hidden">
@@ -161,7 +161,7 @@ export default async function Dashboard() {
                       </div>
                     ) : repo.event_count === 0 ? (
                       <div className="text-right shrink-0">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-black bg-accent group-hover:bg-black group-hover:text-[#ccff00] px-2 py-1 transition-colors">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-black bg-accent group-hover:bg-black group-hover:text-accent px-2 py-1 transition-colors">
                           INITIALIZE
                         </div>
                       </div>

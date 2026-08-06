@@ -1,9 +1,21 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { scoreRepo } from '@/lib/scoring';
 import type { ProfileName } from '@/lib/scoring';
+import { isAdminGithubId } from '@/lib/admin';
 
 export async function POST(req: Request) {
+  const session = await auth();
+  if (!session?.user?.githubId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const admin = await isAdminGithubId(session.user.githubId);
+  if (!admin) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   try {
     const body = await req.json();
     const { repo_id, profile } = body as { repo_id: number; profile: ProfileName };

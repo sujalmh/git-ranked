@@ -13,7 +13,8 @@ export async function GET() {
       SELECT r.id, r.owner, r.name, r.default_branch, r.github_repo_id 
       FROM repositories r
       LEFT JOIN installations i ON r.installation_id = i.id
-      WHERE (i.linked_user_id = ${session.user.id} OR r.installation_id IS NULL) AND r.is_active = true
+      WHERE (i.linked_user_id = ${session.user.id} OR r.added_by_user_id = ${session.user.id})
+        AND r.is_active = true
       ORDER BY r.added_at DESC
     `;
     return NextResponse.json({ repos });

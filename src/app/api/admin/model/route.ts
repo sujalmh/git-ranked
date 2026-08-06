@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { getAiModel, setAiModel, RECOMMENDED_AI_MODELS } from '@/lib/ai/openrouter';
+import { isAdminGithubId } from '@/lib/admin';
 
 export async function GET() {
   try {
@@ -24,9 +25,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Verify admin authorization
-  const userRecord = await sql`SELECT username FROM app_users WHERE github_id = ${userGithubId}`;
-  if (userRecord.length === 0 || userRecord[0].username !== 'sujalmh') {
+  if (!(await isAdminGithubId(userGithubId))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

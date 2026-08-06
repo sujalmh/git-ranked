@@ -13,6 +13,7 @@ import {
 import { setTelemetryListener, type ApiTelemetryEvent } from '@/lib/ai/telemetry';
 import { getUserAiConfig } from '@/lib/ai/openrouter';
 import { enqueueClassifyRepo } from '@/lib/queue';
+import { getUserRepoId } from '@/lib/repo-access';
 
 type ProgressEvent = {
   step: string;
@@ -38,19 +39,11 @@ export async function POST(
 
   const { owner, name } = await props.params;
 
-  const repoQuery = await sql`
-    SELECT r.id
-    FROM repositories r
-    LEFT JOIN installations i ON r.installation_id = i.id
-    WHERE r.owner = ${owner} AND r.name = ${name} 
-      AND (i.linked_user_id = ${session.user.id} OR r.installation_id IS NULL)
-  `;
-
-  if (repoQuery.length === 0) {
+  const repoId = await getUserRepoId(owner, name, session.user.id);
+  if (repoId === null) {
     return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
   }
 
-  const repoId = repoQuery[0].id;
   const repoInfo = await getRepoContext(repoId);
   if (!repoInfo) {
     return NextResponse.json({ error: 'Repository metadata not found' }, { status: 404 });

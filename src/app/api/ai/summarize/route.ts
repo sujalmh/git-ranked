@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { runTaskById } from '@/lib/ai';
+import { isRepoOwnedByUser } from '@/lib/repo-access';
 
 const VALID_TASKS = [
   'contributor_profile',
@@ -49,17 +50,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Invalid task. Valid tasks: ${VALID_TASKS.join(', ')}` }, { status: 400 });
     }
 
-    const repoAccess = await sql`
-      SELECT r.id
-      FROM repositories r
-      LEFT JOIN installations i ON r.installation_id = i.id
-      WHERE r.id = ${parsedRepoId}
-        AND (i.linked_user_id = ${session.user.id} OR r.installation_id IS NULL)
-        AND r.is_active = true
-      LIMIT 1
-    `;
-
-    if (repoAccess.length === 0) {
+    const owned = await isRepoOwnedByUser(parsedRepoId, session.user.id);
+    if (!owned) {
       return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
     }
 

@@ -28,6 +28,13 @@ export async function POST(req: Request) {
           UPDATE repositories SET is_active = true WHERE id = ${existingRepo[0].id}
         `;
       }
+      // If this public repo was added before ownership tracking existed,
+      // adopt it so the current user manages it (legacy rows have NULL).
+      await sql`
+        UPDATE repositories
+        SET added_by_user_id = COALESCE(added_by_user_id, ${session.user.id})
+        WHERE id = ${existingRepo[0].id}
+      `;
       return NextResponse.json({
         repoId: existingRepo[0].id,
         owner: existingRepo[0].owner,
@@ -46,12 +53,12 @@ export async function POST(req: Request) {
     const { id: github_repo_id, owner: { login: fetchedOwner }, name: fetchedName } = githubRepoData;
 
     // Default branch fallback if not provided
-    const defaultBranch = (githubRepoData as any).default_branch || 'main';
+    const defaultBranch = githubRepoData.default_branch || 'main';
 
-    // Insert into repositories with installation_id = NULL
+    // Insert into repositories with installation_id = NULL, scoped to the user
     const newRepo = await sql`
-      INSERT INTO repositories (github_repo_id, owner, name, default_branch, is_active)
-      VALUES (${github_repo_id}, ${fetchedOwner}, ${fetchedName}, ${defaultBranch}, true)
+      INSERT INTO repositories (github_repo_id, owner, name, default_branch, is_active, added_by_user_id)
+      VALUES (${github_repo_id}, ${fetchedOwner}, ${fetchedName}, ${defaultBranch}, true, ${session.user.id})
       RETURNING id, owner, name
     `;
 
@@ -62,8 +69,8 @@ export async function POST(req: Request) {
       alreadyExists: false,
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to add public repo:', error);
-    return NextResponse.json({ error: error?.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to add repository' }, { status: 500 });
   }
 }
