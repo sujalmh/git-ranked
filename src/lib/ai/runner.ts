@@ -160,11 +160,19 @@ async function persistInsightCache(
   payloadJson: string,
   result: AiResult<unknown>
 ): Promise<void> {
+  // Repo-scoped rows (contributor_id NULL) must target the partial unique index
+  // (repo_id, insight_type) WHERE contributor_id IS NULL — the full
+  // (repo_id, contributor_id, insight_type) constraint treats NULLs as distinct
+  // and would never conflict, letting repo-scoped caches accumulate.
+  const conflictTarget =
+    contributorId == null
+      ? sql`(repo_id, insight_type) WHERE contributor_id IS NULL`
+      : sql`(repo_id, contributor_id, insight_type)`;
   try {
     await sql`
       INSERT INTO insight_caches (repo_id, contributor_id, insight_type, payload, schema_version, prompt_version, confidence, source)
       VALUES (${repoId}, ${contributorId}, ${task.id}, ${payloadJson}, ${task.schemaVersion}, ${task.promptVersion}, ${result.confidence}, ${result.source})
-      ON CONFLICT (repo_id, contributor_id, insight_type) DO UPDATE
+      ON CONFLICT ${conflictTarget} DO UPDATE
       SET payload = ${payloadJson},
           schema_version = ${task.schemaVersion},
           prompt_version = ${task.promptVersion},

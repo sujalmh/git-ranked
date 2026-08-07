@@ -1,18 +1,27 @@
 /**
- * Re-run work-unit extraction for the restaurant-bot repo.
+ * Re-run work-unit extraction + scoring for a single repo.
  * Clears the classification cache and resets candidates so the improved
  * prompt runs fresh against all events.
  *
- * Usage: npx tsx src/scripts/reclassify-repo.ts
+ * Usage: npx tsx src/scripts/reclassify-repo.ts [repoId]
  */
 
+import { config } from 'dotenv';
+import { resolve } from 'path';
 import { sql } from '../lib/db';
 import { classifyRepo, scoreRepo } from '../lib/scoring';
+import { generateRepoInsights } from '../lib/insights';
+
+config({ path: resolve(process.cwd(), '.env.local') });
 
 async function main() {
-  const repoId = 4; // sujalmh/restaurant-bot
+  const repoId = Number(process.argv[2] ?? 4);
+  if (!Number.isFinite(repoId)) {
+    console.error('Usage: npx tsx src/scripts/reclassify-repo.ts [repoId]');
+    process.exit(1);
+  }
 
-  console.log('Clearing classification cache...');
+  console.log(`Reclassifying repo ${repoId}...`);
   await sql`DELETE FROM classification_cache`;
   console.log('  Cache cleared.');
 
@@ -32,6 +41,10 @@ async function main() {
   console.log('\nRunning scoreRepo...');
   const scores = await scoreRepo(repoId);
   console.log(`  Scored ${scores.length} contributor profiles.`);
+
+  console.log('\nRefreshing health metrics...');
+  await generateRepoInsights(repoId);
+  console.log('  Health metrics refreshed.');
 
   // Show the results
   console.log('\n' + '='.repeat(80));

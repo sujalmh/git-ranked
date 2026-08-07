@@ -1,11 +1,31 @@
+import { generateObject, generateText, jsonSchema as toJsonSchema, zodSchema, type LanguageModel, type ModelMessage } from 'ai';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { z } from 'zod';
 import { sql } from '../db';
 import { emitTelemetry } from './telemetry';
+import {
+  DEFAULT_AI_PROVIDER,
+  normalizeEndpoint,
+  type AiProvider,
+} from './models';
 export { DEFAULT_AI_MODEL, RECOMMENDED_AI_MODELS } from './models';
+export {
+  AI_PROVIDERS,
+  DEFAULT_AI_PROVIDER,
+  getProviderConfig,
+  normalizeEndpoint,
+  type AiProvider,
+  type ProviderConfig,
+} from './models';
 export { emitTelemetry, setTelemetryListener, type ApiTelemetryEvent, type TelemetryListener } from './telemetry';
 
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const DEFAULT_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const APP_REFERER = process.env.OPENROUTER_REFERER || 'https://gitranked.dev';
 const APP_TITLE = process.env.OPENROUTER_TITLE || 'GitRanked';
+
+// Generous timeout: batch extraction and repo-wide summaries send large prompts
+// to models that can be slow (free-tier 120b models especially).
+const AI_TIMEOUT_MS = 120_000;
 
 let cachedModel: { model: string; fetchedAt: number } | null = null;
 
@@ -40,7 +60,7 @@ export async function getAiModel(): Promise<string> {
   } catch {
     // fallback if table does not exist yet
   }
-  const fallback = process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-super-120b-a12b:free';
+  const fallback = process.env.AI_MODEL || process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-super-120b-a12b:free';
   cachedModel = { model: fallback, fetchedAt: now };
   return fallback;
 }
@@ -61,19 +81,7 @@ export async function setAiModel(model: string): Promise<string> {
 }
 
 // Backward compatibility export
-export const AI_MODEL = process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-super-120b-a12b:free';
-
-type OpenRouterResponse = {
-  choices?: Array<{
-    message?: {
-      content?: string;
-    };
-  }>;
-  error?: {
-    message?: string;
-    code?: number;
-  };
-};
+export const AI_MODEL = process.env.AI_MODEL || process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-super-120b-a12b:free';
 
 export type StructuredOutputMode = 'json_schema' | 'json_object' | 'none';
 
@@ -94,29 +102,39 @@ export type CompletionRequest = {
 export type UserAiConfig = {
   apiKey: string;
   model: string;
+  /** Full chat-completions endpoint URL. */
+  baseUrl: string;
+  provider: AiProvider;
   isCustom: boolean;
 };
 
 export type AiCallOptions = {
   apiKey?: string;
   model?: string;
+  /** Full chat-completions endpoint URL. Overrides the provider preset. */
+  baseUrl?: string;
+  provider?: AiProvider;
 };
 
 export async function getUserAiConfig(userId?: number | null): Promise<UserAiConfig> {
   const defaultModel = await getAiModel();
-  const defaultApiKey = process.env.OPENROUTER_API_KEY || '';
+  const defaultApiKey = process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || '';
+  const defaultProvider: AiProvider = (process.env.AI_PROVIDER as AiProvider) || DEFAULT_AI_PROVIDER;
+  const defaultBaseUrl = normalizeEndpoint(process.env.AI_ENDPOINT || '', defaultProvider);
 
   if (!userId) {
     return {
       apiKey: defaultApiKey,
       model: defaultModel,
+      baseUrl: defaultBaseUrl || DEFAULT_ENDPOINT,
+      provider: defaultProvider,
       isCustom: false,
     };
   }
 
   try {
     const rows = await sql`
-      SELECT openrouter_api_key, ai_model, use_custom_key
+      SELECT openrouter_api_key, ai_model, use_custom_key, ai_endpoint, ai_provider
       FROM app_users
       WHERE id = ${userId}
     `;
@@ -128,9 +146,17 @@ export async function getUserAiConfig(userId?: number | null): Promise<UserAiCon
       const userModel = typeof user.ai_model === 'string' ? user.ai_model.trim() : '';
 
       if (useCustom && userKey) {
+        const provider: AiProvider =
+          (user.ai_provider as AiProvider) || defaultProvider;
+        const storedEndpoint =
+          typeof user.ai_endpoint === 'string' ? user.ai_endpoint.trim() : '';
+        const baseUrl = normalizeEndpoint(storedEndpoint, provider) || defaultBaseUrl || DEFAULT_ENDPOINT;
+
         return {
           apiKey: userKey,
           model: userModel || defaultModel,
+          baseUrl,
+          provider,
           isCustom: true,
         };
       }
@@ -142,6 +168,8 @@ export async function getUserAiConfig(userId?: number | null): Promise<UserAiCon
   return {
     apiKey: defaultApiKey,
     model: defaultModel,
+    baseUrl: defaultBaseUrl || DEFAULT_ENDPOINT,
+    provider: defaultProvider,
     isCustom: false,
   };
 }
@@ -150,197 +178,280 @@ function resolveApiKey(options?: AiCallOptions): string {
   if (options?.apiKey && options.apiKey.trim()) {
     return options.apiKey.trim();
   }
-  return process.env.OPENROUTER_API_KEY || '';
+  return process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || '';
+}
+
+function resolveEndpoint(options?: AiCallOptions): { url: string; provider: AiProvider } {
+  const provider: AiProvider = options?.provider || DEFAULT_AI_PROVIDER;
+  const url = normalizeEndpoint(options?.baseUrl || '', provider) || DEFAULT_ENDPOINT;
+  return { url, provider };
+}
+
+/**
+ * The AI SDK expects a base URL without the /chat/completions suffix (it appends
+ * it), whereas the rest of the app stores full chat-completions URLs.
+ */
+function toBaseUrl(endpointUrl: string): string {
+  return endpointUrl.replace(/\/chat\/completions$/, '').replace(/\/+$/, '') || endpointUrl;
+}
+
+function buildModel(
+  endpointUrl: string,
+  apiKey: string,
+  provider: AiProvider,
+  modelId: string
+): LanguageModel {
+  const headers: Record<string, string> = {};
+  // OpenRouter uses extra attribution headers; other providers don't accept them.
+  if (provider === 'openrouter') {
+    headers['HTTP-Referer'] = APP_REFERER;
+    headers['X-Title'] = APP_TITLE;
+  }
+  const compatible = createOpenAICompatible({
+    name: provider,
+    baseURL: toBaseUrl(endpointUrl),
+    apiKey,
+    headers,
+  });
+  return compatible.languageModel(modelId);
+}
+
+function isZodSchema(value: unknown): value is z.ZodType {
+  return value instanceof z.ZodType || (!!value && typeof value === 'object' && '_zod' in (value as Record<string, unknown>));
 }
 
 export function hasApiKey(options?: AiCallOptions): boolean {
   return Boolean(resolveApiKey(options));
 }
 
-async function callOpenRouter(
+export class OpenRouterError extends Error {
+  status: number;
+  body: string;
+  provider: string;
+  constructor(status: number, body: string, provider = 'openrouter') {
+    super(`${provider} API error (${status}): ${body}`);
+    this.name = 'OpenRouterError';
+    this.status = status;
+    this.body = body;
+    this.provider = provider;
+  }
+}
+
+export function isStructuredModeUnsupported(error: unknown): boolean {
+  const err = unwrapRetryError(error) as { status?: number; statusCode?: number } | null;
+  const status = err?.status ?? err?.statusCode;
+  const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  return (
+    status === 400 &&
+    (msg.includes('response_format') ||
+      msg.includes('json_schema') ||
+      msg.includes('structured') ||
+      msg.includes('schema'))
+  );
+}
+
+/**
+ * The AI SDK wraps exhausted retries in a RetryError; unwrap to the underlying
+ * API error so status/body are accessible to callers and fallback logic.
+ */
+function unwrapRetryError(err: unknown): unknown {
+  const e = err as { errors?: unknown[]; lastError?: unknown } | null;
+  if (e && Array.isArray(e.errors) && e.errors.length > 0) {
+    return e.errors[e.errors.length - 1];
+  }
+  if (e && e.lastError !== undefined) return e.lastError;
+  return err;
+}
+
+/** Normalize an AI-SDK error into the app's error shape while keeping status. */
+function toAiError(err: unknown, provider: string): Error {
+  if (err instanceof OpenRouterError) return err;
+  const unwrapped = unwrapRetryError(err) as { statusCode?: number; responseBody?: string } | null;
+  if (typeof unwrapped?.statusCode === 'number') {
+    const body = unwrapped.responseBody ?? (unwrapped instanceof Error ? unwrapped.message : String(unwrapped));
+    return new OpenRouterError(unwrapped.statusCode, body, provider);
+  }
+  return err instanceof Error ? err : new Error(String(err));
+}
+
+/** Whether a generateObject failure should fall back to plain text generation. */
+function shouldFallbackToText(err: unknown): boolean {
+  if (isStructuredModeUnsupported(err)) return true;
+  const unwrapped = unwrapRetryError(err);
+  const name = (unwrapped as { name?: string } | null)?.name ?? (err as { name?: string } | null)?.name ?? '';
+  return name === 'TypeValidationError' || name === 'NoObjectGeneratedError' || name.includes('Validation');
+}
+
+async function callChatCompletions(
   request: CompletionRequest,
   taskName = 'inference',
   options?: AiCallOptions
 ): Promise<string | null> {
   const apiKey = resolveApiKey(options);
   if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY is not configured');
+    throw new Error('AI_API_KEY / OPENROUTER_API_KEY is not configured');
   }
 
+  const { url: endpointUrl, provider } = resolveEndpoint(options);
   const activeModel = options?.model?.trim() || (await getAiModel());
   const startTime = Date.now();
 
   emitTelemetry({
     type: 'api_request',
-    provider: 'openrouter',
-    endpoint: 'POST /v1/chat/completions',
+    provider,
+    endpoint: `POST ${endpointUrl}`,
     model: activeModel,
     task: taskName,
-    summary: `[API_REQ] POST /v1/chat/completions (${activeModel} · ${taskName})`,
+    summary: `[API_REQ] POST ${endpointUrl} (${activeModel} · ${taskName})`,
   });
 
-  const body: Record<string, unknown> = {
-    model: activeModel,
-    messages: request.messages,
-  };
+  try {
+    const model = buildModel(endpointUrl, apiKey, provider, activeModel);
+    const { text } = await generateText({
+      model,
+      messages: request.messages as unknown as ModelMessage[],
+      temperature: request.temperature,
+      abortSignal: AbortSignal.timeout(AI_TIMEOUT_MS),
+      allowSystemInMessages: true,
+      maxRetries: 2,
+    });
 
-  if (request.responseFormat && request.responseFormat.type !== 'none') {
-    body.response_format = request.responseFormat;
-  }
-  if (request.temperature !== undefined) {
-    body.temperature = request.temperature;
-  }
-
-  let response: Response;
-  let attemptCount = 0;
-
-  while (true) {
-    attemptCount++;
-    try {
-      response = await fetch(OPENROUTER_URL, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': APP_REFERER,
-          'X-Title': APP_TITLE,
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(45000),
-      });
-
-      if ((response.status === 429 || response.status === 503) && attemptCount < 2) {
-        const retryAfter = Number(response.headers.get('Retry-After'));
-        const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 2000;
-        console.warn(`[OpenRouter] Received HTTP ${response.status}. Retrying after ${waitMs}ms...`);
-        await new Promise((r) => setTimeout(r, waitMs));
-        continue;
-      }
-      break;
-    } catch (netErr) {
-      if (attemptCount < 2 && netErr instanceof Error && netErr.name === 'TimeoutError') {
-        console.warn(`[OpenRouter] Request timed out. Retrying once...`);
-        continue;
-      }
-      const latencyMs = Date.now() - startTime;
-      const errStr = netErr instanceof Error ? netErr.message : String(netErr);
-      emitTelemetry({
-        type: 'api_error',
-        provider: 'openrouter',
-        endpoint: 'POST /v1/chat/completions',
-        model: activeModel,
-        task: taskName,
-        latencyMs,
-        summary: `[API_ERR] OpenRouter request failed (${latencyMs}ms): ${errStr}`,
-      });
-      throw netErr;
+    const content = text?.trim();
+    if (!content) {
+      throw new Error(`${provider} returned an empty response`);
     }
-  }
 
-  const latencyMs = Date.now() - startTime;
-
-  if (!response.ok) {
-    const errText = await response.text();
     emitTelemetry({
-      type: 'api_error',
-      provider: 'openrouter',
-      endpoint: 'POST /v1/chat/completions',
+      type: 'api_response',
+      provider,
+      endpoint: `POST ${endpointUrl}`,
       model: activeModel,
       task: taskName,
-      status: response.status,
-      latencyMs,
-      summary: `[API_ERR] OpenRouter HTTP ${response.status} ${response.statusText} (${latencyMs}ms)`,
+      status: 200,
+      latencyMs: Date.now() - startTime,
+      summary: `[API_RES] 200 OK (${Date.now() - startTime}ms) — received response (${content.length} chars)`,
     });
-    throw new OpenRouterError(response.status, errText);
-  }
 
-  const data = (await response.json()) as OpenRouterResponse;
-  if (data.error) {
+    return content;
+  } catch (err) {
     emitTelemetry({
       type: 'api_error',
-      provider: 'openrouter',
-      endpoint: 'POST /v1/chat/completions',
+      provider,
+      endpoint: `POST ${endpointUrl}`,
       model: activeModel,
       task: taskName,
-      status: data.error.code ?? 500,
-      latencyMs,
-      summary: `[API_ERR] OpenRouter API error ${data.error.code ?? 500}: ${data.error.message ?? 'Unknown'}`,
+      status: (err as { statusCode?: number } | null)?.statusCode,
+      latencyMs: Date.now() - startTime,
+      summary: `[API_ERR] ${provider} request failed (${Date.now() - startTime}ms): ${err instanceof Error ? err.message : String(err)}`,
     });
-    throw new OpenRouterError(data.error.code ?? 500, data.error.message ?? 'Unknown OpenRouter error');
+    throw toAiError(err, provider);
   }
-
-  const content = data.choices?.[0]?.message?.content?.trim();
-  if (!content) {
-    throw new Error('OpenRouter returned an empty response');
-  }
-
-  emitTelemetry({
-    type: 'api_response',
-    provider: 'openrouter',
-    endpoint: 'POST /v1/chat/completions',
-    model: activeModel,
-    task: taskName,
-    status: 200,
-    latencyMs,
-    summary: `[API_RES] 200 OK (${latencyMs}ms) — received response (${content.length} chars)`,
-  });
-
-  return content;
-}
-
-export class OpenRouterError extends Error {
-  status: number;
-  body: string;
-  constructor(status: number, body: string) {
-    super(`OpenRouter API error (${status}): ${body}`);
-    this.name = 'OpenRouterError';
-    this.status = status;
-    this.body = body;
-  }
-}
-
-export function isStructuredModeUnsupported(error: unknown): boolean {
-  if (error instanceof OpenRouterError) {
-    const body = error.body.toLowerCase();
-    return (
-      error.status === 400 &&
-      (body.includes('response_format') ||
-        body.includes('json_schema') ||
-        body.includes('structured') ||
-        body.includes('schema'))
-    );
-  }
-  return false;
 }
 
 export async function callStructured(
   messages: ChatMessage[],
-  jsonSchema: Record<string, unknown>,
+  jsonSchema: Record<string, unknown> | z.ZodType,
   schemaName: string,
   options?: AiCallOptions
 ): Promise<string | null> {
-  const modes: StructuredOutputMode[] = ['json_schema', 'json_object', 'none'];
+  const apiKey = resolveApiKey(options);
+  if (!apiKey) return null;
 
-  for (const mode of modes) {
-    const responseFormat: CompletionRequest['responseFormat'] =
-      mode === 'json_schema'
-        ? { type: 'json_schema', json_schema: { name: schemaName, strict: true, schema: jsonSchema } }
-        : mode === 'json_object'
-          ? { type: 'json_object' }
-          : { type: 'none' };
+  const { url: endpointUrl, provider } = resolveEndpoint(options);
+  const activeModel = options?.model?.trim() || (await getAiModel());
+  const startTime = Date.now();
 
-    try {
-      const content = await callOpenRouter({ messages, responseFormat, temperature: 0.2 }, schemaName, options);
-      if (content) return content;
-    } catch (error) {
-      if (mode === 'json_schema' && isStructuredModeUnsupported(error) && modes.indexOf(mode) < modes.length - 1) {
-        continue;
+  emitTelemetry({
+    type: 'api_request',
+    provider,
+    endpoint: `POST ${endpointUrl}`,
+    model: activeModel,
+    task: schemaName,
+    summary: `[API_REQ] POST ${endpointUrl} (${activeModel} · ${schemaName} · structured)`,
+  });
+
+  const model = buildModel(endpointUrl, apiKey, provider, activeModel);
+  const schema = isZodSchema(jsonSchema) ? zodSchema(jsonSchema) : toJsonSchema(jsonSchema);
+
+  try {
+    const result = await generateObject({
+      model,
+      schema,
+      schemaName,
+      messages: messages as unknown as ModelMessage[],
+      temperature: 0.2,
+      abortSignal: AbortSignal.timeout(AI_TIMEOUT_MS),
+      allowSystemInMessages: true,
+      maxRetries: 2,
+    });
+
+    emitTelemetry({
+      type: 'api_response',
+      provider,
+      endpoint: `POST ${endpointUrl}`,
+      model: activeModel,
+      task: schemaName,
+      status: 200,
+      latencyMs: Date.now() - startTime,
+      summary: `[API_RES] 200 OK (${Date.now() - startTime}ms) — structured response`,
+    });
+
+    return JSON.stringify(result.object);
+  } catch (err) {
+    // Fall back to plain-text generation (the caller re-parses + validates),
+    // which covers providers/models without structured-output support — this
+    // mirrors the old json_object / none response-format fallback chain.
+    if (shouldFallbackToText(err)) {
+      try {
+        const { text } = await generateText({
+          model,
+          messages: messages as unknown as ModelMessage[],
+          temperature: 0.2,
+          abortSignal: AbortSignal.timeout(AI_TIMEOUT_MS),
+          allowSystemInMessages: true,
+          maxRetries: 2,
+        });
+        const content = text?.trim();
+        if (content) {
+          emitTelemetry({
+            type: 'api_response',
+            provider,
+            endpoint: `POST ${endpointUrl}`,
+            model: activeModel,
+            task: schemaName,
+            status: 200,
+            latencyMs: Date.now() - startTime,
+            summary: `[API_RES] 200 OK (${Date.now() - startTime}ms) — text fallback`,
+          });
+          return content;
+        }
+      } catch (fallbackErr) {
+        emitTelemetry({
+          type: 'api_error',
+          provider,
+          endpoint: `POST ${endpointUrl}`,
+          model: activeModel,
+          task: schemaName,
+          status: (fallbackErr as { statusCode?: number } | null)?.statusCode,
+          latencyMs: Date.now() - startTime,
+          summary: `[API_ERR] ${provider} text fallback failed (${Date.now() - startTime}ms): ${fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)}`,
+        });
+        throw toAiError(fallbackErr, provider);
       }
-      throw error;
     }
-  }
 
-  return null;
+    emitTelemetry({
+      type: 'api_error',
+      provider,
+      endpoint: `POST ${endpointUrl}`,
+      model: activeModel,
+      task: schemaName,
+      status: (err as { statusCode?: number } | null)?.statusCode,
+      latencyMs: Date.now() - startTime,
+      summary: `[API_ERR] ${provider} structured call failed (${Date.now() - startTime}ms): ${err instanceof Error ? err.message : String(err)}`,
+    });
+    throw toAiError(err, provider);
+  }
 }
 
 export async function callUnstructured(
@@ -348,5 +459,5 @@ export async function callUnstructured(
   taskName = 'unstructured',
   options?: AiCallOptions
 ): Promise<string | null> {
-  return callOpenRouter({ messages, responseFormat: { type: 'none' }, temperature: 0.3 }, taskName, options);
+  return callChatCompletions({ messages, responseFormat: { type: 'none' }, temperature: 0.3 }, taskName, options);
 }

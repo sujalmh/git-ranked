@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { getAiModel, RECOMMENDED_AI_MODELS } from '@/lib/ai/openrouter';
+import {
+  AI_PROVIDERS,
+  normalizeEndpoint,
+  type AiProvider,
+} from '@/lib/ai/models';
 
 function maskApiKey(key: string): string {
   if (!key || key.length < 8) return '';
@@ -17,7 +22,7 @@ export async function GET() {
   try {
     const userId = Number(session.user.id);
     const rows = await sql`
-      SELECT openrouter_api_key, ai_model, use_custom_key
+      SELECT openrouter_api_key, ai_model, use_custom_key, ai_endpoint, ai_provider
       FROM app_users
       WHERE id = ${userId}
     `;
@@ -31,6 +36,9 @@ export async function GET() {
         apiKeyMasked: '',
         aiModel: defaultModel,
         defaultModel,
+        aiProvider: 'openrouter' as AiProvider,
+        aiEndpoint: '',
+        providers: AI_PROVIDERS,
         presets: RECOMMENDED_AI_MODELS,
       });
     }
@@ -38,6 +46,8 @@ export async function GET() {
     const user = rows[0];
     const keyStr = typeof user.openrouter_api_key === 'string' ? user.openrouter_api_key.trim() : '';
     const userModel = typeof user.ai_model === 'string' ? user.ai_model.trim() : '';
+    const userEndpoint = typeof user.ai_endpoint === 'string' ? user.ai_endpoint.trim() : '';
+    const userProvider = (user.ai_provider as AiProvider) || 'openrouter';
 
     return NextResponse.json({
       useCustomKey: Boolean(user.use_custom_key),
@@ -45,6 +55,9 @@ export async function GET() {
       apiKeyMasked: maskApiKey(keyStr),
       aiModel: userModel || defaultModel,
       defaultModel,
+      aiProvider: userProvider,
+      aiEndpoint: userEndpoint,
+      providers: AI_PROVIDERS,
       presets: RECOMMENDED_AI_MODELS,
     });
   } catch (error) {
@@ -62,10 +75,10 @@ export async function POST(req: Request) {
   try {
     const userId = Number(session.user.id);
     const body = await req.json();
-    const { useCustomKey, openrouterApiKey, aiModel } = body;
+    const { useCustomKey, openrouterApiKey, aiModel, aiProvider, aiEndpoint } = body;
 
     const existingRows = await sql`
-      SELECT openrouter_api_key, ai_model, use_custom_key
+      SELECT openrouter_api_key, ai_model, use_custom_key, ai_endpoint, ai_provider
       FROM app_users
       WHERE id = ${userId}
     `;
@@ -77,9 +90,24 @@ export async function POST(req: Request) {
     const currentKey = existingRows[0].openrouter_api_key;
     const currentModel = existingRows[0].ai_model;
     const currentUseCustom = Boolean(existingRows[0].use_custom_key);
+    const currentEndpoint = existingRows[0].ai_endpoint;
+    const currentProvider = (existingRows[0].ai_provider as AiProvider) || 'openrouter';
 
     const newUseCustom = typeof useCustomKey === 'boolean' ? useCustomKey : currentUseCustom;
     const newModel = typeof aiModel === 'string' ? aiModel.trim() : currentModel;
+
+    const knownProviders = AI_PROVIDERS.map((p) => p.id);
+    const newProvider: AiProvider =
+      typeof aiProvider === 'string' && (knownProviders as string[]).includes(aiProvider)
+        ? (aiProvider as AiProvider)
+        : currentProvider;
+
+    // Normalize a provided custom endpoint into a full /chat/completions URL.
+    let newEndpoint = currentEndpoint;
+    if (typeof aiEndpoint === 'string') {
+      const normalized = normalizeEndpoint(aiEndpoint, newProvider);
+      if (normalized) newEndpoint = normalized;
+    }
 
     let newKey = currentKey;
     if (typeof openrouterApiKey === 'string') {
@@ -93,7 +121,7 @@ export async function POST(req: Request) {
     const hasKeySet = Boolean(typeof newKey === 'string' && newKey.trim());
     if (newModel !== currentModel && (!newUseCustom || !hasKeySet)) {
       return NextResponse.json(
-        { error: 'An OpenRouter API key must be set and enabled to change your AI model preference.' },
+        { error: 'An API key must be set and enabled to change your AI model preference.' },
         { status: 400 }
       );
     }
@@ -102,7 +130,9 @@ export async function POST(req: Request) {
       UPDATE app_users
       SET use_custom_key = ${newUseCustom},
           openrouter_api_key = ${newKey},
-          ai_model = ${newModel}
+          ai_model = ${newModel},
+          ai_endpoint = ${newEndpoint},
+          ai_provider = ${newProvider}
       WHERE id = ${userId}
     `;
 
@@ -117,6 +147,8 @@ export async function POST(req: Request) {
         apiKeyMasked: maskApiKey(finalKeyStr),
         aiModel: newModel || defaultModel,
         defaultModel,
+        aiProvider: newProvider,
+        aiEndpoint: typeof newEndpoint === 'string' ? newEndpoint : '',
       },
     });
   } catch (error) {

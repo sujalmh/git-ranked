@@ -14,6 +14,26 @@ export function softCap(value: number, cap: number, scaleFactor: number = cap): 
   return Math.min(cap, cap * (1 - Math.exp(-value / scaleFactor)));
 }
 
+/**
+ * Relative rank: map each composite to the percent of contributors in the same
+ * cohort whose composite is at or below it (0-100). Tied composites share the
+ * same percentile. Deterministic and order-independent.
+ */
+export function computePercentiles(composites: number[]): Map<number, number> {
+  const result = new Map<number, number>();
+  if (composites.length === 0) return result;
+
+  for (const c of composites) {
+    let below = 0;
+    for (const other of composites) {
+      if (other <= c) below++;
+    }
+    const pct = (below / composites.length) * 100;
+    result.set(c, Math.round(pct * 10) / 10);
+  }
+  return result;
+}
+
 export function computeConsistency(rawEvents: RawEvent[]): number {
   const activeDays = new Set<string>();
   let minTime = Infinity;
@@ -53,7 +73,8 @@ export function scoreContributor(
   rawEvents: RawEvent[],
   config: ScoringConfig,
   decayProfile: 'current' | 'all_time' = 'current',
-  asOf: Date | string = new Date()
+  asOf: Date | string = new Date(),
+  attributionWeights?: Map<number, number>
 ): DimensionScores {
   let rawImpactSum = 0;
   let rawQualitySum = 0;
@@ -98,20 +119,23 @@ export function scoreContributor(
     }
 
     const weight = decayProfile === 'current' ? decayWeight(shippedAt, asOf, halfLife) : 1.0;
+    // Proportional-attribution credit: a co-authored work unit is worth only its
+    // share to each contributor (defaults to 1.0 = full credit).
+    const credit = attributionWeights?.get(unit.id ?? -1) ?? 1;
 
     if (unit.work_type === 'Review') {
       const rf = unit.facts as ReviewFacts;
       const rVal = reviewValue(rf);
-      rawCollabSum += rVal * weight;
+      rawCollabSum += rVal * weight * credit;
     } else {
       // General work unit (Feature, BugFix, Infrastructure, etc.)
       const unitValue = unit.derived.value ?? 1.0;
-      rawImpactSum += unitValue * 10 * weight;
+      rawImpactSum += unitValue * 10 * weight * credit;
 
       // Quality: Layer-2 review bump applied to execution_quality
       const reviewBump = candidateReviewBumps.get(unit.candidate_id) ?? 0;
       const finalExecution = clamp(1, 5, unit.derived.execution_quality + reviewBump);
-      rawQualitySum += finalExecution * 4 * weight;
+      rawQualitySum += finalExecution * 4 * weight * credit;
     }
   }
 
@@ -125,26 +149,14 @@ export function scoreContributor(
   // Consistency (pure timestamp math, 0-100 scale)
   const consistency = computeConsistency(rawEvents);
 
-  // Composite calculation with dynamic weight rebalancing when collaboration is 0
+  // Composite calculation with fixed per-profile weights so contributor scores
+  // stay comparable regardless of whether they have collaboration activity.
   const cw = caps.compositeWeights;
-  let impactWeight = cw.impact;
-  let qualityWeight = cw.quality;
-  let collabWeight = cw.collaboration;
-  let consistencyWeight = cw.consistency;
-
-  if (collaboration === 0) {
-    // Rebalance collaboration weight (0.20) across impact (0.50), quality (0.35), consistency (0.15)
-    impactWeight = 0.50;
-    qualityWeight = 0.35;
-    collabWeight = 0.0;
-    consistencyWeight = 0.15;
-  }
-
   const compositeRaw =
-    impact * impactWeight +
-    quality * qualityWeight +
-    collaboration * collabWeight +
-    consistency * consistencyWeight;
+    impact * cw.impact +
+    quality * cw.quality +
+    collaboration * cw.collaboration +
+    consistency * cw.consistency;
 
   const composite = Math.min(100, Math.round(compositeRaw * 10) / 10);
 
@@ -152,7 +164,7 @@ export function scoreContributor(
   const window_end = Number.isFinite(maxShippedTime) ? new Date(maxShippedTime).toISOString() : null;
 
   const contributor_id = 0; // overwritten by caller in scoring/index.ts
-  const repo_id = workUnits[0]?.repo_id ?? rawEvents[0]?.id ?? 0;
+  const repo_id = workUnits[0]?.repo_id ?? rawEvents[0]?.repo_id ?? 0;
 
   return {
     contributor_id,

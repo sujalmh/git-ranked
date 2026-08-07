@@ -61,7 +61,7 @@ export const BALANCED_DERIVATION_WEIGHTS: DerivationWeights = {
 
 export const PROFILE_PRESETS: Record<ProfileName, Omit<ScoringConfig, 'id'>> = {
   balanced: {
-    version: 'v3.1',
+    version: 'v4.0',
     profile: 'balanced',
     repo_id: null,
     derivation_weights: BALANCED_DERIVATION_WEIGHTS,
@@ -70,7 +70,7 @@ export const PROFILE_PRESETS: Record<ProfileName, Omit<ScoringConfig, 'id'>> = {
     decay_half_life_days: 60,
   },
   product: {
-    version: 'v3.1',
+    version: 'v4.0',
     profile: 'product',
     repo_id: null,
     derivation_weights: {
@@ -89,7 +89,7 @@ export const PROFILE_PRESETS: Record<ProfileName, Omit<ScoringConfig, 'id'>> = {
     decay_half_life_days: 60,
   },
   infrastructure: {
-    version: 'v3.1',
+    version: 'v4.0',
     profile: 'infrastructure',
     repo_id: null,
     derivation_weights: {
@@ -112,7 +112,7 @@ export const PROFILE_PRESETS: Record<ProfileName, Omit<ScoringConfig, 'id'>> = {
     decay_half_life_days: 60,
   },
   open_source: {
-    version: 'v3.1',
+    version: 'v4.0',
     profile: 'open_source',
     repo_id: null,
     derivation_weights: {
@@ -131,7 +131,7 @@ export const PROFILE_PRESETS: Record<ProfileName, Omit<ScoringConfig, 'id'>> = {
     decay_half_life_days: 60,
   },
   research: {
-    version: 'v3.1',
+    version: 'v4.0',
     profile: 'research',
     repo_id: null,
     derivation_weights: {

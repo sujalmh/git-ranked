@@ -1,6 +1,6 @@
 export type ApiTelemetryEvent = {
   type: 'api_request' | 'api_response' | 'api_error';
-  provider: 'openrouter' | 'github';
+  provider: string;
   endpoint: string;
   model?: string;
   task?: string;

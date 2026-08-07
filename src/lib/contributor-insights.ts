@@ -25,6 +25,8 @@ export type ContributorInsight = {
     all_time?: import('./scoring/types').DimensionScores;
   };
   impactScore: number;
+  /** 0-100 relative rank vs. other contributors in the same repo (current profile). */
+  percentile?: number;
   commits: number;
   prsOpened: number;
   prsMerged: number;

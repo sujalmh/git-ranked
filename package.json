@@ -18,9 +18,11 @@
     "worker": "tsx src/worker.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.25",
     "@neondatabase/serverless": "^1.1.0",
     "@types/pg": "^8.20.0",
     "@vercel/analytics": "^2.0.1",
+    "ai": "^7.0.56",
     "date-fns": "^4.4.0",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.25.0",

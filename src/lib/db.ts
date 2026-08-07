@@ -53,6 +53,8 @@ export async function initSchema() {
   await sql`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS openrouter_api_key TEXT`;
   await sql`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS ai_model VARCHAR(255)`;
   await sql`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS use_custom_key BOOLEAN DEFAULT FALSE`;
+  await sql`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS ai_endpoint TEXT`;
+  await sql`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS ai_provider VARCHAR(50)`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS github_contributors (
@@ -60,6 +62,7 @@ export async function initSchema() {
         github_id BIGINT UNIQUE NOT NULL,
         username VARCHAR(255) NOT NULL,
         avatar_url VARCHAR(255),
+        email VARCHAR(255),
         first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -98,6 +101,12 @@ export async function initSchema() {
   `.catch(() => {});
   await sql`
     ALTER TABLE installations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+  `.catch(() => {});
+
+  // email: used to resolve commit authors to contributors for proportional
+  // attribution (username and github_id are preferred, email is a fallback).
+  await sql`
+    ALTER TABLE github_contributors ADD COLUMN IF NOT EXISTS email VARCHAR(255);
   `.catch(() => {});
 
   await sql`
@@ -193,6 +202,29 @@ export async function initSchema() {
   // (contributor_id IS NULL) remain repo-scoped.
   await swapInsightCachesConstraint();
 
+  // Repo-scoped insight rows (contributor_id IS NULL, e.g. health_metrics) are
+  // NOT covered by the (repo_id, contributor_id, insight_type) unique constraint:
+  // Postgres treats NULLs as distinct in unique constraints, so repo-scoped
+  // writes never conflict and stale rows accumulate (the reader then returns the
+  // oldest row). Dedupe to the latest row and enforce one repo-scoped row per
+  // (repo_id, insight_type) with a partial unique index.
+  await sql`
+    DELETE FROM insight_caches a
+    USING insight_caches b
+    WHERE a.id < b.id
+      AND a.repo_id IS NOT DISTINCT FROM b.repo_id
+      AND a.contributor_id IS NOT DISTINCT FROM b.contributor_id
+      AND a.insight_type = b.insight_type
+  `.catch((err: unknown) => {
+    console.warn('Failed to dedupe insight_caches:', err instanceof Error ? err.message : err);
+  });
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS insight_caches_repo_scoped_idx
+    ON insight_caches (repo_id, insight_type) WHERE contributor_id IS NULL
+  `.catch((err: unknown) => {
+    console.warn('Failed to create repo-scoped insight cache index:', err instanceof Error ? err.message : err);
+  });
+
   // --- Share link migrations ---
   // repositories: share_token for public read-only access, share_enabled toggle
   await sql`ALTER TABLE repositories ADD COLUMN IF NOT EXISTS share_token VARCHAR(32) UNIQUE`.catch(() => {});
@@ -278,12 +310,14 @@ export async function initSchema() {
       quality REAL NOT NULL,
       collaboration REAL NOT NULL,
       consistency REAL NOT NULL,
+      percentile REAL,
       decay_profile VARCHAR(24) NOT NULL,
       computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (repo_id, contributor_id, decay_profile)
     );
   `;
   await sql`CREATE INDEX IF NOT EXISTS mv_leaderboard_repo_rank_idx ON mv_contributor_leaderboard (repo_id, decay_profile, rank);`.catch(() => {});
+  await sql`ALTER TABLE mv_contributor_leaderboard ADD COLUMN IF NOT EXISTS percentile REAL`.catch(() => {});
 
   await sql`
     CREATE TABLE IF NOT EXISTS work_unit_overrides (
@@ -325,11 +359,13 @@ export async function initSchema() {
       collaboration REAL NOT NULL DEFAULT 0,
       consistency REAL NOT NULL DEFAULT 0,
       composite REAL NOT NULL DEFAULT 0,
+      percentile REAL,
       scoring_config_version VARCHAR(24) NOT NULL,
       computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (contributor_id, repo_id, decay_profile, scoring_config_version)
     );
   `;
+  await sql`ALTER TABLE dimension_scores ADD COLUMN IF NOT EXISTS percentile REAL`.catch(() => {});
 
   await sql`
     CREATE TABLE IF NOT EXISTS classification_cache (

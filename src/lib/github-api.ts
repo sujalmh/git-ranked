@@ -19,7 +19,7 @@ export type GitHubCommit = {
   html_url?: string;
   commit: {
     message: string;
-    author?: { date?: string } | null;
+    author?: { name?: string; email?: string; date?: string } | null;
     committer?: { date?: string } | null;
   };
   author?: GitHubUser | null;
@@ -37,6 +37,9 @@ export type GitHubPullRequest = {
   additions?: number;
   deletions?: number;
   changed_files?: number;
+  base?: { ref?: string; sha?: string } | null;
+  head?: { ref?: string; sha?: string } | null;
+  merge_commit_sha?: string | null;
 };
 
 export type GitHubReview = {

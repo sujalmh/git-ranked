@@ -168,12 +168,19 @@ export interface DimensionScores {
   collaboration: number;
   consistency: number;
   composite: number;
+  /**
+   * Percent of contributors in the same repo (and decay profile) whose
+   * composite is at or below this contributor's — a 0-100 relative rank that
+   * makes scores comparable across repos of wildly different sizes.
+   */
+  percentile?: number;
   scoring_config_version: string;
   computed_at?: string;
 }
 
 export interface RawEvent {
   id: number;
+  repo_id?: number;
   event_type: string;
   type?: string;
   payload: Record<string, unknown>;

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { scoreContributor } from '../scoring-engine';
+import { computePercentiles, scoreContributor } from '../scoring-engine';
 import { PROFILE_PRESETS } from '../profiles';
 import type { RawEvent, WorkUnit } from '../types';
 
 const config = PROFILE_PRESETS.balanced;
 
 const baseWorkUnit: WorkUnit = {
+  id: 1001,
   repo_id: 1,
   candidate_id: 100,
   work_type: 'Feature',
@@ -86,5 +87,63 @@ describe('scoring engine', () => {
     ];
 
     expect(() => scoreContributor([baseWorkUnit], badEvents, config, 'current')).not.toThrow();
+  });
+
+  it('scales contribution by proportional attribution weight', () => {
+    const full = scoreContributor([baseWorkUnit], rawEvents, config, 'all_time');
+    const half = scoreContributor([baseWorkUnit], rawEvents, config, 'all_time', new Date(), new Map([[baseWorkUnit.id!, 0.5]]));
+    expect(half.impact).toBeLessThan(full.impact);
+    expect(half.quality).toBeLessThan(full.quality);
+    // A 50% attribution share should land at (approximately) half the soft-capped score.
+    expect(half.impact).toBeCloseTo(full.impact / 2, 1);
+  });
+
+  it('uses fixed composite weights regardless of collaboration activity', () => {
+    const authorOnly: WorkUnit = { ...baseWorkUnit, work_type: 'Feature' };
+    const authorScore = scoreContributor([authorOnly], rawEvents, config, 'all_time');
+
+    // A contributor with zero collaboration still gets the full composite weight
+    // profile — no silent rebalancing that would make scores non-comparable.
+    const { compositeWeights } = config.caps;
+    const expected = Math.min(
+      100,
+      Math.round(
+        (authorScore.impact * compositeWeights.impact +
+          authorScore.quality * compositeWeights.quality +
+          authorScore.collaboration * compositeWeights.collaboration +
+          authorScore.consistency * compositeWeights.consistency) * 10
+      ) / 10
+    );
+    expect(authorScore.composite).toBeCloseTo(expected, 1);
+  });
+
+  it('consistency counts only substantive events (no issue-spam inflation)', () => {
+    const activity = [
+      { id: 1, event_type: 'pr_merged', payload: {}, created_at: '2026-07-20T10:00:00Z', contributor_id: 10, username: 'dev' },
+      { id: 2, event_type: 'pr_merged', payload: {}, created_at: '2026-07-21T10:00:00Z', contributor_id: 10, username: 'dev' },
+      { id: 3, event_type: 'issue_opened', payload: {}, created_at: '2026-07-21T11:00:00Z', contributor_id: 10, username: 'dev' },
+      { id: 4, event_type: 'issue_opened', payload: {}, created_at: '2026-07-22T10:00:00Z', contributor_id: 10, username: 'dev' },
+      { id: 5, event_type: 'issue_opened', payload: {}, created_at: '2026-07-23T10:00:00Z', contributor_id: 10, username: 'dev' },
+    ] as RawEvent[];
+
+    // The caller filters rawEvents to authoring+review types before scoring, so
+    // the three issue_opens are not present and cannot inflate active days.
+    const filtered = activity.filter((e) => ['push', 'pr_opened', 'pr_merged', 'review_submitted'].includes(e.event_type));
+    const score = scoreContributor([baseWorkUnit], filtered, config, 'all_time');
+    const inflated = scoreContributor([baseWorkUnit], activity, config, 'all_time');
+
+    expect(score.consistency).toBeLessThan(inflated.consistency);
+  });
+
+  it('computes cross-repo-comparable percentiles with shared ties', () => {
+    const composites = [10, 40, 40, 80, 100];
+    const pct = computePercentiles(composites);
+
+    // Lowest composite is at the 20th percentile (1 of 5 at or below).
+    expect(pct.get(10)).toBe(20);
+    // Tied middles share the same percentile (3 of 5 at or below).
+    expect(pct.get(40)).toBe(60);
+    expect(pct.get(80)).toBe(80);
+    expect(pct.get(100)).toBe(100);
   });
 });

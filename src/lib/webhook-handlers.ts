@@ -30,6 +30,7 @@ type GitHubCommitPayload = {
   message: string;
   url: string;
   timestamp?: string;
+  author?: { name?: string; email?: string; username?: string } | null;
 };
 
 type GitHubPullRequestPayload = {
@@ -44,6 +45,9 @@ type GitHubPullRequestPayload = {
   created_at?: string | null;
   merged_at?: string | null;
   closed_at?: string | null;
+  base?: { ref?: string } | null;
+  head?: { ref?: string; sha?: string } | null;
+  merge_commit_sha?: string | null;
 };
 
 type GitHubReviewPayload = {
@@ -240,6 +244,12 @@ export async function handleWebhookEvent(eventName: string, payload: GitHubWebho
         sha: commit.id,
         message: commit.message,
         url: commit.url,
+        author: {
+          id: null,
+          login: commit.author?.username ?? null,
+          name: commit.author?.name ?? null,
+          email: commit.author?.email ?? null,
+        },
       })),
       branch: payload.ref,
       commit_count: payload.commits?.length ?? 0,
@@ -264,6 +274,11 @@ export async function handleWebhookEvent(eventName: string, payload: GitHubWebho
         additions: payload.pull_request.additions,
         deletions: payload.pull_request.deletions,
         changed_files: payload.pull_request.changed_files,
+        base_ref: payload.pull_request.base?.ref ?? null,
+        head_ref: payload.pull_request.head?.ref ?? null,
+        head_sha: payload.pull_request.head?.sha ?? null,
+        merge_commit_sha: payload.pull_request.merge_commit_sha ?? null,
+        merged_at: payload.pull_request.merged_at ?? null,
       };
       if (mappedEventType === 'pr_opened') extractPayload.body = payload.pull_request.body;
     }

@@ -124,7 +124,7 @@ export const seoPages: Record<string, SEOPageData> = {
     faqs: [
       {
         question: 'How is the GitRanked Repository Health Score calculated?',
-        answer: 'The score synthesizes PR pickup latency, code churn ratios, review coverage percentages, open issue resolution speeds, and contributor knowledge distribution into a unified index.'
+        answer: 'GitRanked scores health from the same work-unit model that powers contributor scores: it aggregates the AI-classified value of shipped work (scaled per-contributor so a lone contributor cannot inflate a repo), average code quality from each work unit, review coverage of merged PRs, and knowledge distribution (bus factor). Every metric is an honest 0–100 score with no artificial floors, so an inactive repo reads as inactive.'
       },
       {
         question: 'Can repository health checks be run on open-source projects?',
@@ -204,7 +204,7 @@ export const seoPages: Record<string, SEOPageData> = {
     faqs: [
       {
         question: 'How does GitRanked score contributor impact?',
-        answer: 'Our algorithm considers PR complexity, review depth, comment helpfulness, bug fix frequency, and architectural refactoring impact rather than raw commit counts.'
+        answer: 'Every piece of work is AI-classified into structured facts (scope, user impact, testing, architecture, risk) that derive a value. Contributors are then scored across four dimensions — Impact, Quality, Collaboration, and Consistency — with current and all-time decay profiles, plus a 0–100 percentile showing how they rank against every other contributor in the repo. Co-authored work is credited proportionally and work is never double-counted across a PR and its commits.'
       },
       {
         question: 'Can open-source maintainers showcase contributor analytics publicly?',

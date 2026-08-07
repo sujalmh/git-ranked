@@ -164,6 +164,14 @@ export function ContributorCard({
           <div className="flex flex-col items-end gap-1 shrink-0">
             <div className="text-xl font-black text-accent leading-none">{contributor.impactScore}</div>
             <div className="text-[9px] uppercase text-zinc-400 tracking-wider">Impact</div>
+            {typeof contributor.percentile === 'number' && (
+              <span
+                className="text-[10px] font-semibold text-accent/80"
+                title={`Outranks ${Math.round(100 - contributor.percentile)}% of contributors in this repo`}
+              >
+                p{Math.round(contributor.percentile)}
+              </span>
+            )}
           </div>
         </div>
       </Link>

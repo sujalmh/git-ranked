@@ -26,8 +26,8 @@
 ## What it does
 
 - **AI Work Classification** — Every commit, PR, review, and issue is classified into semantic work types (Feature, BugFix, Refactor, Documentation, etc.) using LLMs via OpenRouter
-- **Multi-Dimensional Scoring** — Contributors are scored across **Impact**, **Quality**, **Collaboration**, and **Consistency** with both current (decay-weighted) and all-time profiles
-- **Repository Health Metrics** — Delivery, Collaboration, Code Quality, Review Health, and Knowledge Distribution on a 0–100 scale
+- **Multi-Dimensional Scoring** — Contributors are scored across **Impact**, **Quality**, **Collaboration**, and **Consistency** with both current (decay-weighted) and all-time profiles, plus a **0–100 percentile** so a great score means the same thing in any repo. Co-authored work is credited proportionally and PR commits are never double-counted.
+- **Repository Health Metrics** — Delivery, Collaboration, Code Quality, Review Health, and Knowledge Distribution on a 0–100 scale, computed from the same AI-classified work-unit model that powers contributor scores.
 - **AI-Generated Summaries** — Repository overviews, team insights, contributor profiles, impact analyses, and weekly/monthly reports
 - **Shareable Dashboards** — Token-based read-only sharing for stakeholders
 - **Public Analytics Pages** — SEO-optimized landing pages for GitHub insights, PR review metrics, repository health, and more

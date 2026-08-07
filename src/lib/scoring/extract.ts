@@ -6,6 +6,7 @@ import { derive } from './derivation';
 import { correctLowConfidenceFacts, extractHeuristicFacts, classifyWorkTypeFromText, determineScope } from './heuristic-fallback';
 import { buildRationale } from './rationale';
 import { reviewValue } from './review';
+import { resolveAttribution } from './attribution';
 import type { Facts, ReviewFacts, ScoringConfig, WorkType } from './types';
 import type { WorkUnitCandidate } from './aggregator';
 
@@ -350,6 +351,13 @@ export async function extractAndPersistWorkUnits(
   const isShipped =
     eventType === 'pr_merged' || eventType === 'push' || eventType === 'issue_closed';
 
+  // Split credit across every commit author (proportional to authored commits);
+  // falls back to the primary contributor when no author data exists.
+  const attribution = await resolveAttribution(
+    events as Array<Record<string, unknown>>,
+    contributorId
+  );
+
   for (const item of extractedItems) {
     let finalFacts = item.facts;
     let itemSource: 'ai' | 'heuristic_fallback' | 'ai_facts_corrected' = extractionSource;
@@ -381,11 +389,14 @@ export async function extractAndPersistWorkUnits(
     `;
 
     if (inserted.length > 0) {
-      await sql`
-        INSERT INTO work_unit_contributors (work_unit_id, contributor_id, attribution_weight)
-        VALUES (${inserted[0].id as number}, ${contributorId}, 1.0)
-        ON CONFLICT DO NOTHING
-      `;
+      const workUnitId = inserted[0].id as number;
+      for (const [cid, weight] of attribution) {
+        await sql`
+          INSERT INTO work_unit_contributors (work_unit_id, contributor_id, attribution_weight)
+          VALUES (${workUnitId}, ${cid}, ${weight})
+          ON CONFLICT DO NOTHING
+        `;
+      }
       persistedCount++;
     }
   }
@@ -638,6 +649,9 @@ export async function persistExtractedItemsForCandidate(
   let persistedCount = 0;
   const isShipped = eventType === 'pr_merged' || eventType === 'push' || eventType === 'issue_closed';
 
+  // Split credit across every commit author (proportional to authored commits).
+  const attribution = await resolveAttribution(events, contributorId);
+
   for (const item of extractedItems) {
     let finalFacts = item.facts;
     let itemSource: 'ai' | 'heuristic_fallback' | 'ai_facts_corrected' = extractionSource;
@@ -669,11 +683,14 @@ export async function persistExtractedItemsForCandidate(
     `;
 
     if (inserted.length > 0) {
-      await sql`
-        INSERT INTO work_unit_contributors (work_unit_id, contributor_id, attribution_weight)
-        VALUES (${inserted[0].id as number}, ${contributorId}, 1.0)
-        ON CONFLICT DO NOTHING
-      `;
+      const workUnitId = inserted[0].id as number;
+      for (const [cid, weight] of attribution) {
+        await sql`
+          INSERT INTO work_unit_contributors (work_unit_id, contributor_id, attribution_weight)
+          VALUES (${workUnitId}, ${cid}, ${weight})
+          ON CONFLICT DO NOTHING
+        `;
+      }
       persistedCount++;
     }
   }

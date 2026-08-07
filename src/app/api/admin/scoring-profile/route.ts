@@ -35,8 +35,11 @@ export async function POST(req: Request) {
       WHERE id = ${repo_id}
     `;
 
-    // Rescore repo with the new active profile settings
+    // Rescore repo with the new active profile settings. Refreshing the health
+    // cache keeps the repo score consistent with the contributor scores the
+    // profile change just recomputed.
     await scoreRepo(repo_id);
+    await import('@/lib/insights').then(({ generateRepoInsights }) => generateRepoInsights(repo_id));
 
     return NextResponse.json({ success: true, profile });
   } catch (error) {

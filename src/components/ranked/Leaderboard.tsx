@@ -133,6 +133,26 @@ function BreakdownBar({ contributor, animate }: { contributor: ContributorInsigh
   );
 }
 
+/**
+ * Cross-repo comparability badge: the contributor's 0-100 percentile vs every
+ * other contributor in this repo (current decay profile). A "p94" means they
+ * outscore 94% of the repo — a score that means the same thing regardless of
+ * whether the repo is tiny or massive.
+ */
+function PercentileBadge({ percentile }: { percentile?: number }) {
+  if (typeof percentile !== 'number' || !Number.isFinite(percentile)) return null;
+  const p = Math.round(percentile);
+  const top = 100 - p; // percentage of contributors they outrank
+  return (
+    <span
+      className="inline-flex items-center rounded-full border border-[#ccff00]/40 bg-[#ccff00]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#ccff00]"
+      title={`Outranks ${top}% of contributors in this repo (percentile ${p}). Comparable across repos of any size.`}
+    >
+      p{p}
+    </span>
+  );
+}
+
 function deltaFor(rankDeltas: RankDeltaMap | null, userId: number, rank: number): number | null {
   if (!rankDeltas) return null;
   const d = rankDeltas.get(userId);
@@ -184,6 +204,7 @@ function SmallTeamRow({
             <span className="text-lg font-semibold text-white truncate">{contributor.username}</span>
             <StreakBadge days={contributor.currentStreak} />
             <RankChange delta={delta} />
+            <PercentileBadge percentile={contributor.percentile} />
             <span className="text-sm text-zinc-400 uppercase tracking-wide hidden sm:inline">{contributor.role}</span>
           </div>
           <div className="mt-1.5">
@@ -292,6 +313,7 @@ function CompactRow({
       </div>
       <StreakBadge days={contributor.currentStreak} />
       <RankChange delta={delta} />
+      <PercentileBadge percentile={contributor.percentile} />
       <div className="text-right shrink-0 w-12">
         <span className="text-base font-bold text-white">
           {contributor.impactScore}

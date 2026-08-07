@@ -169,6 +169,11 @@ export function buildContributorInsights(rows: RepoEventRow[]) {
     contributors.set(row.contributor_id, contributor);
   }
 
+  // Fallback heuristic total, used ONLY when no stored v3 dimension scores exist
+  // (e.g. public pages for a repo that has never been analysed). getRepoAnalysisData
+  // overwrites impactScore with the authoritative dimension composite whenever the
+  // repo has been scored, so this is a zero-data placeholder, not a second source
+  // of truth.
   const scored = Array.from(contributors.values()).map(contributor => {
     const featureDelivery = contributor.prsMerged * 15 + contributor.commits * 2;
     const codeQuality = contributor.fixes * 10;
@@ -263,7 +268,7 @@ export async function getRepoAnalysisData(
   // must not pay that cost, so they just read whatever is already stored.
   let dimensionRows = await sql`
     SELECT contributor_id, decay_profile, impact, quality, collaboration, consistency, composite,
-           window_start, window_end, scoring_config_version, computed_at
+           percentile, window_start, window_end, scoring_config_version, computed_at
     FROM dimension_scores
     WHERE repo_id = ${repoId}
   `;
@@ -290,6 +295,7 @@ export async function getRepoAnalysisData(
     return {
       ...c,
       impactScore: currentComp,
+      percentile: ds.current.percentile,
       dimensionScores: ds,
       score: {
         total: currentComp,

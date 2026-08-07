@@ -71,6 +71,43 @@ function reviewWordCount(body: string | null | undefined) {
   return body.trim().split(/\s+/).filter(Boolean).length;
 }
 
+// Author payload stored on push events so the scoring pipeline can attribute a
+// work unit across every distinct commit author (proportional credit), not just
+// the webhook sender. `id`/`login` come from the commit API's author object;
+// `name`/`email` come from the commit metadata.
+function commitAuthorPayload(commit: GitHubCommit) {
+  return {
+    id: commit.author?.id ?? null,
+    login: commit.author?.login ?? null,
+    name: commit.commit.author?.name ?? null,
+    email: commit.commit.author?.email ?? null,
+  };
+}
+
+function commitEventPayload(commit: GitHubCommit): Record<string, unknown> {
+  return {
+    sha: commit.sha,
+    message: commit.commit.message,
+    url: commit.html_url,
+    author: commitAuthorPayload(commit),
+  };
+}
+
+// PR identity fields needed by the aggregator to absorb branch pushes into the
+// merged-PR candidate (kills the same-work-scored-twice double count).
+function prIdentityPayload(pr: GitHubPullRequest): Record<string, unknown> {
+  return {
+    pr_number: pr.number,
+    title: pr.title,
+    url: pr.html_url,
+    base_ref: pr.base?.ref ?? null,
+    head_ref: pr.head?.ref ?? null,
+    head_sha: pr.head?.sha ?? null,
+    merge_commit_sha: pr.merge_commit_sha ?? null,
+    merged_at: pr.merged_at ?? null,
+  };
+}
+
 export async function backfillRepoActivity(repo: InstallationRepo, userToken?: string) {
   let tokenToUse: string | null = userToken || null;
   
@@ -122,7 +159,7 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
         githubEventId: `backfill:commit:${commit.sha}`,
         createdAt: commitDate,
         payload: {
-          commits: [{ sha: commit.sha, message: commit.commit.message, url: commit.html_url }],
+          commits: [commitEventPayload(commit)],
           commit_count: 1,
         },
       });
@@ -154,7 +191,7 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
             githubEventId: `backfill:commit:${commit.sha}`,
             createdAt: commitDate,
             payload: {
-              commits: [{ sha: commit.sha, message: commit.commit.message, url: commit.html_url }],
+              commits: [commitEventPayload(commit)],
               commit_count: 1,
             },
           });
@@ -208,20 +245,14 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
       githubEventId: `backfill:pr_opened:${pullListItem.id}`,
       createdAt: pullListItem.created_at,
       payload: {
-        pr_number: pullListItem.number,
-        title: pullListItem.title,
-        url: pullListItem.html_url,
+        ...prIdentityPayload(pullListItem),
         body: pullListItem.body,
       },
     });
     if (contributorId) inserted += 1;
 
     if (pullListItem.merged_at) {
-      let mergePayload: Record<string, unknown> = {
-        pr_number: pullListItem.number,
-        title: pullListItem.title,
-        url: pullListItem.html_url,
-      };
+      let mergePayload: Record<string, unknown> = prIdentityPayload(pullListItem);
 
       if (i < DETAIL_REVIEW_PR_LIMIT) {
         try {
@@ -230,9 +261,7 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
             tokenToUse
           );
           mergePayload = {
-            pr_number: pull.number,
-            title: pull.title,
-            url: pull.html_url,
+            ...prIdentityPayload(pull),
             additions: pull.additions ?? 0,
             deletions: pull.deletions ?? 0,
             changed_files: pull.changed_files ?? 0,
@@ -281,6 +310,26 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
         });
         if (reviewerId) inserted += 1;
       }
+    }
+  }
+
+  // Tag per-commit push events that are the head commit of a merged PR with the
+  // PR number so the aggregator absorbs them into the PR candidate instead of
+  // scoring the same work twice (a push unit + a PR unit). Matches on the stored
+  // commit sha in the payload because backfilled events do not populate after_sha.
+  for (const pullListItem of pulls) {
+    if (!pullListItem.merged_at || !pullListItem.head?.sha) continue;
+    try {
+      await sql`
+        UPDATE github_events
+        SET payload = jsonb_set(payload, '{pr_number}', to_jsonb(${pullListItem.number}::int))
+        WHERE repo_id = ${repo.id}
+          AND event_type = 'push'
+          AND payload->'commits' @> ${JSON.stringify([{ sha: pullListItem.head.sha }])}::jsonb
+          AND (payload->>'pr_number') IS NULL
+      `;
+    } catch (err) {
+      console.warn(`Backfill: tag head-commit push for PR #${pullListItem.number} failed:`, err instanceof Error ? err.message : err);
     }
   }
 

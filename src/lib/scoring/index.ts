@@ -4,7 +4,7 @@ import { aggregateRepoCandidates } from './aggregator';
 import { getRepoScoringConfig } from './config';
 import { extractAndPersistBatchWorkUnits } from './extract';
 import { enrichOutcomes } from './outcome';
-import { scoreContributor } from './scoring-engine';
+import { computePercentiles, scoreContributor } from './scoring-engine';
 import type { DimensionScores, RawEvent, WorkUnit } from './types';
 
 export * from './types';
@@ -75,13 +75,17 @@ export async function classifyRepo(
   const limit = pLimit(candidateConcurrency);
 
   const BATCH_TARGET_TOKENS = 2500;
-  const MAX_BATCH_CANDIDATES = 10;
+  const MAX_BATCH_CANDIDATES = 6;
   const candidateBatches: Array<typeof pendingCandidates> = [];
   let currentBatch: typeof pendingCandidates = [];
   let currentTokens = 0;
 
   for (const cand of pendingCandidates) {
-    const estTokens = Math.max(150, Math.ceil((cand.correlation_key?.length ?? 20) * 2 + 200));
+    // correlation_key under-estimates the real prompt size (commit messages and
+    // PR bodies dominate), so use a generous per-candidate floor to keep each
+    // batch request small and fast — large batches routinely time out on the
+    // slower (free-tier) models.
+    const estTokens = Math.max(400, Math.ceil((cand.correlation_key?.length ?? 20) * 2 + 200));
     if (
       currentBatch.length >= MAX_BATCH_CANDIDATES ||
       (currentTokens + estTokens > BATCH_TARGET_TOKENS && currentBatch.length > 0)
@@ -138,6 +142,7 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
     JOIN github_contributors c ON e.contributor_id = c.id
     WHERE e.repo_id = ${repoId}
       AND c.username NOT ILIKE '%[bot]%'
+      AND e.event_type IN ('push', 'pr_opened', 'pr_merged', 'review_submitted')
     ORDER BY e.created_at ASC
   `;
   const rawEvents = rawEventsQuery as RawEvent[];
@@ -147,17 +152,17 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
            wu.derivation_ruleset_version, wu.extraction_confidence, wu.extraction_source,
            wu.flagged_for_review, wu.shipped, wu.outcome, wu.outcome_updated_at,
            wu.size_metrics, wu.rationale, wu.created_at, wu.shipped_at, wu.source_event_ids,
-           wuc.contributor_id
+           wuc.contributor_id, wuc.attribution_weight
     FROM work_units wu
     JOIN work_unit_contributors wuc ON wu.id = wuc.work_unit_id
     WHERE wu.repo_id = ${repoId}
   `;
 
   const workUnitsByContributor = new Map<number, WorkUnit[]>();
+  const attributionByContributor = new Map<number, Map<number, number>>();
   for (const row of workUnitsQuery) {
     const cid = row.contributor_id as number;
-    const existing = workUnitsByContributor.get(cid) ?? [];
-    existing.push({
+    const unit: WorkUnit = {
       id: row.id,
       repo_id: row.repo_id,
       candidate_id: row.candidate_id,
@@ -177,8 +182,14 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
       created_at: row.created_at,
       shipped_at: row.shipped_at,
       source_event_ids: row.source_event_ids,
-    });
+    };
+    const existing = workUnitsByContributor.get(cid) ?? [];
+    existing.push(unit);
     workUnitsByContributor.set(cid, existing);
+
+    const weightMap = attributionByContributor.get(cid) ?? new Map<number, number>();
+    weightMap.set(row.id as number, Number(row.attribution_weight ?? 1));
+    attributionByContributor.set(cid, weightMap);
   }
 
   const eventsByContributor = new Map<number, RawEvent[]>();
@@ -205,6 +216,7 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
     collaboration: number;
     consistency: number;
     composite: number;
+    percentile: number | null;
     scoring_config_version: string;
   }> = [];
 
@@ -217,7 +229,9 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
         contributorUnits,
         contributorEvents,
         config,
-        decayProfile
+        decayProfile,
+        new Date(),
+        attributionByContributor.get(contributorId)
       );
 
       score.contributor_id = contributorId;
@@ -235,8 +249,32 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
         collaboration: score.collaboration,
         consistency: score.consistency,
         composite: score.composite,
+        percentile: null,
         scoring_config_version: config.version,
       });
+    }
+  }
+
+  // Relative ranking: percentile = fraction of same-repo contributors (per
+  // decay profile) whose composite is at or below this one, on a 0-100 scale.
+  // Tied composites share the same percentile.
+  const byProfile = new Map<'current' | 'all_time', number[]>();
+  for (const score of results) {
+    const list = byProfile.get(score.decay_profile) ?? [];
+    list.push(score.composite);
+    byProfile.set(score.decay_profile, list);
+  }
+  for (const [profile, composites] of byProfile) {
+    const percentileByComposite = computePercentiles(composites);
+    for (const score of results) {
+      if (score.decay_profile !== profile) continue;
+      score.percentile = percentileByComposite.get(score.composite) ?? 0;
+      const row = rowsToUpsert.find(
+        (r) =>
+          r.contributor_id === score.contributor_id &&
+          r.decay_profile === score.decay_profile
+      );
+      if (row) row.percentile = score.percentile;
     }
   }
 
@@ -245,17 +283,17 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
     await sql`
       INSERT INTO dimension_scores (
         contributor_id, repo_id, window_start, window_end, decay_profile,
-        impact, quality, collaboration, consistency, composite,
+        impact, quality, collaboration, consistency, composite, percentile,
         scoring_config_version, computed_at
       )
       SELECT
         contributor_id, repo_id, window_start, window_end, decay_profile,
-        impact, quality, collaboration, consistency, composite,
+        impact, quality, collaboration, consistency, composite, percentile,
         scoring_config_version, NOW()
       FROM jsonb_to_recordset(${jsonPayload}::jsonb) AS v(
         contributor_id int, repo_id int, window_start timestamptz, window_end timestamptz,
         decay_profile text, impact real, quality real, collaboration real,
-        consistency real, composite real, scoring_config_version text
+        consistency real, composite real, percentile real, scoring_config_version text
       )
       ON CONFLICT (contributor_id, repo_id, decay_profile, scoring_config_version) DO UPDATE
       SET window_start = EXCLUDED.window_start,
@@ -265,6 +303,7 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
           collaboration = EXCLUDED.collaboration,
           consistency = EXCLUDED.consistency,
           composite = EXCLUDED.composite,
+          percentile = EXCLUDED.percentile,
           computed_at = NOW()
     `;
   }
@@ -273,12 +312,12 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
   await sql`
     INSERT INTO mv_contributor_leaderboard (
       repo_id, contributor_id, username, avatar_url, rank,
-      composite, impact, quality, collaboration, consistency, decay_profile, computed_at
+      composite, impact, quality, collaboration, consistency, percentile, decay_profile, computed_at
     )
     SELECT
       s.repo_id, s.contributor_id, c.username, c.avatar_url,
       DENSE_RANK() OVER (PARTITION BY s.repo_id, s.decay_profile ORDER BY s.composite DESC)::int as rank,
-      s.composite, s.impact, s.quality, s.collaboration, s.consistency, s.decay_profile, NOW()
+      s.composite, s.impact, s.quality, s.collaboration, s.consistency, s.percentile, s.decay_profile, NOW()
     FROM dimension_scores s
     JOIN github_contributors c ON s.contributor_id = c.id
     WHERE s.repo_id = ${repoId}
@@ -290,6 +329,7 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
         quality = EXCLUDED.quality,
         collaboration = EXCLUDED.collaboration,
         consistency = EXCLUDED.consistency,
+        percentile = EXCLUDED.percentile,
         computed_at = NOW()
   `.catch(() => {});
 

@@ -1,12 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Key, Cpu, Check, AlertCircle, Eye, EyeOff, Loader2, Sparkles, Lock } from 'lucide-react';
+import { Key, Cpu, Check, AlertCircle, Eye, EyeOff, Loader2, Sparkles, Lock, Globe } from 'lucide-react';
 
 interface PresetModel {
   id: string;
   name: string;
   provider: string;
+}
+
+interface ProviderConfig {
+  id: string;
+  name: string;
+  baseUrl: string;
+  description: string;
 }
 
 interface UserAiSettingsData {
@@ -15,6 +22,9 @@ interface UserAiSettingsData {
   apiKeyMasked: string;
   aiModel: string;
   defaultModel: string;
+  aiProvider: string;
+  aiEndpoint: string;
+  providers?: ProviderConfig[];
   presets?: PresetModel[];
 }
 
@@ -30,6 +40,9 @@ export function UserAiSettings() {
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [defaultModel, setDefaultModel] = useState('nvidia/nemotron-3-super-120b-a12b:free');
   const [presets, setPresets] = useState<PresetModel[]>([]);
+  const [providers, setProviders] = useState<ProviderConfig[]>([]);
+  const [aiProvider, setAiProvider] = useState('openrouter');
+  const [endpointInput, setEndpointInput] = useState('');
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
@@ -47,7 +60,10 @@ export function UserAiSettings() {
         setApiKeyInput(data.apiKeyMasked);
         setSelectedModel(data.aiModel);
         setDefaultModel(data.defaultModel);
+        setAiProvider(data.aiProvider || 'openrouter');
+        setEndpointInput(data.aiEndpoint || '');
         if (data.presets) setPresets(data.presets);
+        if (data.providers) setProviders(data.providers);
 
         const isPreset = data.presets?.some((p) => p.id === data.aiModel);
         if (!isPreset && data.aiModel) {
@@ -85,6 +101,8 @@ export function UserAiSettings() {
           useCustomKey,
           openrouterApiKey: apiKeyInput.trim(),
           aiModel: modelToSave,
+          aiProvider,
+          aiEndpoint: endpointInput.trim(),
         }),
       });
 
@@ -95,6 +113,8 @@ export function UserAiSettings() {
       setHasCustomKeySet(data.settings.hasCustomKeySet);
       setApiKeyInput(data.settings.apiKeyMasked);
       setSelectedModel(data.settings.aiModel);
+      setAiProvider(data.settings.aiProvider || 'openrouter');
+      setEndpointInput(data.settings.aiEndpoint || '');
 
       setStatusMessage({
         text: 'AI settings updated successfully!',
@@ -203,6 +223,71 @@ export function UserAiSettings() {
           <p className="text-xs text-zinc-500">
             Your key is securely stored in your user profile. Leave un-edited to keep your existing key.
           </p>
+        </div>
+      )}
+
+      {/* Provider / Endpoint Selection */}
+      {useCustomKey && (
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+              <Globe className="w-4 h-4 text-accent" />
+              AI Provider / Endpoint
+            </label>
+            <p className="text-xs text-zinc-400 mt-1">
+              Choose which OpenAI-compatible chat-completions endpoint your key is for. OpenRouter is the default.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            {providers.map((provider) => {
+              const isSelected = aiProvider === provider.id;
+              return (
+                <button
+                  key={provider.id}
+                  type="button"
+                  onClick={() => {
+                    setAiProvider(provider.id);
+                    // Prefill a sensible default for known providers when the
+                    // current endpoint is empty or was the previous default.
+                    setEndpointInput(provider.baseUrl);
+                  }}
+                  className={`p-3 text-left border transition-all ${
+                    isSelected
+                      ? 'bg-accent/10 border-accent text-white'
+                      : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="font-bold text-sm">{provider.name}</div>
+                      {provider.baseUrl && (
+                        <div className="text-[10px] font-mono text-zinc-500 mt-0.5 truncate">{provider.baseUrl}</div>
+                      )}
+                    </div>
+                    {isSelected && <Check className="w-4 h-4 text-accent flex-shrink-0" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="space-y-2 p-4 border border-zinc-800 bg-zinc-900/30">
+            <label className="block text-sm font-bold uppercase tracking-wider text-zinc-300">
+              Chat Completions Endpoint URL
+            </label>
+            <input
+              type="text"
+              value={endpointInput}
+              onChange={(e) => setEndpointInput(e.target.value)}
+              placeholder="https://api.openai.com/v1/chat/completions"
+              className="w-full bg-black border border-zinc-700 px-4 py-3 text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-accent"
+            />
+            <p className="text-xs text-zinc-500">
+              Any OpenAI-compatible endpoint. Base URLs (e.g. https://api.openai.com/v1) automatically get
+              /chat/completions appended. Fully custom for vLLM, LM Studio, LiteLLM, local Ollama, etc.
+            </p>
+          </div>
         </div>
       )}
 

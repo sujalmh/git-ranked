@@ -22,7 +22,7 @@ export async function getRepoScoringConfig(repoId: number): Promise<ScoringConfi
     const row = configRow[0];
     return {
       id: row.id,
-      version: row.version || 'v3.0',
+      version: row.version || 'v4.0',
       repo_id: row.repo_id,
       profile: row.profile,
       derivation_weights: row.derivation_weights,

@@ -1,16 +1,9 @@
 import { sql } from './db';
+import { computeHealthMetrics, type HealthMetrics } from './scoring/repo-score';
 
-export interface HealthMetrics {
-  delivery: number;
-  collaboration: number;
-  codeQuality: number;
-  reviewHealth: number;
-  knowledgeDistribution: number;
-  overallScore: number;
-}
+export type { HealthMetrics } from './scoring/repo-score';
 
 const clamp = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
-const round = (v: number) => Math.round(v);
 const MS_PER_DAY = 86_400_000;
 
 function asPayload(payload: unknown): Record<string, unknown> {
@@ -27,9 +20,12 @@ function asPayload(payload: unknown): Record<string, unknown> {
 }
 
 export async function generateRepoInsights(repoId: number) {
-  // Health is measured over the observed activity window.
-  // Metrics evaluate shipping velocity, code quality, contributor breadth, and review health
-  // so popular open-source repositories score accurately in the 80-98 range.
+  // Health is measured over the observed activity window (30 days). Delivery and
+  // Code Quality now come from the SAME work-unit value model that powers
+  // contributor scores, so the repo number is consistent with the people inside
+  // it; volume-only event counts are used as a fallback before classification
+  // has run. All metrics are honest 0-100 scores — no hard floors that make
+  // inactive repos look artificially healthy.
   const events = await sql`
     SELECT event_type, payload, contributor_id, created_at
     FROM github_events
@@ -40,11 +36,11 @@ export async function generateRepoInsights(repoId: number) {
   let prsOpened = 0;
   let pushes = 0;
   let reviews = 0;
-  let issues = 0;
   let releases = 0;
   let fixes = 0;
 
   const contributorActivity: Record<number, number> = {};
+  const reviewerIds = new Set<number>();
   const activeDays = new Set<string>();
   let minTime = Infinity;
   let maxTime = -Infinity;
@@ -66,8 +62,10 @@ export async function generateRepoInsights(repoId: number) {
     if (type === 'pr_merged') prsMerged++;
     if (type === 'pr_opened') prsOpened++;
     if (type === 'push') pushes++;
-    if (type === 'review_submitted') reviews++;
-    if (type === 'issue_opened' || type === 'issue_closed') issues++;
+    if (type === 'review_submitted') {
+      reviews++;
+      reviewerIds.add(cid);
+    }
     if (type === 'release') releases++;
 
     const title = (
@@ -92,110 +90,87 @@ export async function generateRepoInsights(repoId: number) {
       : activeDays.size || 1;
   const consistencyRatio = activeDays.size / spanDays;
 
-  // 1. Delivery — shipping volume + frequency
-  const shippingVolume = prsMerged * 3 + prsOpened * 2 + pushes * 1 + releases * 5;
-  let delivery: number;
-  if (shippingVolume === 0) {
-    delivery = totalEvents > 0 ? 35 : 15;
-  } else {
-    // Smooth volume curve reaching 85-100 for active open-source repos
-    const volumeScore = clamp(100 * (1 - Math.exp(-shippingVolume / 30)));
-    delivery = round(volumeScore * 0.7 + consistencyRatio * 30);
-  }
-  delivery = clamp(delivery, 20, 100);
-
-  // 2. Collaboration & 4. Review Health
-  const prVolume = prsOpened + prsMerged;
-  let collaboration: number;
-  let reviewHealth: number;
-
-  if (reviews >= 5) {
-    const engagementRatio = prVolume > 0 ? (reviews + issues) / prVolume : 1;
-    collaboration = clamp(round(50 + 30 * consistencyRatio + 20 * clamp(engagementRatio)), 50, 98);
-
-    const reviewCoverage = prsOpened > 0 ? reviews / prsOpened : 1;
-    reviewHealth = clamp(round(60 + clamp((reviewCoverage / 1.5) * 40, 0, 40)), 60, 98);
-  } else {
-    // Fallback when review submission events are not in webhook payload:
-    // Evaluate PR merge velocity & contributor interaction breadth
-    const prMergeRatio = prsOpened > 0 ? clamp(prsMerged / prsOpened, 0.5, 1.0) : prsMerged > 0 ? 0.9 : 0.8;
-    reviewHealth = round(clamp(prMergeRatio * 90 + (prsMerged > 3 ? 8 : 0), 60, 98));
-
-    const breadthBonus = activeContributors > 1 ? Math.min(30, activeContributors * 2) : 10;
-    collaboration = round(clamp(60 + breadthBonus + (issues > 0 ? 8 : 0), 50, 98));
-  }
-
-  // 3. Code Quality — Query AI classified work units
-  let codeQuality = 85;
+  // ── Work-unit derived delivery & quality (shared with user scoring) ───────
+  let deliveredValue = 0;
+  let unitCount = 0;
+  let qualitySum = 0;
+  let qualityCount = 0;
+  let testDocCount = 0;
+  let wuContributors = 0;
   try {
-    const wuRows = await sql`
-      SELECT (derived->>'execution_quality')::numeric as quality,
-             (facts->>'testing_added')::boolean as testing,
-             (facts->>'documentation_updated')::boolean as docs
-      FROM work_units
-      WHERE repo_id = ${repoId}
-      LIMIT 100
-    `;
-    if (wuRows.length > 0) {
-      let sumQuality = 0;
-      let testingCount = 0;
-      for (const r of wuRows) {
-        sumQuality += Number(r.quality || 3);
-        if (r.testing || r.docs) testingCount++;
+    const [unitRows, contributorRows] = await Promise.all([
+      sql`
+        SELECT (derived->>'value')::numeric AS value,
+               (derived->>'execution_quality')::numeric AS quality,
+               (facts->>'testing_added')::boolean AS testing,
+               (facts->>'documentation_updated')::boolean AS docs
+        FROM work_units
+        WHERE repo_id = ${repoId}
+          AND shipped = true
+          AND shipped_at > NOW() - INTERVAL '30 days'
+      `,
+      sql`
+        SELECT COUNT(DISTINCT wuc.contributor_id) AS n
+        FROM work_units wu
+        JOIN work_unit_contributors wuc ON wu.id = wuc.work_unit_id
+        WHERE wu.repo_id = ${repoId}
+          AND wu.shipped = true
+          AND wu.shipped_at > NOW() - INTERVAL '30 days'
+      `,
+    ]);
+    for (const r of unitRows) {
+      const value = Number(r.value ?? 0);
+      if (Number.isFinite(value)) deliveredValue += value;
+      unitCount++;
+      const q = Number(r.quality ?? 3);
+      if (Number.isFinite(q)) {
+        qualitySum += q;
+        qualityCount++;
       }
-      const avgQuality = sumQuality / wuRows.length; // 1..5 scale
-      const testRatio = testingCount / wuRows.length;
-      codeQuality = round(clamp(55 + avgQuality * 7 + testRatio * 15, 65, 98));
-    } else {
-      const totalShipped = prsMerged + pushes;
-      const fixRatio = totalShipped > 0 ? fixes / totalShipped : 0;
-      if (totalShipped === 0) {
-        codeQuality = 60;
-      } else if (fixRatio >= 0.1 && fixRatio <= 0.6) {
-        codeQuality = 88;
-      } else {
-        codeQuality = 80;
-      }
+      if (r.testing || r.docs) testDocCount++;
     }
+    wuContributors = Number(contributorRows[0]?.n ?? 0);
   } catch {
-    codeQuality = 85;
+    /* work units may not be classified yet — fall back to event signals */
   }
 
-  // 5. Knowledge Distribution — contributor breadth + distribution
-  let knowledgeDistribution = 60;
-  if (activeContributors > 0) {
-    const totalActivity = Object.values(contributorActivity).reduce((a, b) => a + b, 0);
-    const maxActivity = Math.max(...Object.values(contributorActivity));
-    const busFactor = totalActivity > 0 ? maxActivity / totalActivity : 1;
-    const evenness = clamp(1 - busFactor);
-    const breadthScore = clamp(activeContributors * 3, 10, 50);
-    knowledgeDistribution = round(clamp(40 + evenness * 20 + breadthScore, 30, 98));
-  }
+  // 1-5. Deterministic repo scoring from the work-unit value model (delivery +
+  // quality) blended with event-derived collaboration / review / knowledge
+  // signals. All metrics are honest 0-100 scores with no hard floors.
+  const totalActivity = Object.values(contributorActivity).reduce((a, b) => a + b, 0);
+  const maxActivity = totalActivity > 0 ? Math.max(...Object.values(contributorActivity)) : 0;
+  const busFactor = totalActivity > 0 ? maxActivity / totalActivity : 1;
 
-  const overallScore = round(
-    delivery * 0.30 +
-      collaboration * 0.20 +
-      codeQuality * 0.20 +
-      reviewHealth * 0.15 +
-      knowledgeDistribution * 0.15
-  );
-
-  const metrics: HealthMetrics = {
-    delivery: round(delivery),
-    collaboration: round(collaboration),
-    codeQuality: round(codeQuality),
-    reviewHealth: round(reviewHealth),
-    knowledgeDistribution: round(knowledgeDistribution),
-    overallScore: round(overallScore),
-  };
+  const metrics = computeHealthMetrics({
+    prsMerged,
+    prsOpened,
+    pushes,
+    reviews,
+    releases,
+    fixes,
+    activeContributors,
+    reviewerCount: reviewerIds.size,
+    consistencyRatio,
+    deliveredValue,
+    unitCount,
+    wuContributors,
+    qualitySum,
+    qualityCount,
+    testDocCount,
+    totalEvents,
+    evenness: clamp(1 - busFactor),
+  });
 
   // Cache it with a versioned prompt_version so readers can invalidate
-  // caches produced by older formulas.
+  // caches produced by older formulas. Health rows are repo-scoped
+  // (contributor_id NULL), so the conflict target is the partial unique index
+  // that makes them dedupe correctly (a plain (repo_id, contributor_id,
+  // insight_type) constraint treats NULLs as distinct and never conflicts).
   try {
     await sql`
       INSERT INTO insight_caches (repo_id, contributor_id, insight_type, payload, schema_version, prompt_version, confidence, source)
       VALUES (${repoId}, NULL, 'health_metrics', ${JSON.stringify(metrics)}, 'deterministic', ${HEALTH_METRICS_PROMPT_VERSION}, 1.0, 'deterministic')
-      ON CONFLICT (repo_id, contributor_id, insight_type) DO UPDATE
+      ON CONFLICT (repo_id, insight_type) WHERE contributor_id IS NULL DO UPDATE
       SET payload = ${JSON.stringify(metrics)}, generated_at = CURRENT_TIMESTAMP,
           schema_version = 'deterministic', prompt_version = ${HEALTH_METRICS_PROMPT_VERSION},
           confidence = 1.0, source = 'deterministic'
@@ -213,7 +188,7 @@ export async function generateRepoInsights(repoId: number) {
 }
 
 const HEALTH_STALE_MS = 6 * 60 * 60 * 1000;
-const HEALTH_METRICS_PROMPT_VERSION = '2.2.0';
+const HEALTH_METRICS_PROMPT_VERSION = '3.1.0';
 
 /**
  * Batch-read cached health metrics for many repos in a single query so the

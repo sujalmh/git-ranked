@@ -36,7 +36,7 @@ export async function GET(
     // whatever has already been computed by the worker/analyse flow.
     const scoreRows = await sql`
       SELECT contributor_id, decay_profile, impact, quality, collaboration, consistency, composite,
-             window_start, window_end, scoring_config_version, computed_at
+             percentile, window_start, window_end, scoring_config_version, computed_at
       FROM dimension_scores
       WHERE repo_id = ${repoId} AND scoring_config_version = ${config.version}
     `;
@@ -66,6 +66,7 @@ export async function GET(
         collaboration: row.collaboration,
         consistency: row.consistency,
         composite: row.composite,
+        percentile: row.percentile ?? undefined,
         window_start: row.window_start,
         window_end: row.window_end,
         scoring_config_version: row.scoring_config_version,
@@ -89,6 +90,7 @@ export async function GET(
         collaboration: 0,
         consistency: 0,
         composite: 0,
+        percentile: 0,
         scoring_config_version: config.version,
       };
 
