@@ -1,4 +1,4 @@
-export default function RootLoading() {
+export default function LoadingIndicator() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-black text-white">
       <div className="flex flex-col items-center gap-4">
