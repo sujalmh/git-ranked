@@ -6,7 +6,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const params = await props.params;
   const { owner, name } = params;
-  
+
   const repo = await getPublicRepositoryCached(owner, name);
   if (!repo) {
     return {
@@ -18,19 +18,33 @@ export async function generateMetadata(
   const description = repo.description 
     ? `View engineering metrics, contributor analytics, and PR review insights for ${repo.full_name}. ${repo.description}`
     : `Deep GitHub analytics, code quality metrics, and contributor insights for ${repo.full_name}.`;
+  const path = `/github/${owner}/${name}`;
 
   return {
     title,
     description,
+    alternates: {
+      canonical: path,
+    },
     openGraph: {
       title,
       description,
       type: 'website',
+      url: path,
+      images: [
+        {
+          url: '/opengraph-image.png',
+          width: 1200,
+          height: 630,
+          alt: 'GitRanked dashboard overview',
+        },
+      ],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
+      images: ['/opengraph-image.png'],
     }
   };
 }

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { GithubIcon } from '@/components/icons/GithubIcon';
 
 export function Footer() {
   return (
@@ -13,6 +14,17 @@ export function Footer() {
           <p className="text-zinc-400 text-sm leading-relaxed">
             AI-powered GitHub repository analytics, engineer contribution scores, and PR cycle metrics.
           </p>
+          <a
+            href="https://github.com/sujalmh/git-ranked"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-300 hover:text-accent transition-colors"
+            aria-label="GitRanked on GitHub"
+            title="View the GitRanked source code on GitHub"
+          >
+            <GithubIcon className="w-5 h-5" />
+            View source on GitHub
+          </a>
         </div>
 
         <div>

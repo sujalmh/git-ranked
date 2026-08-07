@@ -10,6 +10,20 @@ import { getPublicRepository } from '@/lib/github-api';
 export const metadata: Metadata = {
   title: 'Public Open-Source Repositories Showcase | GitRanked',
   description: 'Explore active open-source GitHub repositories analyzed on GitRanked with real aggregated health metrics, contributor impact scores, and PR cycle times.',
+  alternates: {
+    canonical: '/showcase',
+  },
+  openGraph: {
+    title: 'Public Repositories Showcase | GitRanked',
+    description: 'Real engineering health metrics, contributor impact scores, and PR cycle times for open-source GitHub repositories analyzed by GitRanked.',
+    type: 'website',
+    url: '/showcase',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Public Repositories Showcase | GitRanked',
+    description: 'Real health metrics and contributor impact scores for open-source GitHub repositories.',
+  },
 };
 
 export const revalidate = 60; // Revalidate every minute so newly added public repos show up promptly

@@ -44,6 +44,16 @@ export function NavbarClient({ user, githubAppSlug, signOutAction, signInAction 
             >
               SHOWCASE
             </Link>
+            <a
+              href="https://github.com/sujalmh/git-ranked"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-zinc-300 hover:text-accent transition-colors"
+              aria-label="GitRanked on GitHub"
+              title="View the GitRanked source code on GitHub"
+            >
+              <GithubIcon className="w-5 h-5" />
+            </a>
           </nav>
         </div>
 
@@ -129,6 +139,17 @@ export function NavbarClient({ user, githubAppSlug, signOutAction, signInAction 
           >
             SHOWCASE
           </Link>
+
+          <a
+            href="https://github.com/sujalmh/git-ranked"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block w-full py-3 bg-zinc-900 border border-zinc-700 text-center text-sm font-bold tracking-wider uppercase text-zinc-200 hover:text-accent flex items-center justify-center gap-2"
+          >
+            <GithubIcon className="w-4 h-4" />
+            GitHub Repository
+          </a>
 
           {isSignedIn ? (
             <div className="flex flex-col space-y-4">
