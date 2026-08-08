@@ -121,7 +121,7 @@ export function AdminModelSelector({ initialModel }: { initialModel?: string }) 
                   {m.name} [{m.provider}] — {m.badge}
                 </option>
               ))}
-              <option value="CUSTOM">🔧 Custom OpenRouter Model ID...</option>
+              <option value="CUSTOM">🔧 Custom Model ID...</option>
             </select>
             <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
               ▼
@@ -141,7 +141,7 @@ export function AdminModelSelector({ initialModel }: { initialModel?: string }) 
           <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-3 animate-in fade-in duration-200">
             <label className="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
               <Server className="w-3.5 h-3.5 text-zinc-400" />
-              OpenRouter Model Identifier
+              Model Identifier
             </label>
             <div className="flex items-center gap-2">
               <input

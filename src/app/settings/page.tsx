@@ -18,7 +18,7 @@ export default async function SettingsPage() {
             SETTINGS & PREFERENCES
           </h1>
           <p className="text-zinc-400 text-xs sm:text-sm mt-1">
-            Manage your personal AI model configuration, OpenRouter credentials, and platform preferences.
+            Manage your personal AI provider, model, and API key configuration.
           </p>
         </div>
 
@@ -28,7 +28,7 @@ export default async function SettingsPage() {
           <div className="brutal-card p-12 text-center space-y-6 bg-zinc-950">
             <h2 className="text-xl font-bold uppercase text-white">Authentication Required</h2>
             <p className="text-zinc-400 text-sm max-w-md mx-auto">
-              Please sign in with your GitHub account to manage your personal OpenRouter API key and model preferences.
+              Please sign in with your GitHub account to manage your personal AI provider, model, and API key.
             </p>
             <form
               action={async () => {

@@ -36,6 +36,81 @@ export type ProviderConfig = {
 
 export const DEFAULT_AI_PROVIDER: AiProvider = 'openrouter';
 
+/** A selectable model entry shown in the settings model dropdown. */
+export type ModelPreset = {
+  id: string;
+  name: string;
+  provider?: string;
+};
+
+/**
+ * Common model ids per provider, so the settings page can offer a searchable
+ * model dropdown that matches the selected provider. The id is sent verbatim as
+ * the `model` field to that provider's chat-completions endpoint. `custom` is
+ * intentionally empty — a free-form model id is required there.
+ */
+export const MODELS_BY_PROVIDER: Record<AiProvider, ModelPreset[]> = {
+  openrouter: [
+    { id: 'nvidia/nemotron-3-super-120b-a12b:free', name: 'Nemotron Super 120B (Free)', provider: 'NVIDIA' },
+    { id: 'google/gemini-2.0-flash-lite-preview-02-05:free', name: 'Gemini 2.0 Flash Lite (Free)', provider: 'Google' },
+    { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (Free)', provider: 'Google' },
+    { id: 'deepseek/deepseek-r1:free', name: 'DeepSeek R1 (Free)', provider: 'DeepSeek' },
+    { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B (Free)', provider: 'Meta' },
+    { id: 'meta-llama/llama-3.1-8b-instruct:free', name: 'Llama 3.1 8B (Free)', provider: 'Meta' },
+    { id: 'qwen/qwen-2.5-coder-32b-instruct:free', name: 'Qwen 2.5 Coder 32B (Free)', provider: 'Qwen' },
+    { id: 'mistralai/mistral-small-24b-instruct-2501:free', name: 'Mistral Small 24B (Free)', provider: 'Mistral' },
+    { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
+    { id: 'anthropic/claude-3.7-sonnet', name: 'Claude 3.7 Sonnet', provider: 'Anthropic' },
+    { id: 'openai/gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
+    { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI' },
+    { id: 'openai/o4-mini', name: 'o4-mini', provider: 'OpenAI' },
+    { id: 'openai/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI' },
+  ],
+  openai: [
+    { id: 'gpt-4o', name: 'GPT-4o' },
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+    { id: 'gpt-4.1', name: 'GPT-4.1' },
+    { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini' },
+    { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano' },
+    { id: 'o4-mini', name: 'o4-mini' },
+    { id: 'o3', name: 'o3' },
+  ],
+  groq: [
+    { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile' },
+    { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B Instant' },
+    { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' },
+    { id: 'gemma2-9b-it', name: 'Gemma 2 9B' },
+    { id: 'openai/gpt-oss-20b', name: 'GPT-OSS 20B' },
+    { id: 'openai/gpt-oss-120b', name: 'GPT-OSS 120B' },
+  ],
+  together: [
+    { id: 'meta-llama/llama-3.3-70b-instruct-turbo', name: 'Llama 3.3 70B Instruct' },
+    { id: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free', name: 'Llama 3.3 70B (Free)' },
+    { id: 'Qwen/Qwen2.5-72B-Instruct-Turbo', name: 'Qwen 2.5 72B Instruct' },
+    { id: 'mistralai/Mixtral-8x22B-Instruct-v0.1', name: 'Mixtral 8x22B' },
+  ],
+  mistral: [
+    { id: 'mistral-large-latest', name: 'Mistral Large' },
+    { id: 'mistral-small-latest', name: 'Mistral Small' },
+    { id: 'open-mistral-nemo', name: 'Mistral Nemo' },
+    { id: 'codestral-latest', name: 'Codestral' },
+    { id: 'ministral-8b-latest', name: 'Ministral 8B' },
+  ],
+  deepseek: [
+    { id: 'deepseek-chat', name: 'DeepSeek Chat' },
+    { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner' },
+  ],
+  ollama: [
+    { id: 'llama3.2', name: 'Llama 3.2' },
+    { id: 'llama3.1', name: 'Llama 3.1' },
+    { id: 'qwen2.5', name: 'Qwen 2.5' },
+    { id: 'mistral', name: 'Mistral' },
+    { id: 'gemma2', name: 'Gemma 2' },
+    { id: 'phi4', name: 'Phi-4' },
+  ],
+  custom: [],
+};
+
 export const AI_PROVIDERS: ProviderConfig[] = [
   {
     id: 'openrouter',

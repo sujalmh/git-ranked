@@ -195,25 +195,43 @@ function toBaseUrl(endpointUrl: string): string {
   return endpointUrl.replace(/\/chat\/completions$/, '').replace(/\/+$/, '') || endpointUrl;
 }
 
-function buildModel(
+// Reuse one provider instance per (endpoint, apiKey, provider) instead of
+// rebuilding it on every call — provider instances are cheap but statelessly
+// cached config objects, and this is the SDK-idiomatic pattern.
+const providerCache = new Map<string, ReturnType<typeof createOpenAICompatible>>();
+
+function getProviderInstance(
   endpointUrl: string,
   apiKey: string,
-  provider: AiProvider,
-  modelId: string
-): LanguageModel {
+  provider: AiProvider
+): ReturnType<typeof createOpenAICompatible> {
+  const cacheKey = `${provider}:${endpointUrl}:${apiKey}`;
+  const cached = providerCache.get(cacheKey);
+  if (cached) return cached;
+
   const headers: Record<string, string> = {};
   // OpenRouter uses extra attribution headers; other providers don't accept them.
   if (provider === 'openrouter') {
     headers['HTTP-Referer'] = APP_REFERER;
     headers['X-Title'] = APP_TITLE;
   }
-  const compatible = createOpenAICompatible({
+  const instance = createOpenAICompatible({
     name: provider,
     baseURL: toBaseUrl(endpointUrl),
     apiKey,
     headers,
   });
-  return compatible.languageModel(modelId);
+  providerCache.set(cacheKey, instance);
+  return instance;
+}
+
+function buildModel(
+  endpointUrl: string,
+  apiKey: string,
+  provider: AiProvider,
+  modelId: string
+): LanguageModel {
+  return getProviderInstance(endpointUrl, apiKey, provider).languageModel(modelId);
 }
 
 function isZodSchema(value: unknown): value is z.ZodType {

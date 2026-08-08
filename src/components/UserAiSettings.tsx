@@ -1,19 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Key, Cpu, Check, AlertCircle, Eye, EyeOff, Loader2, Sparkles, Lock, Globe } from 'lucide-react';
-
-interface PresetModel {
-  id: string;
-  name: string;
-  provider: string;
-}
+import { useState, useEffect, useRef } from 'react';
+import {
+  Key,
+  Cpu,
+  Check,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Loader2,
+  Sparkles,
+  Globe,
+  Search,
+  ChevronDown,
+  Server,
+  Lock,
+} from 'lucide-react';
 
 interface ProviderConfig {
   id: string;
   name: string;
   baseUrl: string;
   description: string;
+}
+
+interface ModelPreset {
+  id: string;
+  name: string;
+  provider?: string;
 }
 
 interface UserAiSettingsData {
@@ -25,25 +39,133 @@ interface UserAiSettingsData {
   aiProvider: string;
   aiEndpoint: string;
   providers?: ProviderConfig[];
-  presets?: PresetModel[];
+  modelsByProvider?: Record<string, ModelPreset[]>;
+}
+
+interface DropdownOption {
+  id: string;
+  name: string;
+  sub?: string;
+}
+
+function SearchableDropdown({
+  icon,
+  value,
+  valueLabel,
+  placeholder,
+  searchPlaceholder,
+  options,
+  onSelect,
+  disabled,
+  footer,
+}: {
+  icon?: React.ReactNode;
+  value: string;
+  valueLabel?: string;
+  placeholder: string;
+  searchPlaceholder: string;
+  options: DropdownOption[];
+  onSelect: (option: DropdownOption) => void;
+  disabled?: boolean;
+  footer?: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, []);
+
+  const selected = options.find((o) => o.id === value);
+  const filtered = query.trim()
+    ? options.filter((o) => `${o.name} ${o.id} ${o.sub ?? ''}`.toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          setOpen((o) => !o);
+          if (!open) setQuery('');
+        }}
+        className="w-full flex items-center justify-between gap-2 bg-black border border-zinc-700 px-4 py-3 text-sm text-white focus:outline-none focus:border-accent disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          {icon}
+          <span className="truncate">
+            {valueLabel ?? (selected ? `${selected.name}${selected.sub ? ` — ${selected.sub}` : ''}` : placeholder)}
+          </span>
+        </span>
+        <ChevronDown className={`w-4 h-4 text-zinc-500 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-20 mt-1 w-full bg-zinc-900 border border-zinc-700 shadow-2xl">
+          <div className="p-2 border-b border-zinc-800 flex items-center gap-2">
+            <Search className="w-4 h-4 text-zinc-500 shrink-0" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="flex-1 bg-transparent text-sm text-white placeholder:text-zinc-600 focus:outline-none"
+            />
+          </div>
+          <div className="max-h-56 overflow-y-auto">
+            {filtered.length === 0 && <div className="px-4 py-3 text-xs text-zinc-500">No matches</div>}
+            {filtered.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => {
+                  onSelect(o);
+                  setOpen(false);
+                  setQuery('');
+                }}
+                className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left hover:bg-accent/10 ${
+                  o.id === value ? 'bg-accent/10 text-accent' : 'text-white'
+                }`}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate">{o.name}</span>
+                  {o.sub && <span className="block text-[10px] font-mono text-zinc-500 truncate">{o.sub}</span>}
+                </span>
+                {o.id === value && <Check className="w-4 h-4 text-accent shrink-0" />}
+              </button>
+            ))}
+          </div>
+          {footer && <div className="border-t border-zinc-800">{footer}</div>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function UserAiSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [useCustomKey, setUseCustomKey] = useState(false);
   const [hasCustomKeySet, setHasCustomKeySet] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [selectedModel, setSelectedModel] = useState('');
+  const [customModelMode, setCustomModelMode] = useState(false);
   const [customModelInput, setCustomModelInput] = useState('');
-  const [isCustomMode, setIsCustomMode] = useState(false);
   const [defaultModel, setDefaultModel] = useState('nvidia/nemotron-3-super-120b-a12b:free');
-  const [presets, setPresets] = useState<PresetModel[]>([]);
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
+  const [modelsByProvider, setModelsByProvider] = useState<Record<string, ModelPreset[]>>({});
   const [aiProvider, setAiProvider] = useState('openrouter');
   const [endpointInput, setEndpointInput] = useState('');
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const currentModels = (aiProvider === 'custom' ? [] : (modelsByProvider[aiProvider] ?? [])) as ModelPreset[];
+  const isApiKeySet = hasCustomKeySet || apiKeyInput.trim().length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -55,20 +177,28 @@ export function UserAiSettings() {
       })
       .then((data) => {
         if (cancelled) return;
-        setUseCustomKey(data.useCustomKey);
         setHasCustomKeySet(data.hasCustomKeySet);
         setApiKeyInput(data.apiKeyMasked);
-        setSelectedModel(data.aiModel);
         setDefaultModel(data.defaultModel);
         setAiProvider(data.aiProvider || 'openrouter');
         setEndpointInput(data.aiEndpoint || '');
-        if (data.presets) setPresets(data.presets);
         if (data.providers) setProviders(data.providers);
+        if (data.modelsByProvider) setModelsByProvider(data.modelsByProvider);
 
-        const isPreset = data.presets?.some((p) => p.id === data.aiModel);
-        if (!isPreset && data.aiModel) {
-          setIsCustomMode(true);
+        const provider = data.aiProvider || 'openrouter';
+        const list = (provider === 'custom' ? [] : (data.modelsByProvider?.[provider] ?? [])) as ModelPreset[];
+        if (provider === 'custom') {
+          setCustomModelMode(true);
           setCustomModelInput(data.aiModel);
+        } else if (list.some((m) => m.id === data.aiModel)) {
+          setSelectedModel(data.aiModel);
+          setCustomModelMode(false);
+        } else if (data.aiModel) {
+          setCustomModelMode(true);
+          setCustomModelInput(data.aiModel);
+        } else {
+          setSelectedModel(list[0]?.id ?? '');
+          setCustomModelMode(false);
         }
       })
       .catch((err) => {
@@ -85,36 +215,63 @@ export function UserAiSettings() {
     };
   }, []);
 
-  const isApiKeySet = useCustomKey && (hasCustomKeySet || apiKeyInput.trim().length > 0);
+  const handleProviderSelect = (opt: DropdownOption) => {
+    setAiProvider(opt.id);
+    setEndpointInput('');
+    if (opt.id === 'custom') {
+      setCustomModelMode(true);
+      setCustomModelInput('');
+      setSelectedModel('');
+    } else {
+      const list = (modelsByProvider[opt.id] ?? []) as ModelPreset[];
+      setCustomModelMode(false);
+      setCustomModelInput('');
+      setSelectedModel(list[0]?.id ?? '');
+    }
+  };
+
+  const modelToSave = customModelMode ? customModelInput.trim() : selectedModel;
+  const providerOption = providers.find((p) => p.id === aiProvider);
 
   const handleSave = async () => {
     setSaving(true);
     setStatusMessage(null);
 
-    const modelToSave = isCustomMode ? customModelInput.trim() : selectedModel;
+    if (!modelToSave) {
+      setStatusMessage({ text: 'Please select or enter a model.', type: 'error' });
+      setSaving(false);
+      return;
+    }
+    if (aiProvider === 'custom' && !endpointInput.trim()) {
+      setStatusMessage({ text: 'A custom provider requires an endpoint URL.', type: 'error' });
+      setSaving(false);
+      return;
+    }
 
     try {
       const res = await fetch('/api/user/ai-settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          useCustomKey,
-          openrouterApiKey: apiKeyInput.trim(),
+          apiKey: apiKeyInput.trim(),
           aiModel: modelToSave,
           aiProvider,
-          aiEndpoint: endpointInput.trim(),
+          aiEndpoint: aiProvider === 'custom' ? endpointInput.trim() : '',
         }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save settings');
 
-      setUseCustomKey(data.settings.useCustomKey);
       setHasCustomKeySet(data.settings.hasCustomKeySet);
       setApiKeyInput(data.settings.apiKeyMasked);
       setSelectedModel(data.settings.aiModel);
       setAiProvider(data.settings.aiProvider || 'openrouter');
       setEndpointInput(data.settings.aiEndpoint || '');
+      if (data.settings.aiModel && !(currentModels.some((m) => m.id === data.settings.aiModel))) {
+        setCustomModelMode(true);
+        setCustomModelInput(data.settings.aiModel);
+      }
 
       setStatusMessage({
         text: 'AI settings updated successfully!',
@@ -138,6 +295,12 @@ export function UserAiSettings() {
     );
   }
 
+  const modelOptions: DropdownOption[] = currentModels.map((m) => ({
+    id: m.id,
+    name: m.name,
+    sub: m.id,
+  }));
+
   return (
     <div className="brutal-card p-6 md:p-8 space-y-8 bg-zinc-950 text-white">
       {/* Header */}
@@ -145,10 +308,11 @@ export function UserAiSettings() {
         <div>
           <div className="flex items-center gap-3">
             <Sparkles className="w-6 h-6 text-accent" />
-            <h2 className="text-xl font-bold tracking-tight uppercase">AI Key & Model Configuration</h2>
+            <h2 className="text-xl font-bold tracking-tight uppercase">AI Provider & Model Configuration</h2>
           </div>
           <p className="text-sm text-zinc-400 mt-1">
-            Choose whether to use your custom OpenRouter key or fall back to the system default.
+            Connect your own AI endpoint, pick a provider and model, and add your API key. Leave the key empty to use the
+            system default.
           </p>
         </div>
       </div>
@@ -170,212 +334,153 @@ export function UserAiSettings() {
         </div>
       )}
 
-      {/* Toggle Custom Key */}
-      <div className="p-4 sm:p-6 border border-zinc-800 bg-zinc-950 flex items-center justify-between gap-4">
-        <div className="space-y-1">
-          <label className="text-base font-bold text-white uppercase flex items-center gap-2">
-            <Key className="w-4 h-4 text-accent" />
-            Use Personal OpenRouter API Key
-          </label>
-          <p className="text-xs text-zinc-400">
-            {useCustomKey
-              ? 'Active: Your requests will use your personal OpenRouter API Key.'
-              : `Inactive: Using system default key & default model (${defaultModel}).`}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setUseCustomKey(!useCustomKey)}
-          className={`relative inline-flex h-7 w-14 flex-shrink-0 cursor-pointer transition-colors duration-200 ease-in-out border-2 ${
-            useCustomKey ? 'bg-accent border-accent' : 'bg-zinc-800 border-zinc-700'
-          }`}
-        >
-          <span
-            className={`pointer-events-none inline-block h-6 w-6 transform bg-black shadow transition duration-200 ease-in-out ${
-              useCustomKey ? 'translate-x-7' : 'translate-x-0'
-            }`}
-          />
-        </button>
+      {/* Step 1 — Provider */}
+      <div className="space-y-3">
+        <label className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-300">
+          <Globe className="w-4 h-4 text-accent" />
+          1. Provider
+        </label>
+        <SearchableDropdown
+          icon={<Globe className="w-4 h-4 text-zinc-500 shrink-0" />}
+          value={aiProvider}
+          valueLabel={providerOption ? `${providerOption.name} — ${providerOption.description}` : undefined}
+          placeholder="Select an AI provider…"
+          searchPlaceholder="Search providers…"
+          options={providers.map((p) => ({ id: p.id, name: p.name, sub: p.description }))}
+          onSelect={handleProviderSelect}
+        />
+        {providerOption?.baseUrl && (
+          <p className="text-xs text-zinc-500 font-mono truncate">Endpoint: {providerOption.baseUrl}</p>
+        )}
       </div>
 
-      {/* API Key Input */}
-      {useCustomKey && (
-        <div className="space-y-3 p-5 border border-zinc-800 bg-zinc-900/30">
-          <label className="block text-sm font-bold uppercase tracking-wider text-zinc-300">
-            OpenRouter API Key
-          </label>
-          <div className="relative">
-            <input
-              type={showApiKey ? 'text' : 'password'}
-              value={apiKeyInput}
-              onChange={(e) => setApiKeyInput(e.target.value)}
-              placeholder="sk-or-v1-..."
-              className="w-full bg-black border border-zinc-700 px-4 py-3 text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-accent"
-            />
-            <button
-              type="button"
-              onClick={() => setShowApiKey(!showApiKey)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
-            >
-              {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
-          </div>
-          <p className="text-xs text-zinc-500">
-            Your key is securely stored in your user profile. Leave un-edited to keep your existing key.
-          </p>
-        </div>
-      )}
-
-      {/* Provider / Endpoint Selection */}
-      {useCustomKey && (
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
-              <Globe className="w-4 h-4 text-accent" />
-              AI Provider / Endpoint
-            </label>
-            <p className="text-xs text-zinc-400 mt-1">
-              Choose which OpenAI-compatible chat-completions endpoint your key is for. OpenRouter is the default.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-            {providers.map((provider) => {
-              const isSelected = aiProvider === provider.id;
-              return (
-                <button
-                  key={provider.id}
-                  type="button"
-                  onClick={() => {
-                    setAiProvider(provider.id);
-                    // Prefill a sensible default for known providers when the
-                    // current endpoint is empty or was the previous default.
-                    setEndpointInput(provider.baseUrl);
-                  }}
-                  className={`p-3 text-left border transition-all ${
-                    isSelected
-                      ? 'bg-accent/10 border-accent text-white'
-                      : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <div className="font-bold text-sm">{provider.name}</div>
-                      {provider.baseUrl && (
-                        <div className="text-[10px] font-mono text-zinc-500 mt-0.5 truncate">{provider.baseUrl}</div>
-                      )}
-                    </div>
-                    {isSelected && <Check className="w-4 h-4 text-accent flex-shrink-0" />}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="space-y-2 p-4 border border-zinc-800 bg-zinc-900/30">
-            <label className="block text-sm font-bold uppercase tracking-wider text-zinc-300">
-              Chat Completions Endpoint URL
-            </label>
-            <input
-              type="text"
-              value={endpointInput}
-              onChange={(e) => setEndpointInput(e.target.value)}
-              placeholder="https://api.openai.com/v1/chat/completions"
-              className="w-full bg-black border border-zinc-700 px-4 py-3 text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-accent"
-            />
-            <p className="text-xs text-zinc-500">
-              Any OpenAI-compatible endpoint. Base URLs (e.g. https://api.openai.com/v1) automatically get
-              /chat/completions appended. Fully custom for vLLM, LM Studio, LiteLLM, local Ollama, etc.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Model Selection */}
-      <div className="space-y-4">
+      {/* Step 2 — Model */}
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+          <label className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-300">
             <Cpu className="w-4 h-4 text-accent" />
-            AI Model Preference
+            2. Model
           </label>
-          <div className="flex items-center gap-2">
+          {customModelMode && (
             <button
               type="button"
-              disabled={!isApiKeySet}
-              onClick={() => setIsCustomMode(false)}
-              className={`text-xs px-3 py-1 font-bold border transition-colors ${
-                !isCustomMode
-                  ? 'bg-accent text-black border-accent'
-                  : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
-              } disabled:opacity-40 disabled:cursor-not-allowed`}
+              onClick={() => setCustomModelMode(false)}
+              className="text-xs text-zinc-400 hover:text-white underline underline-offset-2"
             >
-              PRESETS
+              Back to presets
             </button>
-            <button
-              type="button"
-              disabled={!isApiKeySet}
-              onClick={() => setIsCustomMode(true)}
-              className={`text-xs px-3 py-1 font-bold border transition-colors ${
-                isCustomMode
-                  ? 'bg-accent text-black border-accent'
-                  : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
-              } disabled:opacity-40 disabled:cursor-not-allowed`}
-            >
-              CUSTOM SLUG
-            </button>
-          </div>
+          )}
         </div>
 
-        {!isApiKeySet && (
-          <div className="p-4 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium flex items-center gap-2">
-            <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
-            <span>
-              Model selection is locked. You must enable and set your personal OpenRouter API key above to change your AI model.
-            </span>
-          </div>
-        )}
-
-        {!isCustomMode ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {presets.map((preset) => {
-              const isSelected = selectedModel === preset.id;
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  disabled={!isApiKeySet}
-                  onClick={() => setSelectedModel(preset.id)}
-                  className={`p-4 text-left border transition-all flex items-center justify-between ${
-                    isSelected
-                      ? 'bg-accent/10 border-accent text-white'
-                      : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
-                  } disabled:opacity-40 disabled:cursor-not-allowed`}
-                >
-                  <div>
-                    <div className="font-bold text-sm">{preset.name}</div>
-                    <div className="text-xs font-mono text-zinc-500 mt-1">{preset.id}</div>
-                  </div>
-                  {isSelected && <Check className="w-4 h-4 text-accent flex-shrink-0" />}
-                </button>
-              );
-            })}
-          </div>
+        {!customModelMode ? (
+          <SearchableDropdown
+            icon={<Cpu className="w-4 h-4 text-zinc-500 shrink-0" />}
+            value={selectedModel}
+            placeholder={aiProvider === 'custom' ? 'Custom model id required…' : 'Select a model…'}
+            searchPlaceholder="Search models…"
+            options={modelOptions}
+            onSelect={(opt) => setSelectedModel(opt.id)}
+            disabled={aiProvider === 'custom'}
+            footer={
+              <button
+                type="button"
+                onClick={() => setCustomModelMode(true)}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-accent hover:bg-accent/10 text-left"
+              >
+                <Server className="w-4 h-4" />
+                Enter a custom model id…
+              </button>
+            }
+          />
         ) : (
           <div className="space-y-2">
             <input
               type="text"
-              disabled={!isApiKeySet}
               value={customModelInput}
               onChange={(e) => setCustomModelInput(e.target.value)}
-              placeholder="e.g. google/gemini-2.0-flash-lite-001 or nvidia/nemotron-3-super-120b-a12b:free"
-              className="w-full bg-black border border-zinc-700 px-4 py-3 text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-accent disabled:opacity-40 disabled:cursor-not-allowed disabled:border-zinc-800"
+              placeholder={
+                aiProvider === 'custom'
+                  ? 'e.g. local-model, my-model-name'
+                  : 'e.g. google/gemini-2.0-flash-001 or anthropic/claude-3.5-sonnet'
+              }
+              className="w-full bg-black border border-zinc-700 px-4 py-3 text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-accent"
             />
             <p className="text-xs text-zinc-500">
-              Enter any supported OpenRouter model slug.
+              {aiProvider === 'custom'
+                ? `Enter the model id your ${providerOption?.name ?? 'custom'} endpoint expects.`
+                : 'Enter any model id this provider exposes (it is sent verbatim to the chat-completions endpoint).'}
             </p>
           </div>
         )}
       </div>
+
+      {/* Step 3 — API Key */}
+      <div className="space-y-3">
+        <label className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-300">
+          <Key className="w-4 h-4 text-accent" />
+          3. API Key
+        </label>
+        <div className="relative">
+          <input
+            type={showApiKey ? 'text' : 'password'}
+            value={apiKeyInput}
+            onChange={(e) => setApiKeyInput(e.target.value)}
+            placeholder="Paste your API key for the selected provider…"
+            className="w-full bg-black border border-zinc-700 px-4 py-3 text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-accent"
+          />
+          <button
+            type="button"
+            onClick={() => setShowApiKey(!showApiKey)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
+            aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+          >
+            {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+        <div
+          className={`p-3 border text-xs font-medium flex items-center gap-2 ${
+            isApiKeySet
+              ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300'
+              : 'bg-zinc-900/40 border-zinc-800 text-zinc-400'
+          }`}
+        >
+          {isApiKeySet ? (
+            <>
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>Your key will be used for requests. Leave un-edited to keep the existing key.</span>
+            </>
+          ) : (
+            <>
+              <Lock className="w-4 h-4 text-zinc-500 shrink-0" />
+              <span>
+                No key set — requests will use the system default key & model ({defaultModel}). Add a key to activate
+                your own provider & model.
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Step 4 — Custom endpoint (only for the custom provider) */}
+      {aiProvider === 'custom' && (
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-300">
+            <Server className="w-4 h-4 text-accent" />
+            4. Endpoint URL
+          </label>
+          <input
+            type="text"
+            value={endpointInput}
+            onChange={(e) => setEndpointInput(e.target.value)}
+            placeholder="https://your-llm-server/v1"
+            className="w-full bg-black border border-zinc-700 px-4 py-3 text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-accent"
+          />
+          <p className="text-xs text-zinc-500">
+            Any OpenAI-compatible endpoint — vLLM, LM Studio, LiteLLM, Ollama, etc. Base URLs (e.g.
+            https://your-server/v1) automatically get /chat/completions appended. Required for the custom provider.
+          </p>
+        </div>
+      )}
 
       {/* Action Footer */}
       <div className="pt-4 border-t border-zinc-800 flex items-center justify-end">

@@ -4,6 +4,7 @@ import { sql } from '@/lib/db';
 import { getAiModel, RECOMMENDED_AI_MODELS } from '@/lib/ai/openrouter';
 import {
   AI_PROVIDERS,
+  MODELS_BY_PROVIDER,
   normalizeEndpoint,
   type AiProvider,
 } from '@/lib/ai/models';
@@ -39,6 +40,7 @@ export async function GET() {
         aiProvider: 'openrouter' as AiProvider,
         aiEndpoint: '',
         providers: AI_PROVIDERS,
+        modelsByProvider: MODELS_BY_PROVIDER,
         presets: RECOMMENDED_AI_MODELS,
       });
     }
@@ -58,6 +60,7 @@ export async function GET() {
       aiProvider: userProvider,
       aiEndpoint: userEndpoint,
       providers: AI_PROVIDERS,
+      modelsByProvider: MODELS_BY_PROVIDER,
       presets: RECOMMENDED_AI_MODELS,
     });
   } catch (error) {
@@ -75,7 +78,7 @@ export async function POST(req: Request) {
   try {
     const userId = Number(session.user.id);
     const body = await req.json();
-    const { useCustomKey, openrouterApiKey, aiModel, aiProvider, aiEndpoint } = body;
+    const { apiKey, aiModel, aiProvider, aiEndpoint } = body;
 
     const existingRows = await sql`
       SELECT openrouter_api_key, ai_model, use_custom_key, ai_endpoint, ai_provider
@@ -89,11 +92,9 @@ export async function POST(req: Request) {
 
     const currentKey = existingRows[0].openrouter_api_key;
     const currentModel = existingRows[0].ai_model;
-    const currentUseCustom = Boolean(existingRows[0].use_custom_key);
     const currentEndpoint = existingRows[0].ai_endpoint;
     const currentProvider = (existingRows[0].ai_provider as AiProvider) || 'openrouter';
 
-    const newUseCustom = typeof useCustomKey === 'boolean' ? useCustomKey : currentUseCustom;
     const newModel = typeof aiModel === 'string' ? aiModel.trim() : currentModel;
 
     const knownProviders = AI_PROVIDERS.map((p) => p.id);
@@ -102,29 +103,44 @@ export async function POST(req: Request) {
         ? (aiProvider as AiProvider)
         : currentProvider;
 
-    // Normalize a provided custom endpoint into a full /chat/completions URL.
+    // Endpoint handling: custom providers require an explicit OpenAI-compatible
+    // URL; known providers use their preset by default (empty = default).
     let newEndpoint = currentEndpoint;
-    if (typeof aiEndpoint === 'string') {
-      const normalized = normalizeEndpoint(aiEndpoint, newProvider);
-      if (normalized) newEndpoint = normalized;
+    if (newProvider === 'custom') {
+      const raw = typeof aiEndpoint === 'string' ? aiEndpoint.trim() : '';
+      if (!raw) {
+        return NextResponse.json({ error: 'The custom provider requires an endpoint URL.' }, { status: 400 });
+      }
+      newEndpoint = normalizeEndpoint(raw, 'custom');
+    } else if (typeof aiEndpoint === 'string') {
+      const raw = aiEndpoint.trim();
+      newEndpoint = raw ? normalizeEndpoint(raw, newProvider) : '';
+    }
+
+    if (newProvider === 'custom' && !newModel) {
+      return NextResponse.json({ error: 'The custom provider requires a model id.' }, { status: 400 });
     }
 
     let newKey = currentKey;
-    if (typeof openrouterApiKey === 'string') {
-      const trimmedKey = openrouterApiKey.trim();
-      // If user provides empty string or non-masked string, update it
+    if (typeof apiKey === 'string') {
+      const trimmedKey = apiKey.trim();
+      // An empty value clears the key; a masked value (contains "...") means the
+      // user left the existing key untouched — keep it.
       if (trimmedKey === '' || !trimmedKey.includes('...')) {
         newKey = trimmedKey;
       }
     }
 
     const hasKeySet = Boolean(typeof newKey === 'string' && newKey.trim());
-    if (newModel !== currentModel && (!newUseCustom || !hasKeySet)) {
+    if (!hasKeySet && (newModel !== currentModel || newProvider !== currentProvider)) {
       return NextResponse.json(
-        { error: 'An API key must be set and enabled to change your AI model preference.' },
+        { error: 'An API key is required to change your AI provider or model.' },
         { status: 400 }
       );
     }
+
+    // A personal AI config is active exactly when a key is set.
+    const newUseCustom = hasKeySet;
 
     await sql`
       UPDATE app_users
