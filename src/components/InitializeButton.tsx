@@ -253,7 +253,7 @@ export function InitializeButton({ owner, name }: { owner: string; name: string 
                       ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                       : isComplete
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : 'bg-accent text-accent border border-accent'
+                        : 'bg-accent/20 text-accent border border-accent/30'
                   }`}
                 >
                   <span
