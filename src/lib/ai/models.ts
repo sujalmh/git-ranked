@@ -24,6 +24,7 @@ export type AiProvider =
   | 'mistral'
   | 'deepseek'
   | 'ollama'
+  | 'opencode'
   | 'custom';
 
 export type ProviderConfig = {
@@ -108,6 +109,19 @@ export const MODELS_BY_PROVIDER: Record<AiProvider, ModelPreset[]> = {
     { id: 'gemma2', name: 'Gemma 2' },
     { id: 'phi4', name: 'Phi-4' },
   ],
+  opencode: [
+    { id: 'deepseek-v4-flash-free', name: 'DeepSeek V4 Flash (Free)', provider: 'DeepSeek' },
+    { id: 'big-pickle', name: 'Big Pickle (Free)', provider: 'OpenCode' },
+    { id: 'nemotron-3-ultra-free', name: 'Nemotron 3 Ultra (Free)', provider: 'NVIDIA' },
+    { id: 'mimo-v2.5-free', name: 'MiMo V2.5 (Free)', provider: 'OpenCode' },
+    { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', provider: 'DeepSeek' },
+    { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek' },
+    { id: 'glm-5.1', name: 'GLM 5.1', provider: 'Zhipu' },
+    { id: 'kimi-k3', name: 'Kimi K3', provider: 'Moonshot' },
+    { id: 'kimi-k2.7-code', name: 'Kimi K2.7 Code', provider: 'Moonshot' },
+    { id: 'minimax-m3', name: 'MiniMax M3', provider: 'MiniMax' },
+    { id: 'gpt-5.6-luna', name: 'GPT 5.6 Luna', provider: 'OpenAI' },
+  ],
   custom: [],
 };
 
@@ -153,6 +167,12 @@ export const AI_PROVIDERS: ProviderConfig[] = [
     name: 'Ollama (Local)',
     baseUrl: 'http://localhost:11434/v1/chat/completions',
     description: 'Run models locally on your own machine.',
+  },
+  {
+    id: 'opencode',
+    name: 'OpenCode Zen',
+    baseUrl: 'https://opencode.ai/zen/v1/chat/completions',
+    description: 'Curated coding models by the OpenCode team (DeepSeek, GLM, Kimi, GPT, more).',
   },
   {
     id: 'custom',
