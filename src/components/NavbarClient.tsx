@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ExternalLink, Compass } from 'lucide-react';
 import { GithubIcon } from '@/components/icons/GithubIcon';
 
 type NavbarClientProps = {
@@ -32,28 +32,33 @@ export function NavbarClient({ user, githubAppSlug, signOutAction, signInAction 
             <span className="text-xl sm:text-2xl font-black tracking-tighter uppercase text-white">GitRanked</span>
           </Link>
 
+          {/* GitHub repo link right next to the logo */}
+          <a
+            href="https://github.com/sujalmh/git-ranked"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden md:inline-flex items-center gap-1.5 text-sm font-mono font-medium text-zinc-400 hover:text-accent transition-colors border border-white/10 hover:border-accent/40 px-2.5 py-1 rounded-md"
+            aria-label="GitRanked repository on GitHub"
+            title="View the GitRanked source code on GitHub"
+          >
+            <GithubIcon className="w-4 h-4" />
+            git-ranked
+            <ExternalLink className="w-3 h-3" />
+          </a>
+
           {/* Desktop Left Links */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-bold tracking-wider uppercase">
             <Link
               href="/showcase"
-              className={`transition-colors ${
+              className={`inline-flex items-center gap-1.5 transition-all duration-300 px-3 py-1.5 rounded-md border ${
                 isShowcaseActive
-                  ? 'text-accent font-black'
-                  : 'text-zinc-300 hover:text-accent'
+                  ? 'text-accent font-black border-accent/50 bg-accent/10'
+                  : 'text-zinc-300 hover:text-accent border-transparent hover:border-accent/30 hover:bg-accent/5'
               }`}
             >
+              <Compass className="w-4 h-4" />
               SHOWCASE
             </Link>
-            <a
-              href="https://github.com/sujalmh/git-ranked"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-zinc-300 hover:text-accent transition-colors"
-              aria-label="GitRanked on GitHub"
-              title="View the GitRanked source code on GitHub"
-            >
-              <GithubIcon className="w-5 h-5" />
-            </a>
           </nav>
         </div>
 
@@ -131,12 +136,13 @@ export function NavbarClient({ user, githubAppSlug, signOutAction, signInAction 
           <Link
             href="/showcase"
             onClick={() => setMobileMenuOpen(false)}
-            className={`block w-full py-3 border text-center text-sm font-bold tracking-wider uppercase transition-colors ${
+            className={`block w-full py-3 border text-center text-sm font-bold tracking-wider uppercase transition-colors flex items-center justify-center gap-2 ${
               isShowcaseActive
                 ? 'bg-accent/10 border-accent/50 text-accent'
                 : 'bg-zinc-900 border-zinc-700 text-zinc-200 hover:text-accent'
             }`}
           >
+            <Compass className="w-4 h-4" />
             SHOWCASE
           </Link>
 
