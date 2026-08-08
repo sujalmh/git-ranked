@@ -25,6 +25,7 @@ export type AiProvider =
   | 'deepseek'
   | 'ollama'
   | 'opencode'
+  | 'opencode-go'
   | 'custom';
 
 export type ProviderConfig = {
@@ -122,6 +123,26 @@ export const MODELS_BY_PROVIDER: Record<AiProvider, ModelPreset[]> = {
     { id: 'minimax-m3', name: 'MiniMax M3', provider: 'MiniMax' },
     { id: 'gpt-5.6-luna', name: 'GPT 5.6 Luna', provider: 'OpenAI' },
   ],
+  'opencode-go': [
+    { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', provider: 'DeepSeek' },
+    { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek' },
+    { id: 'glm-5.1', name: 'GLM 5.1', provider: 'Zhipu' },
+    { id: 'glm-5.2', name: 'GLM 5.2', provider: 'Zhipu' },
+    { id: 'grok-4.5', name: 'Grok 4.5', provider: 'xAI' },
+    { id: 'gpt-5.6-luna', name: 'GPT 5.6 Luna', provider: 'OpenAI' },
+    { id: 'hy3', name: 'Hy3', provider: 'OpenCode' },
+    { id: 'kimi-k2.6', name: 'Kimi K2.6', provider: 'Moonshot' },
+    { id: 'kimi-k2.7-code', name: 'Kimi K2.7 Code', provider: 'Moonshot' },
+    { id: 'kimi-k3', name: 'Kimi K3', provider: 'Moonshot' },
+    { id: 'mimo-v2.5', name: 'MiMo V2.5', provider: 'OpenCode' },
+    { id: 'mimo-v2.5-pro', name: 'MiMo V2.5 Pro', provider: 'OpenCode' },
+    { id: 'minimax-m2.7', name: 'MiniMax M2.7', provider: 'MiniMax' },
+    { id: 'minimax-m3', name: 'MiniMax M3', provider: 'MiniMax' },
+    { id: 'qwen3.6-plus', name: 'Qwen3.6 Plus', provider: 'Qwen' },
+    { id: 'qwen3.7-max', name: 'Qwen3.7 Max', provider: 'Qwen' },
+    { id: 'qwen3.7-plus', name: 'Qwen3.7 Plus', provider: 'Qwen' },
+    { id: 'qwen3.8-max', name: 'Qwen3.8 Max', provider: 'Qwen' },
+  ],
   custom: [],
 };
 
@@ -173,6 +194,12 @@ export const AI_PROVIDERS: ProviderConfig[] = [
     name: 'OpenCode Zen',
     baseUrl: 'https://opencode.ai/zen/v1/chat/completions',
     description: 'Curated coding models by the OpenCode team (DeepSeek, GLM, Kimi, GPT, more).',
+  },
+  {
+    id: 'opencode-go',
+    name: 'OpenCode Go',
+    baseUrl: 'https://opencode.ai/zen/go/v1/chat/completions',
+    description: 'Low-cost subscription for popular open coding models (DeepSeek, GLM, Kimi, GPT, Qwen).',
   },
   {
     id: 'custom',
