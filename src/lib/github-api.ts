@@ -23,6 +23,8 @@ export type GitHubCommit = {
     committer?: { date?: string } | null;
   };
   author?: GitHubUser | null;
+  files?: GitHubPullRequestFile[];
+  stats?: { additions?: number; deletions?: number; total?: number };
 };
 
 export type GitHubPullRequest = {
@@ -58,6 +60,7 @@ export type GitHubPullRequestFile = {
   deletions: number;
   changes: number;
   previous_filename?: string | null;
+  patch?: string | null;
 };
 
 export type InstallationRepo = {

@@ -14,6 +14,10 @@ export const WorkTypeSchema = z.enum([
   'Review',
 ]);
 
+export const WorkRoleSchema = z.enum([
+  'foundation', 'build', 'feature', 'advancement', 'refinement', 'repair', 'security', 'performance', 'review',
+]);
+
 export const FactsSchema = z.object({
   scope: ScopeSchema,
   user_visible: z.boolean(),
@@ -37,6 +41,10 @@ export const ReviewFactsSchema = z.object({
 
 export const WorkUnitExtractionItemSchema = z.object({
   work_type: WorkTypeSchema,
+  role: WorkRoleSchema,
+  capability_key: z.string().min(1),
+  action: z.enum(['add', 'update', 'keep', 'supersede']).optional(),
+  source_commit_shas: z.array(z.string()).optional(),
   summary: z.string(),
   facts: FactsSchema,
   confidence: z.number(),

@@ -84,6 +84,14 @@ describe('PR push absorption (anti double-count)', () => {
     expect(isPushAbsorbedByPr(event, prWindows)?.prNumber).toBe(42);
   });
 
+  it('absorbs any commit from a PR evidence set, not only the head commit', () => {
+    const event = pushEvent({
+      payload: { commits: [{ sha: 'middle-commit' }] },
+    });
+    const window = { ...prWindows[0], commitShas: ['first-commit', 'middle-commit', 'head-commit'] };
+    expect(isPushAbsorbedByPr(event, [window])?.prNumber).toBe(42);
+  });
+
   it('absorbs a push explicitly tagged with pr_number', () => {
     const event = pushEvent({ payload: { pr_number: 42, branch: 'whatever' } });
     expect(isPushAbsorbedByPr(event, prWindows)?.prNumber).toBe(42);

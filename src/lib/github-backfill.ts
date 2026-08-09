@@ -6,6 +6,7 @@ import {
   type GitHubCommit,
   type GitHubPullRequest,
   type GitHubReview,
+  type GitHubPullRequestFile,
   type GitHubUser,
   type InstallationRepo,
 } from './github-api';
@@ -90,6 +91,16 @@ function commitEventPayload(commit: GitHubCommit): Record<string, unknown> {
     message: commit.commit.message,
     url: commit.html_url,
     author: commitAuthorPayload(commit),
+    additions: commit.stats?.additions ?? 0,
+    deletions: commit.stats?.deletions ?? 0,
+    changed_files: commit.files?.length ?? 0,
+    files: commit.files?.map((file) => ({
+      filename: file.filename,
+      status: file.status,
+      additions: file.additions,
+      deletions: file.deletions,
+      patch: file.patch?.slice(0, 3500) ?? null,
+    })) ?? [],
   };
 }
 
@@ -266,6 +277,32 @@ export async function backfillRepoActivity(repo: InstallationRepo, userToken?: s
             deletions: pull.deletions ?? 0,
             changed_files: pull.changed_files ?? 0,
           };
+          try {
+            const [prCommits, prFiles] = await Promise.all([
+              githubInstallationApi<GitHubCommit[]>(
+                `/repos/${owner}/${repoName}/pulls/${pullListItem.number}/commits?per_page=100`,
+                tokenToUse
+              ),
+              githubInstallationApi<GitHubPullRequestFile[]>(
+                `/repos/${owner}/${repoName}/pulls/${pullListItem.number}/files?per_page=100`,
+                tokenToUse
+              ),
+            ]);
+            mergePayload = {
+              ...mergePayload,
+              commit_shas: prCommits.map((commit) => commit.sha),
+              commits: prCommits.map(commitEventPayload),
+              files: prFiles.map((file) => ({
+                filename: file.filename,
+                status: file.status,
+                additions: file.additions,
+                deletions: file.deletions,
+                patch: file.patch?.slice(0, 3500) ?? null,
+              })),
+            };
+          } catch (err) {
+            console.warn(`Backfill: evidence for PR #${pullListItem.number} failed:`, err instanceof Error ? err.message : err);
+          }
         } catch (err) {
           console.warn(`Backfill: PR detail #${pullListItem.number} failed:`, err instanceof Error ? err.message : err);
         }

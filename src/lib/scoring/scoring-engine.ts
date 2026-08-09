@@ -9,6 +9,22 @@ import { clamp } from './derivation';
 import { decayWeight } from './decay';
 import { reviewValue } from './review';
 
+export const WORK_ROLE_MULTIPLIERS = {
+  foundation: 0.65,
+  build: 1,
+  feature: 1,
+  advancement: 1.5,
+  refinement: 1.2,
+  repair: 0.55,
+  security: 1.15,
+  performance: 1.15,
+  review: 1,
+} as const;
+
+export function roleMultiplier(role: WorkUnit['role']): number {
+  return role ? WORK_ROLE_MULTIPLIERS[role] ?? 1 : 1;
+}
+
 export function softCap(value: number, cap: number, scaleFactor: number = cap): number {
   if (cap <= 0 || value <= 0) return 0;
   return Math.min(cap, cap * (1 - Math.exp(-value / scaleFactor)));
@@ -88,6 +104,7 @@ export function scoreContributor(
   const candidateReviewBumps = new Map<number, number>();
 
   for (const unit of workUnits) {
+    if (unit.unit_status === 'superseded') continue;
     if (unit.work_type === 'Review') {
       const rf = unit.facts as ReviewFacts;
       if (rf.blocking_issue_found && rf.confirmed_valid) {
@@ -129,7 +146,7 @@ export function scoreContributor(
       rawCollabSum += rVal * weight * credit;
     } else {
       // General work unit (Feature, BugFix, Infrastructure, etc.)
-      const unitValue = unit.derived.value ?? 1.0;
+      const unitValue = (unit.derived.value ?? 1.0) * roleMultiplier(unit.role);
       rawImpactSum += unitValue * 10 * weight * credit;
 
       // Quality: Layer-2 review bump applied to execution_quality

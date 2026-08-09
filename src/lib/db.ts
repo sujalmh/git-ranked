@@ -253,6 +253,8 @@ export async function initSchema() {
       source_event_ids BIGINT[] NOT NULL DEFAULT '{}',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       classified_at TIMESTAMPTZ,
+      evidence_hash VARCHAR(64),
+      extraction_revision INTEGER NOT NULL DEFAULT 0,
       UNIQUE (repo_id, correlation_key)
     );
   `;
@@ -264,6 +266,11 @@ export async function initSchema() {
       repo_id INTEGER NOT NULL REFERENCES repositories(id),
       candidate_id BIGINT NOT NULL REFERENCES work_unit_candidates(id),
       work_type VARCHAR(24) NOT NULL,
+      role VARCHAR(24) NOT NULL DEFAULT 'feature',
+      capability_key VARCHAR(160),
+      source_commit_shas TEXT[] NOT NULL DEFAULT '{}',
+      previous_unit_id BIGINT REFERENCES work_units(id),
+      unit_status VARCHAR(16) NOT NULL DEFAULT 'active',
       facts JSONB NOT NULL,
       derived JSONB NOT NULL,
       derivation_ruleset_version VARCHAR(24) NOT NULL,
@@ -280,7 +287,15 @@ export async function initSchema() {
       source_event_ids BIGINT[] NOT NULL DEFAULT '{}'
     );
   `;
+  await sql`ALTER TABLE work_unit_candidates ADD COLUMN IF NOT EXISTS evidence_hash VARCHAR(64)`.catch(() => {});
+  await sql`ALTER TABLE work_unit_candidates ADD COLUMN IF NOT EXISTS extraction_revision INTEGER NOT NULL DEFAULT 0`.catch(() => {});
+  await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS role VARCHAR(24) NOT NULL DEFAULT 'feature'`.catch(() => {});
+  await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS capability_key VARCHAR(160)`.catch(() => {});
+  await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS source_commit_shas TEXT[] NOT NULL DEFAULT '{}'`.catch(() => {});
+  await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS previous_unit_id BIGINT REFERENCES work_units(id)`.catch(() => {});
+  await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS unit_status VARCHAR(16) NOT NULL DEFAULT 'active'`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS wu_repo_contrib_idx ON work_units(repo_id);`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS wu_capability_idx ON work_units(candidate_id, capability_key) WHERE unit_status = 'active';`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS wu_shipped_idx ON work_units(repo_id, shipped_at) WHERE shipped = true;`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS wu_review_queue_idx ON work_units(repo_id, flagged_for_review) WHERE flagged_for_review = true;`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS wu_outcome_idx ON work_units(repo_id, shipped_at) WHERE shipped = true AND outcome IS NULL;`.catch(() => {});

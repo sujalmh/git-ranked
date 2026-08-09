@@ -31,6 +31,9 @@ type GitHubCommitPayload = {
   url: string;
   timestamp?: string;
   author?: { name?: string; email?: string; username?: string } | null;
+  added?: string[];
+  modified?: string[];
+  removed?: string[];
 };
 
 type GitHubPullRequestPayload = {
@@ -249,9 +252,15 @@ export async function handleWebhookEvent(eventName: string, payload: GitHubWebho
           login: commit.author?.username ?? null,
           name: commit.author?.name ?? null,
           email: commit.author?.email ?? null,
-        },
+          },
+        files: [],
+        added: commit.added ?? [],
+        modified: commit.modified ?? [],
+        removed: commit.removed ?? [],
       })),
       branch: payload.ref,
+      before: payload.before,
+      after: payload.after,
       commit_count: payload.commits?.length ?? 0,
     };
   } else if (eventName === 'pull_request' && payload.pull_request) {

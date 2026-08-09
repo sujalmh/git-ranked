@@ -1,5 +1,3 @@
-export const DEFAULT_AI_MODEL = process.env.AI_MODEL || process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-super-120b-a12b:free';
-
 export const RECOMMENDED_AI_MODELS = [
   { id: 'nvidia/nemotron-3-super-120b-a12b:free', name: 'Nemotron Super 120B (Free)', provider: 'NVIDIA', badge: 'Default' },
   { id: 'google/gemini-2.0-flash-lite-preview-02-05:free', name: 'Gemini 2.0 Flash Lite (Free)', provider: 'Google', badge: 'Fast' },
@@ -28,6 +26,20 @@ export type AiProvider =
   | 'opencode-go'
   | 'custom';
 
+// OpenCode Go is the default when its key is configured. This keeps every
+// extraction/reconciliation task on the explicitly selected DeepSeek model
+// while retaining the existing OpenRouter fallback for older installations.
+export const DEFAULT_AI_PROVIDER: AiProvider =
+  (process.env.AI_PROVIDER as AiProvider) ||
+  (process.env.OPENCODE_GO_API_KEY ? 'opencode-go' : 'openrouter');
+
+export const DEFAULT_AI_MODEL =
+  process.env.AI_MODEL ||
+  process.env.OPENCODE_GO_MODEL ||
+  (process.env.OPENCODE_GO_API_KEY
+    ? 'deepseek-v4-flash'
+    : process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-super-120b-a12b:free');
+
 export type ProviderConfig = {
   id: AiProvider;
   name: string;
@@ -35,8 +47,6 @@ export type ProviderConfig = {
   baseUrl: string;
   description: string;
 };
-
-export const DEFAULT_AI_PROVIDER: AiProvider = 'openrouter';
 
 /** A selectable model entry shown in the settings model dropdown. */
 export type ModelPreset = {

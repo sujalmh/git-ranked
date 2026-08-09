@@ -22,6 +22,7 @@ export interface PrWindow {
   headRef: string | null;
   headSha: string | null;
   mergeCommitSha: string | null;
+  commitShas?: string[];
   openedAt: number | null;
   mergedAt: number | null;
 }
@@ -88,6 +89,7 @@ export function isPushAbsorbedByPr(event: RawEvent, prWindows: PrWindow[]): PrWi
     if (pushBranch && w.headRef && pushBranch === normalizeBranch(w.headRef)) return true;
     if (w.headSha && (afterSha === w.headSha || commitShas.includes(w.headSha))) return true;
     if (w.mergeCommitSha && (afterSha === w.mergeCommitSha || commitShas.includes(w.mergeCommitSha))) return true;
+    if ((w.commitShas ?? []).some((sha) => afterSha === sha || commitShas.includes(sha))) return true;
     if (pushBranch && w.baseRef && pushBranch === normalizeBranch(w.baseRef)) return true;
     return false;
   });
@@ -122,12 +124,14 @@ export function buildPrWindows(events: RawEvent[]): PrWindow[] {
       window.baseRef = typeof payload.base_ref === 'string' ? payload.base_ref : window.baseRef;
       window.headRef = typeof payload.head_ref === 'string' ? payload.head_ref : window.headRef;
       window.headSha = typeof payload.head_sha === 'string' ? payload.head_sha : window.headSha;
+      window.commitShas = mergeCommitShas(window.commitShas, payload);
     } else if (type === 'pr_merged') {
       window.mergedAt = finiteTs;
       window.baseRef = typeof payload.base_ref === 'string' ? payload.base_ref : window.baseRef;
       window.headRef = typeof payload.head_ref === 'string' ? payload.head_ref : window.headRef;
       window.headSha = typeof payload.head_sha === 'string' ? payload.head_sha : window.headSha;
       window.mergeCommitSha = typeof payload.merge_commit_sha === 'string' ? payload.merge_commit_sha : window.mergeCommitSha;
+      window.commitShas = mergeCommitShas(window.commitShas, payload);
     }
 
     byNumber.set(prNumber, window);
@@ -139,9 +143,27 @@ export function buildPrWindows(events: RawEvent[]): PrWindow[] {
     headRef: w.headRef ?? null,
     headSha: w.headSha ?? null,
     mergeCommitSha: w.mergeCommitSha ?? null,
+    commitShas: w.commitShas ?? [],
     openedAt: w.openedAt ?? null,
     mergedAt: w.mergedAt ?? null,
   }));
+}
+
+function mergeCommitShas(existing: string[] | undefined, payload: Record<string, unknown>): string[] {
+  const values = new Set(existing ?? []);
+  const direct = payload.commit_shas;
+  if (Array.isArray(direct)) {
+    for (const sha of direct) if (typeof sha === 'string') values.add(sha);
+  }
+  const commits = payload.commits;
+  if (Array.isArray(commits)) {
+    for (const commit of commits) {
+      if (commit && typeof commit === 'object' && typeof (commit as Record<string, unknown>).sha === 'string') {
+        values.add((commit as Record<string, unknown>).sha as string);
+      }
+    }
+  }
+  return Array.from(values);
 }
 
 export function buildCorrelationKey(repoId: number, event: RawEvent): string | null {

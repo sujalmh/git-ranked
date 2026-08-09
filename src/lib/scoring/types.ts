@@ -11,6 +11,22 @@ export type WorkType =
   | 'Infrastructure'
   | 'Review';
 
+/**
+ * What kind of contribution the unit represents in the capability lifecycle.
+ * Work type describes the change; role describes the contributor's job in
+ * building and evolving that capability.
+ */
+export type WorkRole =
+  | 'foundation'
+  | 'build'
+  | 'feature'
+  | 'advancement'
+  | 'refinement'
+  | 'repair'
+  | 'security'
+  | 'performance'
+  | 'review';
+
 export type Scope = 'trivial' | 'small' | 'medium' | 'large' | 'system_wide';
 
 export interface Facts {
@@ -65,6 +81,11 @@ export interface WorkUnit {
   repo_id: number;
   candidate_id: number;
   work_type: WorkType;
+  role?: WorkRole;
+  capability_key?: string | null;
+  source_commit_shas?: string[];
+  previous_unit_id?: number | null;
+  unit_status?: 'active' | 'superseded';
   summary?: string | null;
   facts: Facts | ReviewFacts;
   derived: Derived;

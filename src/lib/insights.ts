@@ -107,6 +107,7 @@ export async function generateRepoInsights(repoId: number) {
         FROM work_units
         WHERE repo_id = ${repoId}
           AND shipped = true
+          AND COALESCE(unit_status, 'active') = 'active'
           AND shipped_at > NOW() - INTERVAL '30 days'
       `,
       sql`
@@ -115,6 +116,7 @@ export async function generateRepoInsights(repoId: number) {
         JOIN work_unit_contributors wuc ON wu.id = wuc.work_unit_id
         WHERE wu.repo_id = ${repoId}
           AND wu.shipped = true
+          AND COALESCE(wu.unit_status, 'active') = 'active'
           AND wu.shipped_at > NOW() - INTERVAL '30 days'
       `,
     ]);

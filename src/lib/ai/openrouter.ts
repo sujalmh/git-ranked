@@ -60,7 +60,8 @@ export async function getAiModel(): Promise<string> {
   } catch {
     // fallback if table does not exist yet
   }
-  const fallback = process.env.AI_MODEL || process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-super-120b-a12b:free';
+  const fallback = process.env.AI_MODEL || process.env.OPENCODE_GO_MODEL ||
+    (process.env.OPENCODE_GO_API_KEY ? 'deepseek-v4-flash' : process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-super-120b-a12b:free');
   cachedModel = { model: fallback, fetchedAt: now };
   return fallback;
 }
@@ -81,7 +82,8 @@ export async function setAiModel(model: string): Promise<string> {
 }
 
 // Backward compatibility export
-export const AI_MODEL = process.env.AI_MODEL || process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-super-120b-a12b:free';
+export const AI_MODEL = process.env.AI_MODEL || process.env.OPENCODE_GO_MODEL ||
+  (process.env.OPENCODE_GO_API_KEY ? 'deepseek-v4-flash' : process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-super-120b-a12b:free');
 
 export type StructuredOutputMode = 'json_schema' | 'json_object' | 'none';
 
@@ -118,7 +120,7 @@ export type AiCallOptions = {
 
 export async function getUserAiConfig(userId?: number | null): Promise<UserAiConfig> {
   const defaultModel = await getAiModel();
-  const defaultApiKey = process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || '';
+  const defaultApiKey = process.env.AI_API_KEY || process.env.OPENCODE_GO_API_KEY || process.env.OPENROUTER_API_KEY || '';
   const defaultProvider: AiProvider = (process.env.AI_PROVIDER as AiProvider) || DEFAULT_AI_PROVIDER;
   const defaultBaseUrl = normalizeEndpoint(process.env.AI_ENDPOINT || '', defaultProvider);
 
@@ -178,7 +180,7 @@ function resolveApiKey(options?: AiCallOptions): string {
   if (options?.apiKey && options.apiKey.trim()) {
     return options.apiKey.trim();
   }
-  return process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || '';
+  return process.env.AI_API_KEY || process.env.OPENCODE_GO_API_KEY || process.env.OPENROUTER_API_KEY || '';
 }
 
 function resolveEndpoint(options?: AiCallOptions): { url: string; provider: AiProvider } {
@@ -307,7 +309,7 @@ async function callChatCompletions(
 ): Promise<string | null> {
   const apiKey = resolveApiKey(options);
   if (!apiKey) {
-    throw new Error('AI_API_KEY / OPENROUTER_API_KEY is not configured');
+    throw new Error('AI_API_KEY / OPENCODE_GO_API_KEY / OPENROUTER_API_KEY is not configured');
   }
 
   const { url: endpointUrl, provider } = resolveEndpoint(options);

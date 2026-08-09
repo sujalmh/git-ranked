@@ -12,6 +12,7 @@ export async function enrichOutcomes(repoId: number, contributorId?: number): Pr
         FROM work_units wu
         JOIN work_unit_contributors wuc ON wu.id = wuc.work_unit_id
         WHERE wu.repo_id = ${repoId}
+          AND COALESCE(wu.unit_status, 'active') = 'active'
           AND wuc.contributor_id = ${contributorId}
           AND wu.shipped = true
           AND (wu.outcome IS NULL OR wu.outcome_updated_at < ${staleThreshold}::timestamptz)
@@ -21,6 +22,7 @@ export async function enrichOutcomes(repoId: number, contributorId?: number): Pr
         FROM work_units wu
         JOIN work_unit_contributors wuc ON wu.id = wuc.work_unit_id
         WHERE wu.repo_id = ${repoId}
+          AND COALESCE(wu.unit_status, 'active') = 'active'
           AND wu.shipped = true
           AND (wu.outcome IS NULL OR wu.outcome_updated_at < ${staleThreshold}::timestamptz)
         LIMIT 50
