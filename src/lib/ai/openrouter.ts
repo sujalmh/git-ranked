@@ -34,6 +34,21 @@ export async function getAiModel(): Promise<string> {
   if (cachedModel && now - cachedModel.fetchedAt < 2_000) {
     return cachedModel.model;
   }
+  // An explicitly configured deployment model must win over a stale admin
+  // setting in Neon. This is especially important when switching providers:
+  // OpenCode Go rejects OpenRouter-only model identifiers.
+  const envModel = process.env.AI_MODEL || process.env.OPENCODE_GO_MODEL;
+  if (envModel?.trim()) {
+    cachedModel = { model: envModel.trim(), fetchedAt: now };
+    return envModel.trim();
+  }
+  const openCodeGoSelected =
+    process.env.AI_PROVIDER === 'opencode-go' ||
+    (!process.env.AI_PROVIDER && Boolean(process.env.OPENCODE_GO_API_KEY));
+  if (openCodeGoSelected) {
+    cachedModel = { model: 'deepseek-v4-flash', fetchedAt: now };
+    return 'deepseek-v4-flash';
+  }
   try {
     const rows = await sql`SELECT value FROM system_settings WHERE key = 'ai_model'`;
     if (rows.length > 0 && rows[0].value !== undefined && rows[0].value !== null) {

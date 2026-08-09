@@ -10,12 +10,15 @@ import { decayWeight } from './decay';
 import { reviewValue } from './review';
 
 export const WORK_ROLE_MULTIPLIERS = {
-  foundation: 0.65,
-  build: 1,
+  // Lifecycle roles distinguish why the unit mattered. A first shipped
+  // subsystem is worth more than a routine build step; small repairs are
+  // intentionally worth less even when they are numerous.
+  foundation: 1.5,
+  build: 1.25,
   feature: 1,
-  advancement: 1.5,
-  refinement: 1.2,
-  repair: 0.55,
+  advancement: 1.2,
+  refinement: 0.9,
+  repair: 0.45,
   security: 1.15,
   performance: 1.15,
   review: 1,
@@ -84,6 +87,39 @@ export function computeConsistency(rawEvents: RawEvent[]): number {
   return Math.min(100, Math.round(rawScore * 2 * 10) / 10);
 }
 
+/**
+ * Aggregate work-unit contributions without making raw event/unit count the
+ * score. Work units remain the only source of impact and quality: a unit's
+ * per-unit quality stays primary, while the logarithmic activity bonus (k·ln n)
+ * rewards sustained contribution without letting a flood of tiny units
+ * dominate — and without letting a single high-value unit outrank a body of
+ * real shipped work.
+ *
+ * The blend is mean × (1 + k·ln n): an all-or-nothing pure mean lets a few
+ * lucky high-value units win (a 4-event contributor topping the board), while
+ * a raw sum lets volume win. The logarithmic term is the principled middle.
+ */
+export function boundedWorkUnitMean(
+  contributions: number[],
+  weights: number[],
+  k = 0.3,
+  scale = 20
+): number {
+  if (contributions.length === 0) return 0;
+  const weightedSum = contributions.reduce(
+    (sum, contribution, index) => sum + contribution * (weights[index] ?? 0),
+    0
+  );
+  if (weightedSum <= 0) return 0;
+
+  // Divide by the number of extracted units, not by the supplied credit. This
+  // preserves decay and proportional attribution: an old or half-attributed
+  // unit contributes less instead of disappearing inside a re-normalized mean.
+  const weightedMean = weightedSum / contributions.length;
+  const sustainedActivityBonus = 1 + k * Math.log1p(contributions.length);
+  return weightedMean * sustainedActivityBonus * scale;
+}
+
 export function scoreContributor(
   workUnits: WorkUnit[],
   rawEvents: RawEvent[],
@@ -95,6 +131,9 @@ export function scoreContributor(
   let rawImpactSum = 0;
   let rawQualitySum = 0;
   let rawCollabSum = 0;
+  const impactContributions: number[] = [];
+  const qualityContributions: number[] = [];
+  const contributionWeights: number[] = [];
 
   let minShippedTime = Infinity;
   let maxShippedTime = -Infinity;
@@ -147,14 +186,25 @@ export function scoreContributor(
     } else {
       // General work unit (Feature, BugFix, Infrastructure, etc.)
       const unitValue = (unit.derived.value ?? 1.0) * roleMultiplier(unit.role);
-      rawImpactSum += unitValue * 10 * weight * credit;
+      impactContributions.push(unitValue * 10);
 
       // Quality: Layer-2 review bump applied to execution_quality
       const reviewBump = candidateReviewBumps.get(unit.candidate_id) ?? 0;
       const finalExecution = clamp(1, 5, unit.derived.execution_quality + reviewBump);
-      rawQualitySum += finalExecution * 4 * weight * credit;
+      qualityContributions.push(finalExecution * 4);
+      contributionWeights.push(weight * credit);
     }
   }
+
+  // Impact: quality-weighted work-unit mean with a logarithmic volume bonus
+  // (k=0.3). The volume bonus rewards sustained contribution without letting a
+  // flood of tiny units dominate the score.
+  rawImpactSum = boundedWorkUnitMean(impactContributions, contributionWeights, 0.3);
+
+  // Quality: pure work-unit mean. execution_quality is a per-unit rating, so a
+  // contributor with more units must not win the quality dimension merely by
+  // volume — that is what the impact bonus already rewards.
+  rawQualitySum = boundedWorkUnitMean(qualityContributions, contributionWeights, 0);
 
   // Soft-cap scaling:
   // Use non-saturating scale factors (250 for impact, 200 for quality/collab)

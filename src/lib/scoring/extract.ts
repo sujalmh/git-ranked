@@ -384,9 +384,26 @@ export async function extractAndPersistWorkUnits(
   const { additions, deletions, changedFiles, commitCount } =
     extractMergedSizeMetrics(events as Array<Record<string, unknown>>);
 
+  if (isMergeOnlyPush(eventType, commitMessages)) {
+    await sql`
+      UPDATE work_units
+      SET unit_status = 'superseded'
+      WHERE candidate_id = ${candidate.id} AND COALESCE(unit_status, 'active') = 'active'
+    `;
+    await sql`
+      UPDATE work_unit_candidates
+      SET status = 'classified', classified_at = NOW(),
+          extraction_revision = COALESCE(extraction_revision, 0) + 1,
+          evidence_hash = ${buildEvidenceHash(candidate, events as Array<Record<string, unknown>>, config.version, previousUnits)}
+      WHERE id = ${candidate.id}
+    `;
+    return 0;
+  }
+
   // Use total lines for scope — for pushes we also use commit count as a
   // rough proxy if no line stats are available.
   const totalLines = additions + deletions || commitCount * 30; // 30 avg lines/commit heuristic
+  const reliableSizeEvidence = additions > 0 || deletions > 0 || changedFiles > 0;
 
   const contentHash = buildEvidenceHash(
     candidate,
@@ -412,7 +429,8 @@ export async function extractAndPersistWorkUnits(
         titleOrMessage,
         totalLines,
         changedFiles,
-        sourceCommitShas
+        sourceCommitShas,
+        reliableSizeEvidence
       );
       if (parsed.length > 0) {
         extractedItems = parsed;
@@ -459,7 +477,8 @@ export async function extractAndPersistWorkUnits(
           titleOrMessage,
           totalLines,
           changedFiles,
-          sourceCommitShas
+          sourceCommitShas,
+          reliableSizeEvidence
         );
         if (parsed.length > 0) {
           extractedItems = parsed;
@@ -539,7 +558,44 @@ export async function extractAndPersistWorkUnits(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const EXTRACTION_PROMPT_VERSION = 'v4-role-reconciliation';
+const EXTRACTION_PROMPT_VERSION = 'v6-evidence-first-reconciliation';
+
+/**
+ * Push webhooks can contain merge commits that duplicate an already-shipped PR
+ * candidate. They are repository history events, not a second contribution.
+ */
+export function isMergeOnlyPush(
+  eventType: string,
+  commitMessages: string[]
+): boolean {
+  if (eventType !== 'push' || commitMessages.length === 0) return false;
+  return commitMessages.every((message) =>
+    /^(merge|merged)\s+(pull request|branch|remote)/i.test(message.trim())
+  );
+}
+
+/**
+ * Batch prompts are efficient for small commits, but large PR descriptions
+ * often contain several independently shipped capabilities. Those candidates
+ * need the richer single-candidate prompt so the model cannot collapse the
+ * release-note bullets into one generic unit.
+ */
+export function shouldPreferIndividualExtraction(input: {
+  eventType: string;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  prBody: string | null;
+}): boolean {
+  const body = input.prBody ?? '';
+  const bulletCount = (body.match(/^\s*[*-]\s+/gm) ?? []).length;
+  return (
+    input.eventType === 'pr_opened' ||
+    input.eventType === 'pr_merged' && (input.additions + input.deletions >= 1000 || input.changedFiles >= 15) ||
+    bulletCount >= 4 ||
+    body.length >= 1200
+  );
+}
 
 export const EXTRACTION_SYSTEM_MESSAGE = `You are an expert engineering work classifier for a GitHub repository analytics platform called GitRanked. Your job is to analyze GitHub events (pull requests, pushes, issues) and extract distinct, specific work items describing what was actually accomplished.
 
@@ -619,6 +675,8 @@ Stats: ${changedFiles} files changed, +${additions}/-${deletions} lines${commitC
     prompt += `\nPrevious extraction pass — reconcile against these active capability units:\n${previousUnits
       .map((unit) => `- ${unit.capability_key ?? '(legacy)'} [${unit.role ?? 'feature'}]: ${unit.summary ?? ''}`)
       .join('\n')}\n`;
+    const releaseBulletCount = (prBody?.match(/^\s*[*-]\s+/gm) ?? []).length;
+    prompt += `Important: the previous pass may have collapsed multiple shipped capabilities into one roll-up. Re-enumerate the current evidence from scratch; do not preserve the previous unit count. ${releaseBulletCount >= 4 ? `This release description contains at least ${releaseBulletCount} capability bullets, so return separate units for each distinct shipped capability rather than one combined summary.` : ''}\n`;
   }
 
   prompt += `
@@ -773,7 +831,8 @@ function coerceFacts(
   raw: unknown,
   title: string,
   totalLines: number,
-  changedFiles: number
+  changedFiles: number,
+  reliableSizeEvidence = true
 ): Facts {
   const heuristic = extractHeuristicFacts(title, [], Math.max(totalLines, 0));
   if (!raw || typeof raw !== 'object') return heuristic;
@@ -782,23 +841,33 @@ function coerceFacts(
 
   const scopeValues = ['trivial', 'small', 'medium', 'large', 'system_wide'];
   const rawScope = String(f.scope ?? '');
-  const scope = scopeValues.includes(rawScope)
+  const evidenceScope = determineScope(changedFiles, totalLines);
+  // Real PR stats are authoritative. A model must not downgrade a 5k-line,
+  // 27-file shipped change to "large" or inflate a stats-less push to a
+  // system-wide contribution. For push events with no diff stats, cap the
+  // inferred scope at medium because the code evidence is unavailable.
+  const modelScope = scopeValues.includes(rawScope)
     ? (rawScope as Facts['scope'])
-    : determineScope(changedFiles, totalLines);
+    : evidenceScope;
+  const scope = reliableSizeEvidence
+    ? evidenceScope
+    : modelScope === 'system_wide' || modelScope === 'large'
+      ? 'medium'
+      : modelScope;
 
   return {
     scope,
-    user_visible: Boolean(f.user_visible ?? heuristic.user_visible),
-    breaking_change: Boolean(f.breaking_change ?? false),
-    cross_cutting: Boolean(f.cross_cutting ?? heuristic.cross_cutting),
-    testing_added: Boolean(f.testing_added ?? heuristic.testing_added),
-    documentation_updated: Boolean(f.documentation_updated ?? heuristic.documentation_updated),
-    new_algorithm_or_subsystem: Boolean(f.new_algorithm_or_subsystem ?? false),
-    boilerplate: Boolean(f.boilerplate ?? heuristic.boilerplate),
-    touches_auth: Boolean(f.touches_auth ?? heuristic.touches_auth),
-    touches_data_migration: Boolean(f.touches_data_migration ?? heuristic.touches_data_migration),
-    touches_distributed_state: Boolean(f.touches_distributed_state ?? heuristic.touches_distributed_state),
-    touches_architecture: Boolean(f.touches_architecture ?? heuristic.touches_architecture),
+    user_visible: reliableSizeEvidence ? Boolean(f.user_visible ?? heuristic.user_visible) : heuristic.user_visible,
+    breaking_change: reliableSizeEvidence ? Boolean(f.breaking_change ?? false) : heuristic.breaking_change,
+    cross_cutting: reliableSizeEvidence ? Boolean(f.cross_cutting ?? heuristic.cross_cutting) : heuristic.cross_cutting,
+    testing_added: reliableSizeEvidence ? Boolean(f.testing_added ?? heuristic.testing_added) : heuristic.testing_added,
+    documentation_updated: reliableSizeEvidence ? Boolean(f.documentation_updated ?? heuristic.documentation_updated) : heuristic.documentation_updated,
+    new_algorithm_or_subsystem: reliableSizeEvidence ? Boolean(f.new_algorithm_or_subsystem ?? false) : heuristic.new_algorithm_or_subsystem,
+    boilerplate: reliableSizeEvidence ? Boolean(f.boilerplate ?? heuristic.boilerplate) : heuristic.boilerplate,
+    touches_auth: reliableSizeEvidence ? Boolean(f.touches_auth ?? heuristic.touches_auth) : heuristic.touches_auth,
+    touches_data_migration: reliableSizeEvidence ? Boolean(f.touches_data_migration ?? heuristic.touches_data_migration) : heuristic.touches_data_migration,
+    touches_distributed_state: reliableSizeEvidence ? Boolean(f.touches_distributed_state ?? heuristic.touches_distributed_state) : heuristic.touches_distributed_state,
+    touches_architecture: reliableSizeEvidence ? Boolean(f.touches_architecture ?? heuristic.touches_architecture) : heuristic.touches_architecture,
   };
 }
 
@@ -818,7 +887,8 @@ export function normalizeExtractionResponse(
   title: string,
   totalLines: number,
   changedFiles: number,
-  sourceCommitShas: string[] = []
+  sourceCommitShas: string[] = [],
+  reliableSizeEvidence = true
 ): ExtractedWorkItem[] {
   let candidates: unknown[] = [];
   if (Array.isArray(raw)) candidates = raw;
@@ -847,7 +917,7 @@ export function normalizeExtractionResponse(
     .map((item, index) => {
       const summary = String(item.summary ?? item.description ?? title).trim().slice(0, 240);
       const workType = coerceWorkType(String(item.work_type ?? item.type ?? 'Feature'));
-      const facts = coerceFacts(item.facts ?? item, title, totalLines, changedFiles);
+      const facts = coerceFacts(item.facts ?? item, title, totalLines, changedFiles, reliableSizeEvidence);
       const shas = Array.isArray(item.source_commit_shas)
         ? (item.source_commit_shas as unknown[]).filter((sha): sha is string => typeof sha === 'string')
         : sourceCommitShas;
@@ -1113,6 +1183,7 @@ export async function extractAndPersistBatchWorkUnits(
     codeEvidence: string[];
     sourceCommitShas: string[];
     previousUnits: Array<{ id: number; capability_key?: string | null; summary?: string | null; role?: string | null }>;
+    reliableSizeEvidence: boolean;
   };
 
   const uncachedCandidates: (BatchCandidateData | null)[] = [];
@@ -1144,6 +1215,7 @@ export async function extractAndPersistBatchWorkUnits(
     const codeEvidence = extractCodeEvidence(events);
     const sourceCommitShas = extractSourceCommitShas(events);
     const { additions, deletions, changedFiles, commitCount } = extractMergedSizeMetrics(events);
+    const reliableSizeEvidence = additions > 0 || deletions > 0 || changedFiles > 0;
     const previousUnits = (await sql`
       SELECT id, capability_key, summary, role
       FROM work_units
@@ -1168,7 +1240,29 @@ export async function extractAndPersistBatchWorkUnits(
       commitCount,
       eventType,
       contentHash,
+      reliableSizeEvidence,
     };
+
+    if (isMergeOnlyPush(eventType, commitMessages)) {
+      await sql`
+        UPDATE work_units
+        SET unit_status = 'superseded'
+        WHERE candidate_id = ${candidate.id} AND COALESCE(unit_status, 'active') = 'active'
+      `;
+      await sql`
+        UPDATE work_unit_candidates
+        SET status = 'classified', classified_at = NOW(),
+            extraction_revision = COALESCE(extraction_revision, 0) + 1,
+            evidence_hash = ${contentHash}
+        WHERE id = ${candidate.id}
+      `;
+      continue;
+    }
+
+    if (shouldPreferIndividualExtraction(itemData)) {
+      totalPersisted += await extractAndPersistWorkUnits(candidate, config, aiOptions);
+      continue;
+    }
 
     const cacheHit = await sql`
       SELECT response FROM classification_cache
@@ -1182,7 +1276,8 @@ export async function extractAndPersistBatchWorkUnits(
           titleOrMessage,
           additions + deletions,
           changedFiles,
-          sourceCommitShas
+          sourceCommitShas,
+          reliableSizeEvidence
         );
         if (parsed.length > 0) {
           const units = await persistExtractedItemsForCandidate(candidate, events, config, parsed, 'ai', { previousUnits });
@@ -1243,7 +1338,8 @@ export async function extractAndPersistBatchWorkUnits(
                 itemData.titleOrMessage,
                 itemData.additions + itemData.deletions,
                 itemData.changedFiles,
-                itemData.sourceCommitShas
+                itemData.sourceCommitShas,
+                itemData.reliableSizeEvidence
               );
 
               await sql`
