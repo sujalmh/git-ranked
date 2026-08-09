@@ -38,7 +38,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const repos = await sql`
       SELECT owner, name, added_at
       FROM repositories
-      WHERE is_active = true AND (installation_id IS NULL OR share_enabled = true)
+      WHERE is_active = true AND (installation_id IS NULL OR public_enabled = true)
       ORDER BY added_at DESC
       LIMIT 1000
     `;

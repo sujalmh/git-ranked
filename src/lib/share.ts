@@ -62,3 +62,22 @@ export async function getShareState(repoId: number): Promise<{ token: string | n
     enabled: Boolean(rows[0].share_enabled),
   };
 }
+
+export async function getPublicState(repoId: number): Promise<{ enabled: boolean }> {
+  const rows = await sql`
+    SELECT public_enabled FROM repositories WHERE id = ${repoId}
+  `;
+  return { enabled: rows.length > 0 ? Boolean(rows[0].public_enabled) : false };
+}
+
+export async function setRepoPublic(repoId: number): Promise<void> {
+  await sql`
+    UPDATE repositories SET public_enabled = true WHERE id = ${repoId}
+  `;
+}
+
+export async function revokeRepoPublic(repoId: number): Promise<void> {
+  await sql`
+    UPDATE repositories SET public_enabled = false WHERE id = ${repoId}
+  `;
+}

@@ -22,7 +22,7 @@ export async function GET(
     const repoQuery = await sql`
       SELECT id FROM repositories
       WHERE owner = ${owner} AND name = ${name}
-        AND (installation_id IS NULL OR share_enabled = true)
+        AND (installation_id IS NULL OR public_enabled = true)
         AND is_active = true
     `;
     if (repoQuery.length === 0) {

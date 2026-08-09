@@ -13,6 +13,7 @@ import {
 import { setTelemetryListener, type ApiTelemetryEvent } from '@/lib/ai/telemetry';
 import { getUserAiConfig } from '@/lib/ai/openrouter';
 import { getRepoAnalysisPeriod } from '@/lib/analysis';
+import { consumeDailySlot } from '@/lib/rate-limit';
 import { enqueueClassifyRepo } from '@/lib/queue';
 import { getUserRepoId } from '@/lib/repo-access';
 
@@ -52,6 +53,16 @@ export async function POST(
 
   const userId = Number(session.user.id);
   const userAiConfig = await getUserAiConfig(userId);
+
+  // Daily analysis rate limit: one analysis (or re-analysis) per account per day.
+  const limit = await consumeDailySlot(`analysis:${userId}`, 1);
+  if (!limit.allowed) {
+    const retryAfterSeconds = Math.max(1, Math.round(limit.retryAfterMs / 1000));
+    return NextResponse.json(
+      { error: 'Daily analysis limit reached. You can run one analysis per day — try again tomorrow.' },
+      { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } }
+    );
+  }
 
   // Mode: 'cache' (default) reuses cached AI summaries/work units where present;
   // 'fresh' clears caches and forces a full re-extraction + regeneration.

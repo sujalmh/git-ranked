@@ -6,12 +6,13 @@ export type RepoRecord = {
   github_installation_id: number | string | null;
   is_public: boolean;
   share_enabled: boolean;
+  public_enabled: boolean;
   added_by_user_id: number | null;
 };
 
 export async function getRepoRecord(owner: string, name: string): Promise<RepoRecord | null> {
   const rows = await sql`
-    SELECT r.id, r.github_repo_id, r.share_enabled, r.added_by_user_id,
+    SELECT r.id, r.github_repo_id, r.share_enabled, r.public_enabled, r.added_by_user_id,
            i.github_installation_id,
            (r.installation_id IS NULL) as is_public
     FROM repositories r
@@ -24,7 +25,7 @@ export async function getRepoRecord(owner: string, name: string): Promise<RepoRe
 
 export async function getRepoRecordById(repoId: number): Promise<RepoRecord | null> {
   const rows = await sql`
-    SELECT r.id, r.github_repo_id, r.share_enabled, r.added_by_user_id,
+    SELECT r.id, r.github_repo_id, r.share_enabled, r.public_enabled, r.added_by_user_id,
            i.github_installation_id,
            (r.installation_id IS NULL) as is_public
     FROM repositories r

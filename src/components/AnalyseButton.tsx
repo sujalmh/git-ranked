@@ -116,7 +116,12 @@ export function AnalyseButton({
         });
 
         if (!res.ok) {
-          throw new Error(`HTTP ${res.status}: ${res.statusText || 'Analysis request failed'}`);
+          let message = `HTTP ${res.status}: ${res.statusText || 'Analysis request failed'}`;
+          if (res.status === 429) {
+            const data = (await res.json().catch(() => null)) as { error?: string } | null;
+            message = data?.error || 'Daily analysis limit reached. You can run one analysis per day.';
+          }
+          throw new Error(message);
         }
 
         if (!res.body) {

@@ -229,6 +229,14 @@ export async function initSchema() {
   // repositories: share_token for public read-only access, share_enabled toggle
   await sql`ALTER TABLE repositories ADD COLUMN IF NOT EXISTS share_token VARCHAR(32) UNIQUE`.catch(() => {});
   await sql`ALTER TABLE repositories ADD COLUMN IF NOT EXISTS share_enabled BOOLEAN DEFAULT false`.catch(() => {});
+  // public_enabled controls whether the repo's results are exposed on the public
+  // showcase page (/github/{owner}/{name}) — independent of the share link.
+  await sql`ALTER TABLE repositories ADD COLUMN IF NOT EXISTS public_enabled BOOLEAN DEFAULT false`.catch(() => {});
+  // Backfill: repos previously made viewable via share_enabled keep their public
+  // visibility, so the new flag doesn't silently hide already-public pages.
+  await sql`
+    UPDATE repositories SET public_enabled = true WHERE share_enabled = true
+  `.catch(() => {});
 
   // Public repos added via the "add public repo" flow are scoped to the user
   // who added them (added_by_user_id). Previously ALL public repos

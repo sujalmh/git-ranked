@@ -7,6 +7,7 @@ import { GitBranch, ArrowRight, LayoutDashboard, Settings } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { RemoveRepoButton } from '@/components/RemoveRepoButton';
 import { AddRepoModal } from '@/components/AddRepoModal';
+import { RepoPublicToggle } from '@/components/RepoPublicToggle';
 
 import { getRepoInsightsBatch, HealthMetrics } from '@/lib/insights';
 
@@ -18,6 +19,7 @@ type DashboardRepo = {
   added_at: string | Date;
   installation_status: string;
   event_count: number;
+  public_enabled: boolean;
   healthMetrics?: HealthMetrics | null;
 };
 
@@ -38,7 +40,7 @@ export default async function Dashboard() {
     installationCount = Number(installRes[0]?.count || 0);
 
     repos = (await sql`
-      SELECT r.id, r.owner, r.name, r.default_branch, r.added_at,
+      SELECT r.id, r.owner, r.name, r.default_branch, r.added_at, r.public_enabled,
              i.status as installation_status,
              (SELECT COUNT(*) FROM github_events WHERE repo_id = r.id) as event_count
       FROM repositories r
@@ -174,7 +176,14 @@ export default async function Dashboard() {
                         </div>
                       </div>
                     ) : null}
-                    <RemoveRepoButton repoId={repo.id} repoName={`${repo.owner}/${repo.name}`} />
+                    <div className="flex items-center gap-2 shrink-0">
+                      <RepoPublicToggle
+                        owner={repo.owner}
+                        name={repo.name}
+                        enabled={Boolean(repo.public_enabled)}
+                      />
+                      <RemoveRepoButton repoId={repo.id} repoName={`${repo.owner}/${repo.name}`} />
+                    </div>
                   </div>
                   
                   <div className="mt-auto pt-4 border-t-2 border-white/10 group-hover:border-black/20 flex items-center justify-between transition-colors">

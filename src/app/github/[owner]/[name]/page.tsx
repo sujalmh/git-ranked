@@ -29,12 +29,12 @@ export default async function PublicRepoPage(
   }
 
   // 2. Check if it's tracked in GitRanked. Only public (non-installation) repos
-  // or repos explicitly shared by their owner get a public showcase page —
-  // installation-tracked repos may be private and must not be exposed.
+  // or repos whose owner has enabled public visibility get a public showcase
+  // page — installation-tracked repos may be private and must not be exposed.
   const repoQuery = await sql`
     SELECT id FROM repositories
     WHERE owner = ${owner} AND name = ${name}
-      AND (installation_id IS NULL OR share_enabled = true)
+      AND (installation_id IS NULL OR public_enabled = true)
       AND is_active = true
     LIMIT 1
   `;
