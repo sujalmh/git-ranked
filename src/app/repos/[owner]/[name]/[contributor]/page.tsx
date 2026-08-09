@@ -8,7 +8,7 @@ import { getRepoScoringConfig, scoreRepo, type DimensionScores, type WorkUnit } 
 import { runTaskById } from '@/lib/ai';
 import type { AiResult, ContributorProfile, ImpactAnalysis } from '@/lib/ai/types';
 import { ContributorProfileCard, ImpactExplanation } from '@/components/ai';
-import { getAnalysisPeriod } from '@/lib/analysis';
+import { getRepoAnalysisPeriod } from '@/lib/analysis';
 
 function StarRating({ count }: { count: number }) {
   const stars = Math.min(5, Math.max(1, Math.round(count)));
@@ -99,7 +99,7 @@ export default async function ContributorDetail(
 
   const workUnits = workUnitsQuery as WorkUnit[];
 
-  const { dateTo, dateFrom } = getAnalysisPeriod();
+  const { dateTo, dateFrom } = await getRepoAnalysisPeriod(repoId);
 
   let profileResult: AiResult<ContributorProfile> | null = null;
   let impactResult: AiResult<ImpactAnalysis> | null = null;

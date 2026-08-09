@@ -12,6 +12,7 @@ import {
 } from '@/lib/ai';
 import { setTelemetryListener, type ApiTelemetryEvent } from '@/lib/ai/telemetry';
 import { getUserAiConfig } from '@/lib/ai/openrouter';
+import { getRepoAnalysisPeriod } from '@/lib/analysis';
 import { enqueueClassifyRepo } from '@/lib/queue';
 import { getUserRepoId } from '@/lib/repo-access';
 
@@ -81,8 +82,9 @@ export async function POST(
     await sql`DELETE FROM classification_cache WHERE repo_id = ${repoId}`;
   }
 
-  const dateTo = new Date().toISOString().split('T')[0];
-  const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const period = await getRepoAnalysisPeriod(repoId);
+  const dateTo = period.dateTo;
+  const dateFrom = period.dateFrom;
 
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {

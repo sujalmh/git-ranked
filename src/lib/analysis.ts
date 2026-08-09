@@ -62,6 +62,57 @@ export function getAnalysisPeriod(days = 30) {
   return { dateTo, dateFrom, periodText };
 }
 
+/**
+ * Resolve the analysis period for a repo. Prefers the last `days` (default 30),
+ * but falls back to the repo's actual event window (min..max created_at) when
+ * the default window is empty — so repos with only older activity still get a
+ * meaningful, populated analysis instead of a "no activity" summary.
+ */
+export async function getRepoAnalysisPeriod(
+  repoId: number,
+  days = 30,
+  opts?: { sql?: typeof sql }
+): Promise<{ dateTo: string; dateFrom: string; periodText: string }> {
+  const db = opts?.sql ?? sql;
+  const { dateTo, dateFrom, periodText } = getAnalysisPeriod(days);
+
+  try {
+    const rows = await db<{ c: string }>`
+      SELECT COUNT(*) as c
+      FROM github_events
+      WHERE repo_id = ${repoId}
+        AND created_at >= ${dateFrom}::date
+        AND created_at < ${dateTo}::date + INTERVAL '1 day'
+    `;
+    if (rows.length > 0 && Number(rows[0].c) > 0) {
+      return { dateTo, dateFrom, periodText };
+    }
+  } catch {
+    // Fall through to default period on query error
+  }
+
+  // Default window empty — use the repo's actual event range.
+  try {
+    const range = await db<{ min: string; max: string }>`
+      SELECT MIN(created_at)::text as min, MAX(created_at)::text as max
+      FROM github_events
+      WHERE repo_id = ${repoId}
+    `;
+    const min = range[0]?.min;
+    const max = range[0]?.max;
+    if (min && max) {
+      const f = new Date(min).toISOString().split('T')[0];
+      const t = new Date(max).toISOString().split('T')[0];
+      const text = `${new Date(f).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+      return { dateFrom: f, dateTo: t, periodText: text };
+    }
+  } catch {
+    // Fall through to default period
+  }
+
+  return { dateTo, dateFrom, periodText };
+}
+
 export function parseDiffFacts(raw: unknown): { directories?: string[] } | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const obj = raw as Record<string, unknown>;
@@ -314,8 +365,9 @@ export async function getRepoAnalysisData(
   const topReviewer = topBy(contributors, contributor => contributor.reviews);
   const topFixer = topBy(contributors, contributor => contributor.fixes);
 
-  const dateTo = new Date().toISOString().split('T')[0];
-  const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const period = await getRepoAnalysisPeriod(repoId);
+  const dateTo = period.dateTo;
+  const dateFrom = period.dateFrom;
 
   let repoSummaryResult: AiResult<RepositorySummary> | null = null;
   let teamInsightsResult: AiResult<TeamInsights> | null = null;

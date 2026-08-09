@@ -8,7 +8,7 @@ import { AnalyseButton } from '@/components/AnalyseButton';
 import { RepoAnalysisView } from '@/components/RepoAnalysisView';
 import { ShareButton } from '@/components/ShareButton';
 import { RepositoryNeedsInit } from '@/components/InitializeButton';
-import { fetchRepoEvents, getRepoAnalysisData, getAnalysisPeriod } from '@/lib/analysis';
+import { fetchRepoEvents, getRepoAnalysisData, getRepoAnalysisPeriod } from '@/lib/analysis';
 import { getShareState } from '@/lib/share';
 import { getPublicRepository } from '@/lib/github-api';
 
@@ -98,7 +98,7 @@ export default async function RepoAnalysisBoard(
     : null;
   const githubRepo = await getPublicRepository(owner, name);
   const repoDescription = githubRepo?.description || 'AI Engineering Intelligence: Understand what shipped, where bottlenecks are, and how your team collaborates.';
-  const { periodText } = getAnalysisPeriod();
+  const { periodText } = await getRepoAnalysisPeriod(repoId);
 
   return (
     <div className="flex flex-col min-h-screen relative">

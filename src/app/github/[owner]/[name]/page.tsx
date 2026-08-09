@@ -7,7 +7,7 @@ import { Navbar } from '@/components/Navbar';
 import { auth } from '@/lib/auth';
 import { getUserRepoId } from '@/lib/repo-access';
 import { GitBranch, Star, GitFork, AlertCircle, ArrowRight, Brain, Code, Calendar } from 'lucide-react';
-import { fetchRepoEvents, getRepoAnalysisData, getAnalysisPeriod } from '@/lib/analysis';
+import { fetchRepoEvents, getRepoAnalysisData, getRepoAnalysisPeriod } from '@/lib/analysis';
 import { RepoAnalysisView } from '@/components/RepoAnalysisView';
 import { ShareButton } from '@/components/ShareButton';
 import { AnalyseButton } from '@/components/AnalyseButton';
@@ -47,17 +47,17 @@ export default async function PublicRepoPage(
   let analysisData = null;
   let hasEvents = false;
 
+  let periodText = '';
   if (repoQuery.length > 0) {
     const repoId = repoQuery[0].id;
     const eventsQuery = await fetchRepoEvents(repoId);
     hasEvents = eventsQuery.length > 0;
-    
+
     if (hasEvents) {
       analysisData = await getRepoAnalysisData(repoId, { computeScores: false });
     }
+    periodText = (await getRepoAnalysisPeriod(repoId)).periodText;
   }
-
-  const { periodText } = getAnalysisPeriod();
 
   // Render full analysis if available
   if (analysisData && analysisData.isAnalysed) {
