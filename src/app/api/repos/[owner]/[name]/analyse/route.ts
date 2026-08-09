@@ -29,7 +29,7 @@ function encodeEvent(event: ProgressEvent): Uint8Array {
 }
 
 export async function POST(
-  _req: Request,
+  req: Request,
   props: { params: Promise<{ owner: string; name: string }> }
 ) {
   const session = await auth();
@@ -51,6 +51,32 @@ export async function POST(
 
   const userId = Number(session.user.id);
   const userAiConfig = await getUserAiConfig(userId);
+
+  // Mode: 'cache' (default) reuses cached AI summaries/work units where present;
+  // 'fresh' clears caches and forces a full re-extraction + regeneration.
+  let mode: 'cache' | 'fresh' = 'cache';
+  try {
+    const body = (await req.json()) as { mode?: string };
+    mode = body?.mode === 'fresh' ? 'fresh' : 'cache';
+  } catch {
+    // No/invalid body — default to cache mode
+  }
+
+  if (mode === 'fresh') {
+    // Clear AI summary caches (repo + contributor level) and reset work-unit
+    // candidates so a fresh run regenerates everything with the current model.
+    await sql`DELETE FROM ai_summaries WHERE repo_id = ${repoId}`;
+    await sql`
+      DELETE FROM insight_caches
+      WHERE repo_id = ${repoId}
+        AND insight_type IN ('contributor_profile', 'impact_analysis', 'team_insights', 'repository_summary')
+    `;
+    await sql`
+      UPDATE work_unit_candidates
+      SET status = 'needs_reclassification'
+      WHERE repo_id = ${repoId}
+    `;
+  }
 
   const dateTo = new Date().toISOString().split('T')[0];
   const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -86,7 +112,7 @@ export async function POST(
           encodeEvent({
             step: 'init',
             status: 'info',
-            message: `Initializing pipeline for ${repoInfo.owner}/${repoInfo.name} (Repo ID: ${repoId})`,
+            message: `Initializing pipeline for ${repoInfo.owner}/${repoInfo.name} (Repo ID: ${repoId}, mode: ${mode})`,
           })
         );
 

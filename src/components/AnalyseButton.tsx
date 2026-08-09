@@ -73,6 +73,7 @@ export function AnalyseButton({
   const [hasError, setHasError] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [copiedLogs, setCopiedLogs] = useState(false);
+  const [showModeDialog, setShowModeDialog] = useState(false);
 
   const logsEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -95,109 +96,123 @@ export function AnalyseButton({
     setLogs((prev) => [...prev, newEntry]);
   }, []);
 
-  const handleAnalyse = useCallback(async () => {
-    setLoading(true);
-    setShowProgress(true);
-    setHasError(false);
-    setIsComplete(false);
-    setLogs([]);
-    setSteps(INITIAL_STEPS.map((s) => ({ ...s, status: 'pending' as StepStatus })));
+  const handleAnalyse = useCallback(
+    async (mode: 'cache' | 'fresh') => {
+      setShowModeDialog(false);
+      setLoading(true);
+      setShowProgress(true);
+      setHasError(false);
+      setIsComplete(false);
+      setLogs([]);
+      setSteps(INITIAL_STEPS.map((s) => ({ ...s, status: 'pending' as StepStatus })));
 
-    addLog('system', 'info', `[INIT] Starting pipeline analysis for repository ${owner}/${name}...`);
+      addLog('system', 'info', `[INIT] Starting pipeline analysis for repository ${owner}/${name} (mode: ${mode})...`);
 
-    try {
-      const res = await fetch(`/api/repos/${owner}/${name}/analyse`, {
-        method: 'POST',
-      });
+      try {
+        const res = await fetch(`/api/repos/${owner}/${name}/analyse`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode }),
+        });
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText || 'Analysis request failed'}`);
-      }
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText || 'Analysis request failed'}`);
+        }
 
-      if (!res.body) {
-        throw new Error('No readable response stream received');
-      }
+        if (!res.body) {
+          throw new Error('No readable response stream received');
+        }
 
-      addLog('system', 'info', `[STREAM] Connection established. Processing pipeline tasks...`);
+        addLog('system', 'info', `[STREAM] Connection established. Processing pipeline tasks...`);
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
+          buffer += decoder.decode(value, { stream: true });
 
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const event = JSON.parse(line) as {
-              step: string;
-              status: 'running' | 'done' | 'error' | 'complete';
-              message: string;
-              detail?: unknown;
-            };
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const event = JSON.parse(line) as {
+                step: string;
+                status: 'running' | 'done' | 'error' | 'complete';
+                message: string;
+                detail?: unknown;
+              };
 
-            if (event.step === 'analysis' && event.status === 'complete') {
-              setIsComplete(true);
-              addLog('system', 'complete', `[SUCCESS] Pipeline execution finished successfully. All tasks complete.`);
+              if (event.step === 'analysis' && event.status === 'complete') {
+                setIsComplete(true);
+                addLog('system', 'complete', `[SUCCESS] Pipeline execution finished successfully. All tasks complete.`);
+                setSteps((prev) =>
+                  prev.map((s) =>
+                    s.status === 'pending' || s.status === 'running'
+                      ? { ...s, status: 'done' as StepStatus }
+                      : s
+                  )
+                );
+                router.refresh();
+                continue;
+              }
+
+              // Update step status
               setSteps((prev) =>
-                prev.map((s) =>
-                  s.status === 'pending' || s.status === 'running'
-                    ? { ...s, status: 'done' as StepStatus }
-                    : s
-                )
+                prev.map((s) => {
+                  if (s.key === event.step) {
+                    return {
+                      ...s,
+                      status: event.status as StepStatus,
+                      message: event.message,
+                    };
+                  }
+                  return s;
+                })
               );
-              router.refresh();
-              continue;
-            }
 
-            // Update step status
-            setSteps((prev) =>
-              prev.map((s) => {
-                if (s.key === event.step) {
-                  return {
-                    ...s,
-                    status: event.status as StepStatus,
-                    message: event.message,
-                  };
-                }
-                return s;
-              })
-            );
+              // Log output line
+              let detailStr = '';
+              if (event.detail && typeof event.detail === 'object') {
+                detailStr = ` (${JSON.stringify(event.detail)})`;
+              }
+              addLog(event.step, event.status, `${event.message}${detailStr}`);
 
-            // Log output line
-            let detailStr = '';
-            if (event.detail && typeof event.detail === 'object') {
-              detailStr = ` (${JSON.stringify(event.detail)})`;
+              if (event.status === 'error') {
+                setHasError(true);
+              }
+            } catch {
+              // Skip malformed lines
             }
-            addLog(event.step, event.status, `${event.message}${detailStr}`);
-
-            if (event.status === 'error') {
-              setHasError(true);
-            }
-          } catch {
-            // Skip malformed lines
           }
         }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.error('Analysis failed:', err);
+        setHasError(true);
+        addLog('system', 'error', `[FAIL] Pipeline aborted with error: ${errorMsg}`);
+        setSteps((prev) =>
+          prev.map((s) => (s.status === 'running' ? { ...s, status: 'error' as StepStatus, message: 'Execution failed' } : s))
+        );
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error('Analysis failed:', err);
-      setHasError(true);
-      addLog('system', 'error', `[FAIL] Pipeline aborted with error: ${errorMsg}`);
-      setSteps((prev) =>
-        prev.map((s) => (s.status === 'running' ? { ...s, status: 'error' as StepStatus, message: 'Execution failed' } : s))
-      );
-    } finally {
-      setLoading(false);
+    },
+    [owner, name, router, addLog]
+  );
+
+  const onButtonClick = () => {
+    if (isReanalyse) {
+      setShowModeDialog(true);
+    } else {
+      handleAnalyse('fresh');
     }
-  }, [owner, name, router, addLog]);
+  };
 
   const copyTerminalLogs = () => {
     const rawText = logs
@@ -215,7 +230,7 @@ export function AnalyseButton({
     <div className="flex flex-col gap-3">
       {/* Trigger Button */}
       <button
-        onClick={handleAnalyse}
+        onClick={onButtonClick}
         disabled={loading}
         className={`flex items-center gap-2.5 rounded-xl px-6 py-3 text-base font-semibold transition-all shadow-lg ${
           loading
@@ -236,6 +251,66 @@ export function AnalyseButton({
         )}
         {loading ? 'Analyzing Pipeline...' : isComplete ? 'Done' : isReanalyse ? 'Re-analyse' : 'Analyse Repository'}
       </button>
+
+      {/* Mode Selection Dialog (re-analysis only) */}
+      {showModeDialog && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Choose analysis mode"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+          onClick={() => setShowModeDialog(false)}
+        >
+          <div
+            className="w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-5 border-b border-zinc-800">
+              <h3 className="text-lg font-bold text-white">How would you like to re-analyse?</h3>
+              <p className="text-sm text-zinc-400 mt-1">
+                Reuse previously cached results, or force a completely fresh run (clears cached AI summaries and re-extracts work units).
+              </p>
+            </div>
+            <div className="p-6 grid gap-3">
+              <button
+                type="button"
+                onClick={() => handleAnalyse('cache')}
+                className="text-left p-4 rounded-xl bg-zinc-900 border border-zinc-700 hover:border-accent/50 hover:bg-zinc-800/80 transition-colors"
+              >
+                <div className="text-white font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-accent" />
+                  Use cached results
+                </div>
+                <div className="text-xs text-zinc-400 mt-1">
+                  Fast — reuses existing AI summaries and work-unit extractions where available.
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAnalyse('fresh')}
+                className="text-left p-4 rounded-xl bg-zinc-900 border border-zinc-700 hover:border-accent/50 hover:bg-zinc-800/80 transition-colors"
+              >
+                <div className="text-white font-semibold flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 text-cyan-400" />
+                  Fresh run (no cache)
+                </div>
+                <div className="text-xs text-zinc-400 mt-1">
+                  Slower — clears cached AI summaries and re-extracts all work units with the current model.
+                </div>
+              </button>
+            </div>
+            <div className="px-6 py-4 border-t border-zinc-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowModeDialog(false)}
+                className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Terminal Progress Overlay Modal */}
       {showProgress && (
