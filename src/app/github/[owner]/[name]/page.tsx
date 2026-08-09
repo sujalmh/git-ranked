@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Navbar } from '@/components/Navbar';
 import { auth } from '@/lib/auth';
 import { getUserRepoId } from '@/lib/repo-access';
-import { GitBranch, Star, GitFork, AlertCircle, ArrowRight, Brain, Code, Calendar } from 'lucide-react';
+import { Star, GitFork, AlertCircle, ArrowRight, Brain, Code, Calendar } from 'lucide-react';
 import { fetchRepoEvents, getRepoAnalysisData, getRepoAnalysisPeriod } from '@/lib/analysis';
 import { RepoAnalysisView } from '@/components/RepoAnalysisView';
 import { ShareButton } from '@/components/ShareButton';
@@ -64,7 +64,7 @@ export default async function PublicRepoPage(
     return (
       <div className="flex flex-col min-h-screen relative bg-black text-white">
         <Navbar />
-        
+
         {/* Public Banner */}
         <div className="w-full bg-accent text-black py-3 px-6 text-center text-sm font-bold tracking-wide flex items-center justify-center gap-2">
           <Brain className="w-4 h-4" />
@@ -77,24 +77,36 @@ export default async function PublicRepoPage(
           </a>
         </div>
 
-        <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
+        <main className="flex-1 w-full px-4 sm:px-6 py-6 sm:py-8">
           <div className="mb-8">
+            <div className="flex items-center gap-2 text-sm text-zinc-400 mb-2">
+              <Link href="/showcase" className="hover:text-white transition-colors">Showcase</Link>
+              <span className="text-zinc-600">/</span>
+              <span>{owner}</span>
+            </div>
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
-              <h1 className="text-3xl font-black flex items-center gap-2.5 uppercase tracking-tighter">
-                <GitBranch className="w-8 h-8 text-accent" />
-                {owner} / {name}
+              <h1 className="text-2xl sm:text-3xl font-black flex items-center gap-3 tracking-tighter text-white min-w-0 break-all">
+                <Image
+                  src={`https://github.com/${owner}.png`}
+                  alt={owner}
+                  width={36}
+                  height={36}
+                  className="w-8 h-8 sm:w-9 sm:h-9 border-2 border-white/20 object-cover shrink-0"
+                />
+                <span>{owner} / {name}</span>
               </h1>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 shrink-0 self-start sm:self-auto">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-none bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 shrink-0 self-start sm:self-auto">
                 <Calendar className="w-3.5 h-3.5 text-accent" />
                 <span>Analysis Period: 30 Days ({periodText})</span>
               </div>
             </div>
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-3">
-              <p className="text-zinc-400 max-w-3xl text-lg font-medium">
+              <p className="text-sm sm:text-base text-zinc-400 max-w-2xl">
                 {githubRepo.description || "Public repository AI insights and engineering metrics."}
               </p>
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
                 <ShareButton
                   owner={owner}
                   name={name}
@@ -102,12 +114,18 @@ export default async function PublicRepoPage(
                   initialUrl={`/github/${owner}/${name}`}
                   isStatic={true}
                 />
+                <a
+                  href={installUrl}
+                  className="rounded-none border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-4 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base text-white font-semibold flex items-center justify-center"
+                >
+                  Analyze your own repository
+                </a>
               </div>
             </div>
           </div>
-          
+
           <RepoAnalysisView data={analysisData} readOnly={true} repoOwner={owner} repoName={name} />
-          
+
           {/* Bottom CTA for public users */}
           <div className="mt-16 sleek-panel p-10 text-center border-accent/20 bg-gradient-to-b from-transparent to-accent/5">
             <h2 className="text-3xl font-black uppercase tracking-tighter mb-4">Want these insights for your team?</h2>
@@ -115,7 +133,7 @@ export default async function PublicRepoPage(
               Join the engineering leaders using GitRanked to measure performance, identify bottlenecks, and recognize their top contributors.
             </p>
             <a
-              href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
+              href={installUrl}
               className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-accent text-black font-black uppercase tracking-wider hover:bg-white transition-colors"
             >
               Get Started Free <ArrowRight className="w-5 h-5" />
@@ -130,11 +148,45 @@ export default async function PublicRepoPage(
   return (
     <div className="flex flex-col min-h-screen relative bg-black text-white">
       <Navbar />
-      <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-16">
+      <main className="flex-1 w-full px-4 sm:px-6 py-6 sm:py-8">
+        <div className="mb-8">
+          <div className="flex items-center gap-2 text-sm text-zinc-400 mb-2">
+            <Link href="/showcase" className="hover:text-white transition-colors">Showcase</Link>
+            <span className="text-zinc-600">/</span>
+            <span>{owner}</span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+            <h1 className="text-2xl sm:text-3xl font-black flex items-center gap-3 tracking-tighter text-white min-w-0 break-all">
+              <Image src={githubRepo.owner.avatar_url} alt={githubRepo.owner.login} width={36} height={36} className="w-8 h-8 sm:w-9 sm:h-9 border-2 border-white/20 object-cover rounded-full shrink-0" />
+              <span>{owner} / {name}</span>
+            </h1>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-none bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 shrink-0 self-start sm:self-auto">
+              <Calendar className="w-3.5 h-3.5 text-accent" />
+              <span>Analysis Period: 30 Days ({periodText || '—'})</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-3">
+            <p className="text-sm sm:text-base text-zinc-400 max-w-2xl">
+              {githubRepo.description || "No description provided."}
+            </p>
+            <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
+              <ShareButton
+                owner={owner}
+                name={name}
+                initialEnabled={true}
+                initialUrl={`/github/${owner}/${name}`}
+                isStatic={true}
+              />
+            </div>
+          </div>
+        </div>
+
         <div className="sleek-panel p-10 relative overflow-hidden">
           {/* Background glow */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-accent opacity-5 blur-[100px] rounded-full pointer-events-none" />
-          
+
           <div className="flex items-center gap-3 mb-6 relative z-10">
             <Image src={githubRepo.owner.avatar_url} alt={githubRepo.owner.login} width={48} height={48} className="w-12 h-12 rounded-lg border border-white/10" />
             <div>
@@ -147,10 +199,6 @@ export default async function PublicRepoPage(
               </div>
             </div>
           </div>
-
-          <p className="text-xl text-zinc-300 font-medium mb-10 leading-relaxed max-w-2xl relative z-10">
-            {githubRepo.description || "No description provided."}
-          </p>
 
           <div className="grid grid-cols-3 gap-4 mb-12 relative z-10">
             <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
