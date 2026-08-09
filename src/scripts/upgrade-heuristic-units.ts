@@ -1,7 +1,7 @@
 /**
  * Upgrade heuristic-fallback work units to AI-classified ones.
  *
- * During bulk reclassification the OpenRouter free-tier quota can be exhausted,
+ * During bulk reclassification an AI provider quota can be exhausted,
  * so extraction falls back to keyword heuristics. Those candidates still carry
  * valid (deterministic) facts, but AI produces more meaningful ones — and the
  * value model scores AI facts ~10-30% higher, so all-heuristic repos are
@@ -63,6 +63,7 @@ export async function upgradeHeuristicUnits(
             AND id IN (
               SELECT wu.candidate_id FROM work_units wu
               WHERE wu.repo_id = ${repoId}
+                AND COALESCE(wu.unit_status, 'active') = 'active'
               GROUP BY wu.candidate_id
               HAVING bool_and(wu.extraction_source = 'heuristic_fallback')
             )
@@ -81,6 +82,7 @@ export async function upgradeHeuristicUnits(
         const mix = await sql`
           SELECT wu.extraction_source, COUNT(*) AS n
           FROM work_units wu WHERE wu.repo_id = ${repoId}
+            AND COALESCE(wu.unit_status, 'active') = 'active'
           GROUP BY wu.extraction_source ORDER BY n DESC
         `;
         console.log(`  repo ${repoId}: upgraded ${flagged.length}, mix=${mix.map((m) => `${m.extraction_source}=${m.n}`).join(', ')}`);
@@ -92,7 +94,7 @@ export async function upgradeHeuristicUnits(
       await sql`
         UPDATE work_unit_candidates c
         SET status = CASE
-          WHEN EXISTS (SELECT 1 FROM work_units wu WHERE wu.candidate_id = c.id) THEN 'classified'
+              WHEN EXISTS (SELECT 1 FROM work_units wu WHERE wu.candidate_id = c.id AND COALESCE(wu.unit_status, 'active') = 'active') THEN 'classified'
           ELSE 'pending'
         END
         WHERE c.repo_id = ${repoId} AND c.status = 'needs_reclassification'
@@ -102,7 +104,7 @@ export async function upgradeHeuristicUnits(
     }
   }
 
-  const remaining = await sql`SELECT COUNT(DISTINCT wu.candidate_id)::int AS n FROM work_units wu WHERE wu.extraction_source = 'heuristic_fallback'`;
+  const remaining = await sql`SELECT COUNT(DISTINCT wu.candidate_id)::int AS n FROM work_units wu WHERE wu.extraction_source = 'heuristic_fallback' AND COALESCE(wu.unit_status, 'active') = 'active'`;
   return { repos: repos.length, flagged: totalFlagged, remaining: remaining[0].n };
 }
 

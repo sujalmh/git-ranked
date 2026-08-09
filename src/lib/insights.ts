@@ -1,5 +1,6 @@
 import { sql } from './db';
 import { computeHealthMetrics, type HealthMetrics } from './scoring/repo-score';
+import { roleMultiplier } from './scoring/scoring-engine';
 
 export type { HealthMetrics } from './scoring/repo-score';
 
@@ -103,7 +104,8 @@ export async function generateRepoInsights(repoId: number) {
         SELECT (derived->>'value')::numeric AS value,
                (derived->>'execution_quality')::numeric AS quality,
                (facts->>'testing_added')::boolean AS testing,
-               (facts->>'documentation_updated')::boolean AS docs
+               (facts->>'documentation_updated')::boolean AS docs,
+               role
         FROM work_units
         WHERE repo_id = ${repoId}
           AND shipped = true
@@ -121,7 +123,7 @@ export async function generateRepoInsights(repoId: number) {
       `,
     ]);
     for (const r of unitRows) {
-      const value = Number(r.value ?? 0);
+      const value = Number(r.value ?? 0) * roleMultiplier(r.role);
       if (Number.isFinite(value)) deliveredValue += value;
       unitCount++;
       const q = Number(r.quality ?? 3);

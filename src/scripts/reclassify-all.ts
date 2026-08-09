@@ -47,9 +47,7 @@ async function main() {
     const repoId = repo.id as number;
     const label = `${repo.owner}/${repo.name}`;
     try {
-      await sql`DELETE FROM work_unit_contributors WHERE work_unit_id IN (SELECT id FROM work_units WHERE repo_id = ${repoId})`;
-      await sql`DELETE FROM work_units WHERE repo_id = ${repoId}`;
-      await sql`UPDATE work_unit_candidates SET status = 'pending', classified_at = NULL WHERE repo_id = ${repoId}`;
+      await sql`UPDATE work_unit_candidates SET status = 'needs_reclassification', classified_at = NULL WHERE repo_id = ${repoId}`;
 
       const totalUnits = await classifyRepo(repoId);
       const scores = await scoreRepo(repoId);

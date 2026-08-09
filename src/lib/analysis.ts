@@ -351,6 +351,7 @@ export async function getRepoAnalysisData(
     JOIN work_unit_contributors wuc ON wu.id = wuc.work_unit_id
     WHERE wu.repo_id = ${repoId}
       AND wu.shipped = true
+      AND COALESCE(wu.unit_status, 'active') = 'active'
   `;
 
   // Build a map: contributorId -> { areaLabel -> count }

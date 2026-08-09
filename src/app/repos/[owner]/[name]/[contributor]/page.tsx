@@ -86,12 +86,14 @@ export default async function ContributorDetail(
 
   // Fetch contributor work units
   const workUnitsQuery = await sql`
-    SELECT wu.id, wu.work_type, wu.summary, wu.facts, wu.derived, wu.extraction_confidence,
+    SELECT wu.id, wu.work_type, wu.role, wu.capability_key, wu.source_commit_shas,
+           wu.previous_unit_id, wu.unit_status, wu.summary, wu.facts, wu.derived, wu.extraction_confidence,
            wu.extraction_source, wu.shipped, wu.outcome, wu.size_metrics, wu.rationale,
            wu.shipped_at, wu.created_at
     FROM work_units wu
     JOIN work_unit_contributors wuc ON wu.id = wuc.work_unit_id
     WHERE wu.repo_id = ${repoId} AND wuc.contributor_id = ${contributorId}
+      AND COALESCE(wu.unit_status, 'active') = 'active'
     ORDER BY wu.created_at DESC
   `;
 
@@ -192,6 +194,11 @@ export default async function ContributorDetail(
                       <span className="text-xs font-bold px-2 py-0.5 rounded-none bg-accent/20 text-accent border border-accent/30">
                         {unit.work_type}
                       </span>
+                      {unit.role && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-none bg-sky-500/10 text-sky-300 border border-sky-500/20">
+                          {unit.role}
+                        </span>
+                      )}
                       {unit.shipped && (
                         <span className="text-[10px] font-medium px-2 py-0.5 rounded-none bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
                           <CheckCircle className="w-3 h-3" /> Shipped

@@ -38,6 +38,7 @@ export async function fetchEvents(
         FROM github_events e
         JOIN github_contributors c ON e.contributor_id = c.id
         LEFT JOIN work_units wu ON e.id = ANY(wu.source_event_ids)
+          AND COALESCE(wu.unit_status, 'active') = 'active'
         WHERE e.repo_id = ${repoId}
           AND e.contributor_id = ${contributorId}
           AND e.created_at >= ${dateFrom}::date
@@ -51,6 +52,7 @@ export async function fetchEvents(
         FROM github_events e
         JOIN github_contributors c ON e.contributor_id = c.id
         LEFT JOIN work_units wu ON e.id = ANY(wu.source_event_ids)
+          AND COALESCE(wu.unit_status, 'active') = 'active'
         WHERE e.repo_id = ${repoId}
           AND c.username NOT ILIKE '%[bot]%'
           AND e.created_at >= ${dateFrom}::date

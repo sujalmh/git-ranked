@@ -25,7 +25,7 @@
 
 ## What it does
 
-- **AI Work Classification** — Every commit, PR, review, and issue is classified into semantic work types (Feature, BugFix, Refactor, Documentation, etc.) using LLMs via OpenRouter
+- **Evidence-Based Work Extraction** — Commits and PRs are split into shipped capability units using file paths, patches, commit history, PR context, and LLM analysis. Each unit records its lifecycle role (foundation, advancement, refinement, or repair) and reconciles with previous passes.
 - **Multi-Dimensional Scoring** — Contributors are scored across **Impact**, **Quality**, **Collaboration**, and **Consistency** with both current (decay-weighted) and all-time profiles, plus a **0–100 percentile** so a great score means the same thing in any repo. Co-authored work is credited proportionally and PR commits are never double-counted.
 - **Repository Health Metrics** — Delivery, Collaboration, Code Quality, Review Health, and Knowledge Distribution on a 0–100 scale, computed from the same AI-classified work-unit model that powers contributor scores.
 - **AI-Generated Summaries** — Repository overviews, team insights, contributor profiles, impact analyses, and weekly/monthly reports
@@ -48,7 +48,7 @@
 | Backend | Next.js API Routes, NextAuth.js v5 (GitHub OAuth + App) |
 | Database | Neon PostgreSQL (serverless) |
 | Queue | pg-boss (background job processing) |
-| AI | OpenRouter API — supports any LLM; defaults to free-tier models |
+| AI | OpenAI-compatible providers — defaults to OpenCode Go with DeepSeek V4 Flash when configured |
 | Auth | GitHub OAuth App + GitHub App (installation tokens) |
 | Deployment | Vercel (app) + GCP VM (worker) |
 
@@ -59,7 +59,7 @@
 - Node.js 20+
 - A Neon PostgreSQL database
 - A GitHub OAuth App and GitHub App
-- An OpenRouter API key (free tier works)
+- An OpenCode Go or OpenRouter API key
 
 ### Environment variables
 
@@ -78,7 +78,11 @@ GITHUB_APP_ID=...
 GITHUB_PRIVATE_KEY=...  # PEM-encoded private key
 GITHUB_WEBHOOK_SECRET=...
 
-# OpenRouter AI
+# AI provider (OpenCode Go is the default when this key is present)
+OPENCODE_GO_API_KEY=...
+OPENCODE_GO_MODEL=deepseek-v4-flash
+
+# Optional OpenRouter fallback
 OPENROUTER_API_KEY=sk-or-v1-...
 OPENROUTER_MODEL=nvidia/nemotron-3-super-120b-a12b:free
 
@@ -125,7 +129,7 @@ GitHub Events (webhooks / backfill)
    pg-boss Queue ─► Worker (classification)
         │
         ▼
-   OpenRouter AI ──► Work Units + Scores
+   OpenCode Go / OpenRouter AI ──► Evidence-backed Work Units + Scores
         │
         ▼
    Dashboard / APIs / Shared Links

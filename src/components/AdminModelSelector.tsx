@@ -162,7 +162,7 @@ export function AdminModelSelector({ initialModel }: { initialModel?: string }) 
               </button>
             </div>
             <p className="text-[11px] text-zinc-500">
-              Any valid OpenRouter model string can be entered (e.g. <code className="text-zinc-400">google/gemini-2.0-pro-exp-02-05:free</code>).
+              Any valid model identifier for the selected provider can be entered (e.g. <code className="text-zinc-400">deepseek-v4-flash</code> or an OpenRouter model ID).
             </p>
           </div>
         )}

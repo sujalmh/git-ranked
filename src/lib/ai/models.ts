@@ -1,4 +1,5 @@
 export const RECOMMENDED_AI_MODELS = [
+  { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', provider: 'OpenCode Go', badge: 'Default' },
   { id: 'nvidia/nemotron-3-super-120b-a12b:free', name: 'Nemotron Super 120B (Free)', provider: 'NVIDIA', badge: 'Default' },
   { id: 'google/gemini-2.0-flash-lite-preview-02-05:free', name: 'Gemini 2.0 Flash Lite (Free)', provider: 'Google', badge: 'Fast' },
   { id: 'deepseek/deepseek-r1:free', name: 'DeepSeek R1 (Free)', provider: 'DeepSeek', badge: 'Reasoning' },
@@ -11,8 +12,8 @@ export const RECOMMENDED_AI_MODELS = [
 
 /**
  * Provider catalog of OpenAI-compatible chat-completions endpoints.
- * OpenRouter is the default; the rest are optional alternatives a user can
- * opt into (or fully custom endpoints via the `custom` provider).
+ * OpenCode Go is the default when configured; the rest are optional
+ * alternatives a user can opt into (or fully custom endpoints).
  */
 export type AiProvider =
   | 'openrouter'

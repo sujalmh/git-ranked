@@ -2,7 +2,7 @@
  * Deterministic repository health scoring.
  *
  * Delivery and Code Quality are computed from the SAME work-unit value model
- * that powers contributor scores (shipped `derived.value` and
+ * that powers contributor scores (shipped role-adjusted `derived.value` and
  * `derived.execution_quality`), so the repo number is consistent with the
  * people inside it. Volume-only event counts are used as a fallback before
  * classification has run. All metrics are honest 0-100 scores with no hard

@@ -1,7 +1,7 @@
 /**
  * Re-run work-unit extraction + scoring for a single repo.
- * Clears the classification cache and resets candidates so the improved
- * prompt runs fresh against all events.
+ * Resets candidates so the improved evidence extraction and reconciliation
+ * prompt runs fresh while preserving prior work-unit lineage.
  *
  * Usage: npx tsx src/scripts/reclassify-repo.ts [repoId]
  */
@@ -22,16 +22,8 @@ async function main() {
   }
 
   console.log(`Reclassifying repo ${repoId}...`);
-  await sql`DELETE FROM classification_cache`;
-  console.log('  Cache cleared.');
-
-  console.log('Deleting existing work units...');
-  await sql`DELETE FROM work_unit_contributors WHERE work_unit_id IN (SELECT id FROM work_units WHERE repo_id = ${repoId})`;
-  await sql`DELETE FROM work_units WHERE repo_id = ${repoId}`;
-  console.log('  Work units deleted.');
-
-  console.log('Resetting candidate statuses to pending...');
-  await sql`UPDATE work_unit_candidates SET status = 'pending', classified_at = NULL WHERE repo_id = ${repoId}`;
+  console.log('Resetting candidate statuses for reconciliation...');
+  await sql`UPDATE work_unit_candidates SET status = 'needs_reclassification', classified_at = NULL WHERE repo_id = ${repoId}`;
   console.log('  Candidates reset.');
 
   console.log('\nRunning classifyRepo...');
@@ -52,13 +44,15 @@ async function main() {
   console.log('='.repeat(80));
 
   const wus = await sql`
-    SELECT wu.id, wu.work_type, wu.summary, wu.extraction_source, wu.extraction_confidence,
+    SELECT wu.id, wu.work_type, wu.role, wu.capability_key, wu.unit_status, wu.summary,
+           wu.extraction_source, wu.extraction_confidence,
            wu.size_metrics, wu.rationale,
            c.username
     FROM work_units wu
     JOIN work_unit_contributors wuc ON wu.id = wuc.work_unit_id
     JOIN github_contributors c ON wuc.contributor_id = c.id
     WHERE wu.repo_id = ${repoId}
+      AND COALESCE(wu.unit_status, 'active') = 'active'
     ORDER BY wu.created_at DESC
   `;
 
