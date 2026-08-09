@@ -5,17 +5,22 @@
  * rules. Bounded (optionally by repoId) and safe to run repeatedly.
  *
  * Usage: npx tsx src/scripts/reclassify-all.ts
+ *
+ * NOTE: app modules must be imported AFTER dotenv loads .env.local — the AI
+ * provider/endpoint constants are read at module-evaluation time, so static
+ * imports before config() would send the OpenCode Go key to the OpenRouter
+ * endpoint (401 Missing Authentication header).
  */
 
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import { sql } from '../lib/db';
-import { classifyRepo, scoreRepo } from '../lib/scoring';
-import { generateRepoInsights } from '../lib/insights';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
 async function main() {
+  const { sql } = await import('../lib/db');
+  const { classifyRepo, scoreRepo } = await import('../lib/scoring');
+  const { generateRepoInsights } = await import('../lib/insights');
   // Optional repo-id sharding: `npx tsx reclassify-all.ts 2 8 10` reclassifies
   // only those repos. With no args, every active repo is processed (sequential).
   const explicitIds = process.argv

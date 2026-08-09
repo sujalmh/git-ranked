@@ -8,6 +8,7 @@ import type {
 import { clamp } from './derivation';
 import { decayWeight } from './decay';
 import { reviewValue } from './review';
+import { goalAlignmentFactor, nodeImportance, stageWeight, DEFAULT_IMPACT_PROGRESS } from './goals';
 
 export const WORK_ROLE_MULTIPLIERS = {
   // Lifecycle roles distinguish why the unit mattered. A first shipped
@@ -88,16 +89,12 @@ export function computeConsistency(rawEvents: RawEvent[]): number {
 }
 
 /**
- * Aggregate work-unit contributions without making raw event/unit count the
- * score. Work units remain the only source of impact and quality: a unit's
- * per-unit quality stays primary, while the logarithmic activity bonus (k·ln n)
- * rewards sustained contribution without letting a flood of tiny units
- * dominate — and without letting a single high-value unit outrank a body of
- * real shipped work.
- *
- * The blend is mean × (1 + k·ln n): an all-or-nothing pure mean lets a few
- * lucky high-value units win (a 4-event contributor topping the board), while
- * a raw sum lets volume win. The logarithmic term is the principled middle.
+ * Quality aggregator (scoring v6). execution_quality is a per-unit rating, so a
+ * contributor with more units must not win quality merely by volume — that is
+ * what the per-node impact curve already rewards. Keeps the weighted mean with
+ * k=0 (no volume bonus): divide by the number of extracted units, not by the
+ * supplied credit, so decay and proportional attribution scale a unit down
+ * instead of disappearing inside a re-normalized mean.
  */
 export function boundedWorkUnitMean(
   contributions: number[],
@@ -112,12 +109,71 @@ export function boundedWorkUnitMean(
   );
   if (weightedSum <= 0) return 0;
 
-  // Divide by the number of extracted units, not by the supplied credit. This
-  // preserves decay and proportional attribution: an old or half-attributed
-  // unit contributes less instead of disappearing inside a re-normalized mean.
   const weightedMean = weightedSum / contributions.length;
   const sustainedActivityBonus = 1 + k * Math.log1p(contributions.length);
   return weightedMean * sustainedActivityBonus * scale;
+}
+
+/**
+ * Two-layer saturating progress credit (scoring v6).
+ *
+ * Layer 1 — per capability NODE: impact saturates as the sum of a node's units
+ * grows, so a contributor who ships a capability in one big PR or five small
+ * PRs earns the same credit. A node is scaled by its repo-goal `centrality`
+ * (deterministic from the goal tree) and each unit by `stageWeight` and
+ * `goal_alignment`.
+ *
+ * Layer 2 — per CANDIDATE (PR): a single candidate's total node credit is
+ * itself saturating, so a PR that the model over-splits into many nodes cannot
+ * multiply its credit, while genuine work spread across many PRs still
+ * accumulates. A node touched by several candidates splits its (capped) credit
+ * among them proportionally, preserving cross-PR dedup.
+ */
+export function computeNodeProgressImpact(
+  entries: Array<{ unit: WorkUnit; weight: number; credit: number }>,
+  config: { nodeCap: number; nodeScale: number; candidateCap: number; candidateScale: number; stageWeights: Record<string, number> }
+): number {
+  if (entries.length === 0) return 0;
+
+  const nodeRaw = new Map<string, { raw: number; representative: WorkUnit }>();
+  for (const { unit, weight, credit } of entries) {
+    const key = unit.capability_key || `unit:${unit.id ?? 'unknown'}`;
+    const node = nodeRaw.get(key) ?? { raw: 0, representative: unit };
+    node.raw += (unit.derived.value ?? 1.0) * stageWeight(unit.role, config.stageWeights) * goalAlignmentFactor(unit.derived.goal_alignment ?? 3) * weight * credit;
+    nodeRaw.set(key, node);
+  }
+
+  // Per-node credit (cross-candidate dedup happens here).
+  const nodeCredit = new Map<string, { credit: number; raw: number }>();
+  for (const [key, node] of nodeRaw) {
+    if (node.raw <= 0) continue;
+    const importance = nodeImportance(node.representative.derived.centrality ?? 3);
+    nodeCredit.set(key, {
+      credit: importance * config.nodeCap * (1 - Math.exp(-node.raw / config.nodeScale)),
+      raw: node.raw,
+    });
+  }
+  if (nodeCredit.size === 0) return 0;
+
+  // Layer 2: distribute each node's capped credit to the candidates that
+  // contributed to it (proportional to their raw share), then saturate per
+  // candidate so a single over-split PR is bounded.
+  const candidateRaw = new Map<number, number>();
+  for (const { unit, weight, credit } of entries) {
+    const key = unit.capability_key || `unit:${unit.id ?? 'unknown'}`;
+    const node = nodeCredit.get(key);
+    if (!node || node.raw <= 0) continue;
+    const unitRaw = (unit.derived.value ?? 1.0) * stageWeight(unit.role, config.stageWeights) * goalAlignmentFactor(unit.derived.goal_alignment ?? 3) * weight * credit;
+    const share = unitRaw / node.raw;
+    const cand = unit.candidate_id ?? -1;
+    candidateRaw.set(cand, (candidateRaw.get(cand) ?? 0) + share * node.credit);
+  }
+
+  let total = 0;
+  for (const raw of candidateRaw.values()) {
+    total += config.candidateCap * (1 - Math.exp(-raw / config.candidateScale));
+  }
+  return total;
 }
 
 export function scoreContributor(
@@ -126,14 +182,14 @@ export function scoreContributor(
   config: ScoringConfig,
   decayProfile: 'current' | 'all_time' = 'current',
   asOf: Date | string = new Date(),
-  attributionWeights?: Map<number, number>
+  attributionWeights?: Map<number, number>,
+  codeOwnership?: number
 ): DimensionScores {
-  let rawImpactSum = 0;
   let rawQualitySum = 0;
   let rawCollabSum = 0;
-  const impactContributions: number[] = [];
   const qualityContributions: number[] = [];
   const contributionWeights: number[] = [];
+  const nodeEntries: Array<{ unit: WorkUnit; weight: number; credit: number }> = [];
 
   let minShippedTime = Infinity;
   let maxShippedTime = -Infinity;
@@ -184,9 +240,11 @@ export function scoreContributor(
       const rVal = reviewValue(rf);
       rawCollabSum += rVal * weight * credit;
     } else {
-      // General work unit (Feature, BugFix, Infrastructure, etc.)
-      const unitValue = (unit.derived.value ?? 1.0) * roleMultiplier(unit.role);
-      impactContributions.push(unitValue * 10);
+      // General work unit (Feature, BugFix, Infrastructure, etc.). Per-node
+      // progress credit is computed after the loop; granularity and per-unit
+      // repo_impact guesses no longer move the score — `centrality` (goal tree)
+      // and `goal_alignment` do.
+      nodeEntries.push({ unit, weight, credit });
 
       // Quality: Layer-2 review bump applied to execution_quality
       const reviewBump = candidateReviewBumps.get(unit.candidate_id) ?? 0;
@@ -196,22 +254,29 @@ export function scoreContributor(
     }
   }
 
-  // Impact: quality-weighted work-unit mean with a logarithmic volume bonus
-  // (k=0.3). The volume bonus rewards sustained contribution without letting a
-  // flood of tiny units dominate the score.
-  rawImpactSum = boundedWorkUnitMean(impactContributions, contributionWeights, 0.3);
+  // Impact: two-layer saturating progress credit anchored to the repo goal tree
+  // (per-node granularity-invariance + per-PR bound on over-splitting).
+  const ip = { ...DEFAULT_IMPACT_PROGRESS, ...(config.caps.impactProgress ?? {}) };
+  const rawImpactSum = computeNodeProgressImpact(nodeEntries, ip);
 
   // Quality: pure work-unit mean. execution_quality is a per-unit rating, so a
   // contributor with more units must not win the quality dimension merely by
-  // volume — that is what the impact bonus already rewards.
+  // volume — that is what the per-node impact curve already rewards.
   rawQualitySum = boundedWorkUnitMean(qualityContributions, contributionWeights, 0);
-
-  // Soft-cap scaling:
-  // Use non-saturating scale factors (250 for impact, 200 for quality/collab)
   const caps = config.caps;
-  const impact = Math.round(softCap(rawImpactSum, caps.impact, 250) * 10) / 10;
+  let impact = Math.round(softCap(rawImpactSum, caps.impact, ip.scaleFactor) * 10) / 10;
   const quality = Math.round(softCap(rawQualitySum, caps.quality, 200) * 10) / 10;
   const collaboration = Math.round(softCap(rawCollabSum, caps.collaboration, 100) * 10) / 10;
+
+  // Shipped-code ownership blend (scoring v6): when git-blame ownership data is
+  // present, impact is blended toward `100 × share` — how much of the repo's
+  // final code this contributor owns. This rewards code that ships and stays,
+  // not just effort volume. Absent data leaves impact unchanged.
+  if (codeOwnership !== undefined && codeOwnership !== null && (ip.ownershipWeight ?? 0) > 0) {
+    const ownershipImpact = clamp(0, 100, codeOwnership * 100);
+    impact =
+      Math.round((impact * (1 - ip.ownershipWeight) + ownershipImpact * ip.ownershipWeight) * 10) / 10;
+  }
 
   // Consistency (pure timestamp math, 0-100 scale)
   const consistency = computeConsistency(rawEvents);

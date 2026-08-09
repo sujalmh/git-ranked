@@ -69,6 +69,33 @@ async function main() {
       }
     }
   );
+
+  // Granularity refinement — the feed-backward quality job. Runs after
+  // extraction to split over-broad work units, offline from the analyse path.
+  await boss.work<ClassifyRepoData>(
+    'granularity-refine',
+    { localConcurrency: 2 },
+    async (jobOrJobs: Job<ClassifyRepoData> | Job<ClassifyRepoData>[]) => {
+      const jobs = Array.isArray(jobOrJobs) ? jobOrJobs : [jobOrJobs];
+      for (const job of jobs) {
+        const { id: jobId, data } = job;
+        const repoId = Number(data.repoId);
+        const userId = typeof data?.userId === 'number' ? data.userId : undefined;
+        const aiOptions = userId !== undefined ? await getUserAiConfig(userId) : undefined;
+
+        console.log(`[Worker] Granularity-refine job ${jobId} for repo ${repoId}`);
+        try {
+          const { runRepoRefinementQuality } = await import('./lib/scoring');
+          const result = await runRepoRefinementQuality(repoId, aiOptions);
+          console.log(`[Worker] Granularity-refine job ${jobId} for repo ${repoId}: ${result.enqueued} enqueued, ${result.refined} refined.`);
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          console.error(`[Worker] Granularity-refine job ${jobId} for repo ${repoId} failed:`, errorMessage);
+          throw err;
+        }
+      }
+    }
+  );
 }
 
 const shutdown = async (signal: string) => {

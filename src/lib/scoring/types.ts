@@ -63,6 +63,14 @@ export interface Derived {
   novelty: number;
   risk: number;
   value: number;
+  /**
+   * Repo-goal anchoring (scoring v6): `centrality` (1-5) is the capability
+   * node's importance to the repo as a whole, assigned deterministically by the
+   * goal tree (not by the model). `goal_alignment` (1-5) is how directly this
+   * unit advances the repo's primary goals. Both default to 3 when absent.
+   */
+  centrality?: number;
+  goal_alignment?: number;
 }
 
 export interface Rationale {
@@ -159,6 +167,24 @@ export interface Caps {
   quality: number;
   collaboration: number;
   consistency: number;
+  /**
+   * Per-node saturating progress credit (scoring v6). Impact for a capability
+   * node saturates at `nodeCap` as the sum of its units' values grows, so
+   * splitting one capability into many units cannot inflate the score. A second
+   * saturation layer at `candidateCap`/`candidateScale` bounds how much a
+   * single PR contributes, so over-splitting one PR into many nodes can't
+   * multiply credit either.
+   */
+  impactProgress?: {
+    nodeCap: number;
+    nodeScale: number;
+    scaleFactor: number;
+    candidateCap: number;
+    candidateScale: number;
+    /** 0-1: weight of the shipped-code ownership share in the impact blend. */
+    ownershipWeight: number;
+    stageWeights: Record<string, number>;
+  };
   compositeWeights: {
     impact: number;
     quality: number;

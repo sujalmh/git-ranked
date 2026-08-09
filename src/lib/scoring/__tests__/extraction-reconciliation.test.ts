@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   buildEvidenceHash,
   buildExtractionPrompt,
+  buildBreakdownPrompt,
+  formatCapabilityRegistry,
   extractChangedFilePaths,
   extractCodeEvidence,
   extractShippedAt,
   extractSourceCommitShas,
   isCandidateShipped,
+  isBroadWorkUnit,
   normalizeExtractionResponse,
   isMergeOnlyPush,
   shouldPreferIndividualExtraction,
@@ -106,6 +109,48 @@ describe('evidence-rich extraction and reconciliation helpers', () => {
     expect(prompt).toContain('ff54a05');
   });
 
+  it('seeds the prompt with the repo capability registry so keys stay consistent', () => {
+    const registry = [
+      { capability_key: 'chat_api_nlp_filtering', role: 'foundation', summary: 'FastAPI chat API with NLP filtering' },
+      { capability_key: 'alert_streaming', role: 'feature', summary: 'Real-time SSE alert streaming' },
+    ];
+    const prompt = buildExtractionPrompt(
+      'Extend chat API filtering', 'pr_merged', 10, 500, 120, 2, ['feat: extend chat'],
+      'Reuse existing chat capability', [],
+      [{ capability_key: 'chat_api_nlp_filtering', role: 'foundation', summary: 'FastAPI chat API with NLP filtering' }],
+      ['ff54a05'], [], registry
+    );
+    expect(prompt).toContain('chat_api_nlp_filtering');
+    expect(prompt).toContain('alert_streaming');
+    expect(prompt).toContain('Repository capabilities already shipped');
+    expect(prompt).toContain('do NOT mint a new key for an existing capability');
+  });
+
+  it('formats the capability registry deterministically', () => {
+    const text = formatCapabilityRegistry([
+      { capability_key: 'a_cap', role: 'foundation', summary: 'Build a' },
+      { capability_key: 'b_cap', role: null, summary: null },
+    ]);
+    expect(text).toContain('- a_cap [foundation]: Build a');
+    expect(text).toContain('- b_cap [feature]: ');
+    expect(formatCapabilityRegistry([])).toBe('');
+  });
+
+  it('changes the cache key when the repo capability registry changes', () => {
+    const events = [{ event_type: 'pr_merged', payload: { additions: 100, changed_files: 5 } }];
+    const base = buildEvidenceHash(candidate, events, 'v5.0', []);
+    const withCap = buildEvidenceHash(
+      candidate, events, 'v5.0', [],
+      [{ capability_key: 'chat_api', role: 'foundation', summary: 'Built earlier' }]
+    );
+    const withAnotherCap = buildEvidenceHash(
+      candidate, events, 'v5.0', [],
+      [{ capability_key: 'other', role: 'feature', summary: 'Different' }]
+    );
+    expect(withCap).not.toBe(base);
+    expect(withAnotherCap).not.toBe(withCap);
+  });
+
   it('keeps reliable PR size evidence authoritative and caps stats-less pushes', () => {
     const [pr] = normalizeExtractionResponse(
       { items: [{ summary: 'Ship the retrieval subsystem', facts: { scope: 'small' } }] },
@@ -136,6 +181,112 @@ describe('evidence-rich extraction and reconciliation helpers', () => {
     })).toBe(true);
     expect(isMergeOnlyPush('push', ["Merge pull request #21 from feature/main"])).toBe(true);
     expect(isMergeOnlyPush('push', ['fix: handle timeout'])).toBe(false);
+  });
+
+  it('detects broad roll-up units that need refinement into specific topics', () => {
+    // A system_wide unit that clearly rolls up multiple capabilities.
+    expect(isBroadWorkUnit({
+      facts: { scope: 'system_wide' },
+      summary: 'Add unified retrieval that combines semantic search and database queries and video indexing and alert streaming and chat APIs and camera occupancy support across the whole system',
+    })).toBe(true);
+    // A very long, heavily multi-topic roll-up.
+    expect(isBroadWorkUnit({
+      summary: 'Overhaul the backend by adding unified retrieval that combines semantic search and database queries and video indexing and alert streaming and chat APIs and camera occupancy support and per-zone tracking and loitering detection and timed-entry rules and the whole monitoring framework',
+      facts: { scope: 'large' },
+    })).toBe(true);
+    // Specific single-capability units must not be flagged.
+    expect(isBroadWorkUnit({ summary: 'Fix color mask threshold', facts: { scope: 'small' } })).toBe(false);
+    expect(isBroadWorkUnit({ summary: 'Add FPS scaling logic', facts: { scope: 'medium' } })).toBe(false);
+    // A system_wide scope alone (shared merged-PR stats) is not enough.
+    expect(isBroadWorkUnit({ summary: 'Add crowd-density alert detection', facts: { scope: 'system_wide' } })).toBe(false);
+  });
+
+  it('builds a focused breakdown prompt that chains specifics to the broad unit', () => {
+    const prompt = buildBreakdownPrompt({
+      broadUnit: {
+        capability_key: 'unified_retrieval_system',
+        summary: 'Add unified retrieval engine combining vector search and database queries',
+        role: 'advancement',
+        work_type: 'Feature',
+      },
+      title: 'Unified retrieval',
+      commitMessages: ['feat: hybrid search', 'feat: video indexing', 'fix: result merge'],
+      changedFilePaths: ['backend/retrieval.py', 'backend/indexing.py'],
+      codeEvidence: [],
+      prBody: null,
+    });
+    expect(prompt).toContain('unified_retrieval_system');
+    expect(prompt).toContain('Break it down');
+    expect(prompt).toContain('previous_capability_key');
+    expect(prompt).toContain('hybrid search');
+    expect(prompt).toContain('backend/indexing.py');
+  });
+});
+
+describe('broad-unit refinement and cross-candidate reconciliation', () => {
+  it('only flags genuine roll-ups, not specific units or shared-PR stats', () => {
+    // A comma-separated FILE list inside one fix must not count as multi-topic.
+    expect(isBroadWorkUnit({
+      facts: { scope: 'system_wide' },
+      summary: 'Replace naive datetime.now() calls with UTC datetimes in result_merger.py, object_detection.py, and create_test_dataset.py to fix timezone handling',
+    })).toBe(false);
+    // system_wide scope alone (from shared merged-PR stats) is insufficient.
+    expect(isBroadWorkUnit({ summary: 'Add crowd-density alert detection with thresholds', facts: { scope: 'system_wide' } })).toBe(false);
+    // A medium scoped single capability is never broad.
+    expect(isBroadWorkUnit({ summary: 'Add request timeouts to API calls', facts: { scope: 'medium' } })).toBe(false);
+    // Empty / missing summary is never broad.
+    expect(isBroadWorkUnit({ summary: '', facts: { scope: 'system_wide' } })).toBe(false);
+    expect(isBroadWorkUnit({ facts: { scope: 'system_wide' } })).toBe(false);
+    // Fewer than 3 topic conjunctions is not a roll-up.
+    expect(isBroadWorkUnit({ summary: 'Add retrieval that combines search and ranking', facts: { scope: 'system_wide' } })).toBe(false);
+  });
+
+  it('flags long multi-topic roll-ups and large-file broad units', () => {
+    expect(isBroadWorkUnit({
+      summary: 'Add video indexing and alert streaming and chat APIs and camera occupancy and loitering detection and timed-entry rules and zone tracking across the entire surveillance system',
+      facts: { scope: 'system_wide' },
+    })).toBe(true);
+    // 20+ files with a 220+ char multi-topic summary.
+    expect(isBroadWorkUnit({
+      summary: 'Add retrieval that combines semantic search and database queries and video indexing and alert streaming and chat APIs and camera occupancy and per-zone tracking and loitering detection and timed-entry rules and the monitoring framework',
+      facts: { scope: 'large' },
+      size_metrics: { changed_files: 24 },
+    })).toBe(true);
+  });
+
+  it('normalizes previous_capability_key from model responses', () => {
+    const [item] = normalizeExtractionResponse(
+      { items: [{ summary: 'Extend chat API', previous_capability_key: 'chat_api_nlp_filtering' }] },
+      'chat', 100, 5
+    );
+    expect(item.previous_capability_key).toBe('chat_api_nlp_filtering');
+    const [plain] = normalizeExtractionResponse(
+      { items: [{ summary: 'New capability' }] },
+      'new', 10, 2
+    );
+    expect(plain.previous_capability_key).toBeNull();
+  });
+
+  it('produces a deterministic evidence hash for identical inputs', () => {
+    const events = [{ event_type: 'push', payload: { commits: [{ sha: 'abc', message: 'add retrieval' }] } }];
+    const repo = [{ capability_key: 'retrieval', role: 'foundation', summary: 'Built earlier' }];
+    const a = buildEvidenceHash(candidate, events, 'v5.0', [], repo);
+    const b = buildEvidenceHash(candidate, events, 'v5.0', [], repo);
+    expect(a).toBe(b);
+  });
+
+  it('builds a breakdown prompt even with minimal evidence and a null key', () => {
+    const prompt = buildBreakdownPrompt({
+      broadUnit: { summary: 'Ship everything at once', capability_key: null, role: 'feature', work_type: 'Feature' },
+      title: 'Big change',
+      commitMessages: [],
+      changedFilePaths: [],
+      codeEvidence: [],
+      prBody: null,
+    });
+    expect(prompt).toContain('Ship everything at once');
+    expect(prompt).toContain('(none)');
+    expect(prompt).toContain('one work item per capability');
   });
 });
 

@@ -386,6 +386,52 @@ export async function getPublicRepository(owner: string, name: string): Promise<
   }
 }
 
+/**
+ * Fetch a repository's README (raw markdown) for goal-tree building.
+ * Uses the installation token when the repo is installation-tracked (private),
+ * falls back to GITHUB_TOKEN, then unauthenticated (public repos). Returns null
+ * on any failure so goal-tree building can degrade gracefully.
+ */
+export async function getRepoReadme(
+  owner: string,
+  name: string,
+  repoId?: number
+): Promise<string | null> {
+  let token: string | null = null;
+  if (repoId) {
+    try {
+      const { sql } = await import('./db');
+      const rows = await sql`SELECT installation_id FROM repositories WHERE id = ${repoId}`;
+      const installationId = rows[0]?.installation_id as number | string | null | undefined;
+      if (installationId) {
+        token = await getInstallationAccessToken(installationId);
+      }
+    } catch {
+      token = null;
+    }
+  }
+  if (!token) token = process.env.GITHUB_TOKEN ?? null;
+
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github.raw+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  try {
+    const response = await fetch(`https://api.github.com/repos/${owner}/${name}/readme`, {
+      headers,
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
+      next: { revalidate: 3600 },
+    });
+    if (!response.ok) return null;
+    const text = await response.text();
+    return text.slice(0, 8000);
+  } catch {
+    return null;
+  }
+}
+
 // Dedupe within a single render so generateMetadata (layout) and the page body
 // share one GitHub API call per request instead of two.
 export const getPublicRepositoryCached = cache(getPublicRepository);

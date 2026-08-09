@@ -308,6 +308,61 @@ export async function initSchema() {
   await sql`CREATE INDEX IF NOT EXISTS wu_review_queue_idx ON work_units(repo_id, flagged_for_review) WHERE flagged_for_review = true;`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS wu_outcome_idx ON work_units(repo_id, shipped_at) WHERE shipped = true AND outcome IS NULL;`.catch(() => {});
 
+  // --- Repo-goal anchoring + capability ledger (scoring v6) ---
+  await sql`
+    CREATE TABLE IF NOT EXISTS repo_goal_trees (
+      repo_id INTEGER PRIMARY KEY REFERENCES repositories(id) ON DELETE CASCADE,
+      source_hash VARCHAR(64) NOT NULL,
+      tree_version VARCHAR(24) NOT NULL,
+      purpose TEXT NOT NULL DEFAULT '',
+      data JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS repo_goal_trees_hash_idx ON repo_goal_trees(source_hash);`.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS capability_ledger (
+      id BIGSERIAL PRIMARY KEY,
+      repo_id INTEGER NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+      capability_key VARCHAR(160) NOT NULL,
+      goal_slug VARCHAR(80) NOT NULL DEFAULT 'general',
+      title VARCHAR(240) NOT NULL DEFAULT '',
+      summary TEXT NOT NULL DEFAULT '',
+      centrality INTEGER NOT NULL DEFAULT 3,
+      status VARCHAR(16) NOT NULL DEFAULT 'active',
+      first_shipped_at TIMESTAMPTZ,
+      last_shipped_at TIMESTAMPTZ,
+      latest_work_unit_id BIGINT REFERENCES work_units(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (repo_id, capability_key)
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS capability_ledger_repo_status_idx ON capability_ledger(repo_id, status);`.catch(() => {});
+  await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS ledger_id BIGINT REFERENCES capability_ledger(id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS wu_ledger_idx ON work_units(ledger_id);`.catch(() => {});
+  await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS refinement_depth INTEGER NOT NULL DEFAULT 0`.catch(() => {});
+  await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS audited BOOLEAN NOT NULL DEFAULT false`.catch(() => {});
+
+  // Granularity-refinement queue (feed-backward quality job): units the audit
+  // flagged as too broad, awaiting targeted re-extraction into specific units.
+  await sql`
+    CREATE TABLE IF NOT EXISTS work_unit_refinements (
+      id BIGSERIAL PRIMARY KEY,
+      repo_id INTEGER NOT NULL REFERENCES repositories(id),
+      work_unit_id BIGINT NOT NULL REFERENCES work_units(id),
+      reason TEXT NOT NULL,
+      status VARCHAR(16) NOT NULL DEFAULT 'pending',
+      refinement_revision INTEGER NOT NULL DEFAULT 1,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      processed_at TIMESTAMPTZ,
+      UNIQUE (work_unit_id)
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS wur_repo_status_idx ON work_unit_refinements(repo_id, status);`.catch(() => {});
+
   await sql`
     CREATE TABLE IF NOT EXISTS work_unit_contributors (
       work_unit_id BIGINT NOT NULL REFERENCES work_units(id) ON DELETE CASCADE,
@@ -389,6 +444,20 @@ export async function initSchema() {
     );
   `;
   await sql`ALTER TABLE dimension_scores ADD COLUMN IF NOT EXISTS percentile REAL`.catch(() => {});
+
+  // Shipped-code ownership: git-blame share of the repo's final code per
+  // contributor, computed by scripts/compute-code-ownership (scoring v6).
+  await sql`
+    CREATE TABLE IF NOT EXISTS contributor_code_ownership (
+      contributor_id INTEGER NOT NULL REFERENCES github_contributors(id),
+      repo_id INTEGER NOT NULL REFERENCES repositories(id),
+      code_lines INTEGER NOT NULL DEFAULT 0,
+      share REAL NOT NULL DEFAULT 0,
+      total_code_lines INTEGER NOT NULL DEFAULT 0,
+      computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (contributor_id, repo_id)
+    );
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS classification_cache (

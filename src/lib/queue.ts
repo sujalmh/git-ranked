@@ -38,11 +38,32 @@ export async function getBoss(): Promise<PgBoss> {
 
     await boss.start();
     await boss.createQueue('classify-repo').catch(() => {});
+    await boss.createQueue('granularity-refine').catch(() => {});
     bossInstance = boss;
     return boss;
   })();
 
   return bossInitPromise;
+}
+
+/**
+ * Enqueue the background granularity-refinement quality job for a repo.
+ * Singleton per repo so concurrent runs collapse into one active job.
+ */
+export async function enqueueGranularityRefine(
+  repoId: number,
+  userId?: number
+): Promise<string | null> {
+  const boss = await getBoss();
+  const payload = {
+    repoId,
+    userId: typeof userId === 'number' && Number.isInteger(userId) ? userId : null,
+  };
+  return boss.send('granularity-refine', payload, {
+    singletonKey: `granularity-refine-${repoId}`,
+    retryLimit: 1,
+    expireInSeconds: 21600,
+  });
 }
 
 export async function enqueueClassifyRepo(

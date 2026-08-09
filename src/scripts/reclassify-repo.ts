@@ -4,17 +4,23 @@
  * prompt runs fresh while preserving prior work-unit lineage.
  *
  * Usage: npx tsx src/scripts/reclassify-repo.ts [repoId]
+ *
+ * NOTE: app modules must be imported AFTER dotenv loads .env.local — the AI
+ * provider/endpoint constants are read at module-evaluation time, so static
+ * imports before config() would send the OpenCode Go key to the OpenRouter
+ * endpoint (401 Missing Authentication header).
  */
 
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import { sql } from '../lib/db';
-import { classifyRepo, scoreRepo } from '../lib/scoring';
-import { generateRepoInsights } from '../lib/insights';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
 async function main() {
+  const { sql } = await import('../lib/db');
+  const { classifyRepo, scoreRepo } = await import('../lib/scoring');
+  const { generateRepoInsights } = await import('../lib/insights');
+
   const repoId = Number(process.argv[2] ?? 4);
   if (!Number.isFinite(repoId)) {
     console.error('Usage: npx tsx src/scripts/reclassify-repo.ts [repoId]');
@@ -26,7 +32,7 @@ async function main() {
   await sql`UPDATE work_unit_candidates SET status = 'needs_reclassification', classified_at = NULL WHERE repo_id = ${repoId}`;
   console.log('  Candidates reset.');
 
-  console.log('\nRunning classifyRepo...');
+  console.log('\nRunning classifyRepo (builds the repo goal tree + ledger)...');
   const totalUnits = await classifyRepo(repoId);
   console.log(`  Extracted ${totalUnits} work units.`);
 

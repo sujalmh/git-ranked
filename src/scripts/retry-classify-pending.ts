@@ -9,12 +9,14 @@
  * this is safe to run repeatedly.
  *
  * Usage: npx tsx src/scripts/retry-classify-pending.ts
+ *
+ * NOTE: app modules must be imported AFTER dotenv loads .env.local — the AI
+ * provider/endpoint constants are read at module-evaluation time, so static
+ * imports before config() would send the OpenCode Go key to the OpenRouter
+ * endpoint (401 Missing Authentication header).
  */
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import { sql } from '../lib/db';
-import { classifyRepo, scoreRepo } from '../lib/scoring';
-import { generateRepoInsights } from '../lib/insights';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
@@ -22,6 +24,7 @@ const SLEEP_MS = 30 * 60 * 1000;
 const MAX_ELAPSED_MS = 24 * 60 * 60 * 1000;
 
 async function pendingRepoIds(): Promise<number[]> {
+  const { sql } = await import('../lib/db');
   const rows = await sql`
     SELECT DISTINCT repo_id FROM work_unit_candidates
     WHERE status IN ('pending', 'needs_reclassification')
@@ -31,6 +34,8 @@ async function pendingRepoIds(): Promise<number[]> {
 }
 
 async function main() {
+  const { classifyRepo, scoreRepo } = await import('../lib/scoring');
+  const { generateRepoInsights } = await import('../lib/insights');
   const startedAt = Date.now();
   let attempts = 0;
 

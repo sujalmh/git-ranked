@@ -18,6 +18,10 @@ async function main() {
       await sql`DROP TABLE IF EXISTS work_unit_contributors CASCADE;`;
       await sql`DROP TABLE IF EXISTS work_units CASCADE;`;
       await sql`DROP TABLE IF EXISTS work_unit_candidates CASCADE;`;
+      await sql`DROP TABLE IF EXISTS capability_ledger CASCADE;`;
+      await sql`DROP TABLE IF EXISTS repo_goal_trees CASCADE;`;
+      await sql`DROP TABLE IF EXISTS contributor_code_ownership CASCADE;`;
+      await sql`DROP TABLE IF EXISTS work_unit_refinements CASCADE;`;
       await sql`DROP TABLE IF EXISTS classification_cache CASCADE;`;
       await sql`DROP TABLE IF EXISTS scoring_config CASCADE;`;
       await sql`DROP TABLE IF EXISTS ai_summaries CASCADE;`;

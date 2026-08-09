@@ -317,11 +317,15 @@ export async function getRepoAnalysisData(
   // Fetch v3 dimension scores. Only the authenticated repo board should trigger
   // a recompute when scores are missing; public/shared pages (SEO + share links)
   // must not pay that cost, so they just read whatever is already stored.
+  // Filter to the current scoring-config version so stale rows from older
+  // scoring rules never win over the latest (v5.0 vs v6.0).
+  const { getRepoScoringConfig } = await import('./scoring');
+  const activeConfig = await getRepoScoringConfig(repoId);
   let dimensionRows = await sql`
     SELECT contributor_id, decay_profile, impact, quality, collaboration, consistency, composite,
            percentile, window_start, window_end, scoring_config_version, computed_at
     FROM dimension_scores
-    WHERE repo_id = ${repoId}
+    WHERE repo_id = ${repoId} AND scoring_config_version = ${activeConfig.version}
   `;
 
   if (dimensionRows.length === 0 && computeScores) {
@@ -339,6 +343,16 @@ export async function getRepoAnalysisData(
     dimMap.set(cid, existing);
   }
 
+  // Git-blame code ownership (opt-in per repo): share of the final code each
+  // contributor owns. Absent rows mean no ownership data for this repo.
+  const ownershipRows = await sql`
+    SELECT contributor_id, share FROM contributor_code_ownership WHERE repo_id = ${repoId}
+  `;
+  const ownershipByContributor = new Map<number, number>();
+  for (const row of ownershipRows) {
+    ownershipByContributor.set(row.contributor_id as number, Number(row.share ?? 0));
+  }
+
   const contributors = rawContributors.map((c) => {
     const ds = dimMap.get(c.id);
     if (!ds?.current) return c;
@@ -347,6 +361,7 @@ export async function getRepoAnalysisData(
       ...c,
       impactScore: currentComp,
       percentile: ds.current.percentile,
+      codeOwnership: ownershipByContributor.get(c.id),
       dimensionScores: ds,
       score: {
         total: currentComp,

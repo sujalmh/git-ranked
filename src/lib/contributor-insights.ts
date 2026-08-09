@@ -27,6 +27,8 @@ export type ContributorInsight = {
   impactScore: number;
   /** 0-100 relative rank vs. other contributors in the same repo (current profile). */
   percentile?: number;
+  /** Git-blame share (0-1) of the repo's final code this contributor owns. */
+  codeOwnership?: number;
   commits: number;
   prsOpened: number;
   prsMerged: number;

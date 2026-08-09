@@ -1,5 +1,6 @@
 import { sql } from '../db';
 import { PROFILE_PRESETS } from './profiles';
+import { DEFAULT_IMPACT_PROGRESS } from './goals';
 import type { ProfileName, ScoringConfig } from './types';
 
 export async function getRepoScoringConfig(repoId: number): Promise<ScoringConfig> {
@@ -20,14 +21,20 @@ export async function getRepoScoringConfig(repoId: number): Promise<ScoringConfi
 
   if (configRow.length > 0) {
     const row = configRow[0];
+    const caps = row.caps ?? {};
+    // Pre-v6 config rows lack the per-node progress curve. Fall back to the
+    // v6 defaults so the new scoring model works even before a re-seed.
+    const capsWithProgress = caps.impactProgress
+      ? caps
+      : { ...caps, impactProgress: DEFAULT_IMPACT_PROGRESS };
     return {
       id: row.id,
-      version: row.version || 'v5.0',
+      version: caps.impactProgress ? row.version || 'v6.0' : 'v6.0',
       repo_id: row.repo_id,
       profile: row.profile,
       derivation_weights: row.derivation_weights,
       value_weights: row.value_weights,
-      caps: row.caps,
+      caps: capsWithProgress,
       decay_half_life_days: row.decay_half_life_days ?? 60,
     };
   }

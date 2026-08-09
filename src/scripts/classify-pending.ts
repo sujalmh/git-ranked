@@ -5,17 +5,22 @@
  * is cheap — it never re-wipes already-classified work.
  *
  * Usage: npx tsx src/scripts/classify-pending.ts
+ *
+ * NOTE: app modules must be imported AFTER dotenv loads .env.local — the AI
+ * provider/endpoint constants are read at module-evaluation time, so static
+ * imports before config() would send the OpenCode Go key to the OpenRouter
+ * endpoint (401 Missing Authentication header).
  */
 
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import { sql } from '../lib/db';
-import { classifyRepo, scoreRepo } from '../lib/scoring';
-import { generateRepoInsights } from '../lib/insights';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
 async function main() {
+  const { sql } = await import('../lib/db');
+  const { classifyRepo, scoreRepo } = await import('../lib/scoring');
+  const { generateRepoInsights } = await import('../lib/insights');
   const repos = await sql`
     SELECT DISTINCT repo_id, COUNT(*)::int AS pending
     FROM work_unit_candidates

@@ -7,6 +7,14 @@ import { correctLowConfidenceFacts, extractHeuristicFacts, classifyWorkTypeFromT
 import { buildRationale } from './rationale';
 import { reviewValue } from './review';
 import { resolveAttribution } from './attribution';
+import {
+  loadCapabilityLedger,
+  loadRepoGoalTree,
+  upsertCapabilityLedgerRow,
+  clampCentrality,
+  formatGoalTreeBlock,
+  type CapabilityLedgerRow,
+} from './goals';
 import type { Facts, ReviewFacts, ScoringConfig, WorkRole, WorkType } from './types';
 import type { WorkUnitCandidate } from './aggregator';
 
@@ -20,6 +28,73 @@ export interface ExtractedWorkItem {
   source_commit_shas: string[];
   action?: 'add' | 'update' | 'keep' | 'supersede';
   previous_capability_key?: string | null;
+  /** How directly this unit advances the repo's primary goals (1-5, default 3). */
+  goal_alignment?: number;
+}
+
+/**
+ * A single active work unit in the repo-wide capability registry. Extraction
+ * must reconcile against the whole repo's previously-shipped capabilities, not
+ * just the current candidate's own units, so the same capability gets the same
+ * capability_key across PRs and lifecycle roles stay consistent.
+ */
+export interface RepoCapabilityUnit {
+  id: number;
+  candidate_id: number;
+  capability_key: string;
+  role?: string | null;
+  summary?: string | null;
+  shipped_at?: string | null;
+  created_at?: string;
+  source_event_ids?: number[];
+}
+
+/**
+ * Load the repo-wide capability registry: the most recently shipped active
+ * work units for this repo. Used to seed the extraction prompt and to
+ * reconcile new units against capabilities built in earlier PRs/pushes so we
+ * do not create independent duplicate capability_keys for the same feature.
+ *
+ * Candidates in `excludeCandidateIds` are omitted so a candidate never matches
+ * its own not-yet-superseded units through the cross-candidate path (its own
+ * units are handled by the candidate-scoped `previousUnits` reconciliation).
+ */
+export async function loadRepoCapabilityRegistry(
+  repoId: number,
+  options?: { excludeCandidateIds?: number[]; limit?: number }
+): Promise<RepoCapabilityUnit[]> {
+  const excludes = options?.excludeCandidateIds ?? [];
+  const limit = options?.limit ?? 80;
+  if (excludes.length === 0) {
+    return (await sql`
+      SELECT id, candidate_id, capability_key, role, summary, shipped_at, created_at, source_event_ids
+      FROM work_units
+      WHERE repo_id = ${repoId}
+        AND COALESCE(unit_status, 'active') = 'active'
+        AND capability_key IS NOT NULL AND capability_key <> ''
+      ORDER BY shipped_at DESC NULLS LAST, created_at DESC
+      LIMIT ${limit}
+    `) as unknown as RepoCapabilityUnit[];
+  }
+  return (await sql`
+    SELECT id, candidate_id, capability_key, role, summary, shipped_at, created_at, source_event_ids
+    FROM work_units
+    WHERE repo_id = ${repoId}
+      AND COALESCE(unit_status, 'active') = 'active'
+      AND capability_key IS NOT NULL AND capability_key <> ''
+      AND NOT (candidate_id = ANY(${excludes}::bigint[]))
+    ORDER BY shipped_at DESC NULLS LAST, created_at DESC
+    LIMIT ${limit}
+  `) as unknown as RepoCapabilityUnit[];
+}
+
+export function formatCapabilityRegistry(
+  units: Array<{ capability_key?: string | null; role?: string | null; summary?: string | null }>
+): string {
+  if (units.length === 0) return '';
+  return units
+    .map((unit) => `- ${unit.capability_key ?? '(unknown)'} [${unit.role ?? 'feature'}]: ${unit.summary ?? ''}`)
+    .join('\n');
 }
 
 /**
@@ -227,7 +302,9 @@ export function buildEvidenceHash(
   candidate: WorkUnitCandidate,
   events: Array<Record<string, unknown>>,
   configVersion: string,
-  previousUnits: Array<{ capability_key?: string | null; summary?: string | null; role?: string | null }>
+  previousUnits: Array<{ capability_key?: string | null; summary?: string | null; role?: string | null }>,
+  repoCapabilities: Array<{ capability_key?: string | null; summary?: string | null; role?: string | null }> = [],
+  goalTreeBlock?: string
 ): string {
   const evidence = {
     candidate: candidate.correlation_key,
@@ -238,6 +315,17 @@ export function buildEvidenceHash(
       summary: unit.summary ?? null,
       role: unit.role ?? null,
     })),
+    // Cross-candidate context determines how a new unit reconciles. If the
+    // repo registry changes (a capability was built in an earlier candidate),
+    // a cached response is stale and must not be reused.
+    repo: repoCapabilities.map((unit) => ({
+      capability_key: unit.capability_key ?? null,
+      summary: unit.summary ?? null,
+      role: unit.role ?? null,
+    })),
+    // The repo goal tree drives key reuse and goal_alignment decisions. If it
+    // changes (README/PR surface changed), cached extractions are stale.
+    goalTree: goalTreeBlock ? createHash('sha256').update(goalTreeBlock).digest('hex') : null,
     configVersion,
     promptVersion: EXTRACTION_PROMPT_VERSION,
   };
@@ -255,7 +343,8 @@ function deriveWorkType(eventType: string, titleOrMessage: string): WorkType {
 export async function extractAndPersistWorkUnits(
   candidate: WorkUnitCandidate,
   config: ScoringConfig,
-  aiOptions?: AiCallOptions
+  aiOptions?: AiCallOptions,
+  goalTreeBlock?: string
 ): Promise<number> {
   const events = await sql`
     SELECT id, repo_id, contributor_id, event_type, payload, created_at, before_sha, after_sha
@@ -267,11 +356,33 @@ export async function extractAndPersistWorkUnits(
   if (events.length === 0) return 0;
 
   const previousUnits = (await sql`
-    SELECT id, capability_key, summary, role, unit_status
+    SELECT id, ledger_id, capability_key, summary, role, unit_status
     FROM work_units
     WHERE candidate_id = ${candidate.id} AND COALESCE(unit_status, 'active') = 'active'
     ORDER BY id ASC
-  `) as Array<{ id: number; capability_key?: string | null; summary?: string | null; role?: string | null; unit_status?: string }>;
+  `) as Array<{ id: number; ledger_id?: number | null; capability_key?: string | null; summary?: string | null; role?: string | null; unit_status?: string }>;
+
+  // Repo-wide capability registry drives cross-candidate consistency: a later
+  // PR that advances or repairs a capability built earlier reuses its key and
+  // merges into the same canonical work unit instead of minting a duplicate.
+  const repoCapabilities = await loadRepoCapabilityRegistry(candidate.repo_id, {
+    excludeCandidateIds: [candidate.id],
+  });
+
+  // Repo overview lets the model judge each unit's place in the whole repo
+  // (foundational subsystem vs isolated tweak) instead of in a per-PR vacuum.
+  const { buildRepoOverviewBlock } = await import('./repo-context');
+  const repoOverviewBlock = await buildRepoOverviewBlock(candidate.repo_id);
+
+  // Repo goal tree drives repo-goal-aware extraction and deterministic
+  // centrality. Loaded once per classifyRepo pass and threaded in; falls back
+  // to reading the stored tree when called standalone.
+  let resolvedGoalTreeBlock = goalTreeBlock;
+  if (!resolvedGoalTreeBlock) {
+    const { loadRepoGoalTree, formatGoalTreeBlock } = await import('./goals');
+    const tree = await loadRepoGoalTree(candidate.repo_id).catch(() => null);
+    resolvedGoalTreeBlock = tree ? formatGoalTreeBlock(tree) : '';
+  }
 
   const firstEvent = events[0];
   const repoId = candidate.repo_id;
@@ -361,7 +472,7 @@ export async function extractAndPersistWorkUnits(
     await sql`
       UPDATE work_unit_candidates
       SET status = 'classified', classified_at = NOW(), extraction_revision = COALESCE(extraction_revision, 0) + 1,
-          evidence_hash = ${buildEvidenceHash(candidate, events as Array<Record<string, unknown>>, config.version, previousUnits)}
+          evidence_hash = ${buildEvidenceHash(candidate, events as Array<Record<string, unknown>>, config.version, previousUnits, repoCapabilities, resolvedGoalTreeBlock)}
       WHERE id = ${candidate.id}
     `;
 
@@ -394,7 +505,7 @@ export async function extractAndPersistWorkUnits(
       UPDATE work_unit_candidates
       SET status = 'classified', classified_at = NOW(),
           extraction_revision = COALESCE(extraction_revision, 0) + 1,
-          evidence_hash = ${buildEvidenceHash(candidate, events as Array<Record<string, unknown>>, config.version, previousUnits)}
+          evidence_hash = ${buildEvidenceHash(candidate, events as Array<Record<string, unknown>>, config.version, previousUnits, repoCapabilities, resolvedGoalTreeBlock)}
       WHERE id = ${candidate.id}
     `;
     return 0;
@@ -409,7 +520,9 @@ export async function extractAndPersistWorkUnits(
     candidate,
     events as Array<Record<string, unknown>>,
     config.version,
-    previousUnits
+    previousUnits,
+    repoCapabilities,
+    resolvedGoalTreeBlock
   );
 
   let extractedItems: ExtractedWorkItem[] = [];
@@ -457,6 +570,9 @@ export async function extractAndPersistWorkUnits(
         previousUnits,
         sourceCommitShas,
         codeEvidence,
+        repoCapabilities,
+        repoOverviewBlock,
+        resolvedGoalTreeBlock,
       );
 
       await acquireSlot('openrouter');
@@ -550,7 +666,7 @@ export async function extractAndPersistWorkUnits(
     config,
     extractedItems,
     extractionSource,
-    { previousUnits, isShipped, shippedAt, attribution }
+    { previousUnits, repoCapabilities, isShipped, shippedAt, attribution }
   );
 
   return persistedCount;
@@ -597,6 +713,87 @@ export function shouldPreferIndividualExtraction(input: {
   );
 }
 
+/**
+ * Detect a broad roll-up work unit: one previous-pass unit that collapsed
+ * multiple shipped capabilities into a single generic summary. Such units are
+ * candidates for refinement into specific topic units.
+ *
+ * Conservative by design: refining a coherent unit would split one capability
+ * into implementation steps, so only clear roll-ups are flagged. A roll-up
+ * lists several distinct capabilities (multiple topic conjunctions) and either
+ * spans the whole repo (system_wide) or is unusually long. Explicit refinement
+ * via `--units=` remains the primary path; this only catches obvious cases.
+ */
+export function isBroadWorkUnit(unit: {
+  summary?: string | null;
+  facts?: { scope?: string | null } | null;
+  size_metrics?: { changed_files?: number | null } | null;
+}): boolean {
+  const summary = (unit.summary ?? '').trim();
+  const scope = unit.facts?.scope ?? null;
+  const files = Number(unit.size_metrics?.changed_files ?? 0);
+
+  // Distinct capabilities joined by "and"/"plus"/"also". Commas are excluded
+  // because they frequently separate a file list inside one fix.
+  const topicJoins = (summary.match(/\b(and|plus|also|as well as)\b/gi) ?? []).length;
+
+  if (topicJoins < 3) return false;
+  if (scope === 'system_wide' && summary.length >= 160) return true;
+  if (files >= 20 && summary.length >= 220) return true;
+  if (summary.length >= 260 && topicJoins >= 5) return true;
+
+  return false;
+}
+
+/**
+ * Targeted prompt for breaking a broad roll-up unit into specific topic units.
+ * Unlike the full candidate prompt this does not re-extract the whole PR — it
+ * focuses the model on enumerating the distinct capabilities hidden inside a
+ * single broad summary, so the result is finer-grained than the roll-up.
+ */
+export function buildBreakdownPrompt(input: {
+  broadUnit: { capability_key?: string | null; summary?: string | null; role?: string | null; work_type?: string | null };
+  title: string;
+  commitMessages: string[];
+  changedFilePaths: string[];
+  codeEvidence: string[];
+  prBody: string | null;
+}): string {
+  let prompt = `A previous extraction pass collapsed several distinct shipped capabilities into ONE broad work unit. Break it down into its specific topic units.
+
+Broad unit summary: "${input.broadUnit.summary ?? ''}"
+Broad unit key: ${input.broadUnit.capability_key ?? '(none)'}
+
+Work item context:
+Title: "${input.title}"
+`;
+
+  if (input.changedFilePaths.length > 0) {
+    prompt += `\nChanged files:\n${input.changedFilePaths.slice(0, 120).join('\n')}\n`;
+  }
+  if (input.commitMessages.length > 0) {
+    prompt += `\nCommit messages:\n${input.commitMessages.slice(0, 15).map((m, i) => `${i + 1}. ${m}`).join('\n')}\n`;
+  }
+  if (input.prBody) {
+    prompt += `\nPR description:\n${input.prBody.slice(0, 1200)}\n`;
+  }
+  if (input.codeEvidence.length > 0) {
+    prompt += `\nCode evidence snippets:\n${input.codeEvidence.join('\n---\n').slice(0, 24000)}\n`;
+  }
+
+  prompt += `
+Enumerate EVERY distinct capability actually shipped within the broad unit above. Return one work item per capability (typically 2–12). Requirements:
+- Each item has its OWN specific capability_key (do not reuse the broad unit's key).
+- Set previous_capability_key on every item to the broad unit's key ("${input.broadUnit.capability_key ?? '(none)'}") so the breakdown chains to the original unit.
+- summary must name the concrete subsystem, API, or feature (max 200 chars), not repeat the broad summary.
+- role: foundation for a first implementation of that specific capability, otherwise feature/advancement/refinement/repair/security/performance.
+- Do not split one capability into implementation steps.
+- If the broad unit genuinely describes a single capability, return exactly one item describing it precisely.
+
+Respond with JSON: { "items": [...] } using the same item schema as the normal extraction prompt (work_type, role, capability_key, previous_capability_key, summary, facts, confidence).`;
+  return prompt;
+}
+
 export const EXTRACTION_SYSTEM_MESSAGE = `You are an expert engineering work classifier for a GitHub repository analytics platform called GitRanked. Your job is to analyze GitHub events (pull requests, pushes, issues) and extract distinct, specific work items describing what was actually accomplished.
 
 Critical classification rules:
@@ -618,7 +815,9 @@ Critical classification rules:
    - touches_distributed_state: true if touching caches, event queues, webhooks, multi-threading, concurrency, or pub/sub.
    - touches_architecture: true if restructuring core application design, dependency wiring, or module boundaries.
 5. If a single commit/PR covers multiple distinct shipped capabilities, split into up to 12 work items. Do not split one feature into implementation steps.
-6. Previous-pass units are evidence, not instructions. Keep the same capability_key when the new evidence advances the same capability; use action=update and role=advancement/refinement/repair as appropriate.`;
+6. Previous-pass units are evidence, not instructions. Keep the same capability_key when the new evidence advances the same capability; use action=update and role=advancement/refinement/repair as appropriate.
+7. Consistency across PRs: when the prompt lists repository capabilities already shipped in earlier PRs/pushes, REUSE those exact capability_key values whenever this candidate touches the same capability (build/foundation first time, then advancement/refinement/repair on later PRs). Only create a NEW capability_key for a genuinely new capability. Never create a second, differently-named key for a capability that already exists — otherwise the same feature is counted as multiple independent work units.
+8. Repository goals: when the prompt includes the repository goal tree, judge each work item against it. A change that advances a foundational capability (high centrality) is worth more than the same-sized change on a peripheral feature. Set goal_alignment (1-5) accordingly.`;
 
 export function buildExtractionPrompt(
   title: string,
@@ -632,7 +831,10 @@ export function buildExtractionPrompt(
   changedFilePaths: string[] = [],
   previousUnits: Array<{ capability_key?: string | null; summary?: string | null; role?: string | null }> = [],
   sourceCommitShas: string[] = [],
-  codeEvidence: string[] = []
+  codeEvidence: string[] = [],
+  repoCapabilities: Array<{ capability_key?: string | null; summary?: string | null; role?: string | null }> = [],
+  repoOverviewBlock?: string,
+  goalTreeBlock?: string
 ): string {
   const eventLabel =
     eventType === 'pr_merged'
@@ -651,6 +853,18 @@ Title: "${title}"
 Event type: ${eventType}
 Stats: ${changedFiles} files changed, +${additions}/-${deletions} lines${commitCount > 1 ? `, ${commitCount} commits` : ''}
 `;
+
+  if (repoOverviewBlock) {
+    prompt += `\nRepository context (use this to judge how this change fits the whole repo — foundational subsystems matter more than isolated tweaks):\n${repoOverviewBlock}\n`;
+  }
+
+  if (goalTreeBlock) {
+    prompt += `\nRepository goals (assign each work item to an existing capability_key below when it builds/advances/refines/repairs that capability; only mint a NEW capability_key for a genuinely new capability. Set goal_alignment 1-5: how directly this change advances the repository's primary goals):\n${goalTreeBlock}\n`;
+  }
+
+  if (repoCapabilities.length > 0) {
+    prompt += `\nRepository capabilities already shipped in earlier PRs/pushes (reuse these exact capability_key values when this candidate builds, advances, refines, or repairs the same capability; do NOT mint a new key for an existing capability):\n${formatCapabilityRegistry(repoCapabilities)}\n`;
+  }
 
   if (changedFilePaths.length > 0) {
     prompt += `\nChanged files (code evidence):\n${changedFilePaths.slice(0, 120).join('\n')}\n`;
@@ -685,8 +899,10 @@ For each work item return JSON with these fields:
 - work_type: exactly one of Feature | BugFix | Refactor | Performance | Security | Documentation | Testing | Infrastructure
 - role: exactly one of foundation | build | feature | advancement | refinement | repair | security | performance
 - capability_key: stable snake_case key for the shipped capability; reuse a previous key when this is the same capability
+- previous_capability_key: the existing capability_key this item updates, when reusing a repository capability (see the repository capabilities list); omit for new capabilities
 - action: add | update | keep; use update for a capability that was extended, refined, repaired, or upgraded
 - source_commit_shas: commit SHAs that contain the evidence for this item, when available
+- goal_alignment: 1-5 — how directly this change advances the repository's PRIMARY goals (5 = core to the repo's purpose, 3 = a meaningful feature, 1 = peripheral)
 - summary: specific description of what was done — mention technologies, components, or systems affected (max 200 chars). Be concrete, not generic.
 - facts: {
     scope: trivial | small | medium | large | system_wide,
@@ -724,6 +940,7 @@ Example response:
       "source_commit_shas": [],
       "summary": "Add RBAC models with role-based permission system and database migrations",
       "facts": { "scope": "medium", "user_visible": false, "breaking_change": false, "cross_cutting": true, "testing_added": false, "documentation_updated": false, "new_algorithm_or_subsystem": true, "boilerplate": false, "touches_auth": true, "touches_data_migration": true, "touches_distributed_state": false, "touches_architecture": true },
+      "goal_alignment": 5,
       "confidence": 0.85
     }
   ]
@@ -748,6 +965,7 @@ const EXTRACTION_SCHEMA = {
           action: { type: 'string', enum: ['add', 'update', 'keep', 'supersede'] },
           source_commit_shas: { type: 'array', items: { type: 'string' } },
           summary: { type: 'string' },
+          goal_alignment: { type: 'integer', minimum: 1, maximum: 5 },
           facts: {
             type: 'object',
             properties: {
@@ -931,6 +1149,10 @@ export function normalizeExtractionResponse(
           const value = Number(item.confidence ?? 0.7);
           return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0.7;
         })(),
+        goal_alignment: (() => {
+          const value = Number(item.goal_alignment ?? item.alignment ?? 3);
+          return Number.isFinite(value) ? Math.max(1, Math.min(5, Math.round(value))) : 3;
+        })(),
         source_commit_shas: Array.from(new Set(shas)),
         action: ['add', 'update', 'keep', 'supersede'].includes(String(item.action))
           ? String(item.action) as ExtractedWorkItem['action']
@@ -940,7 +1162,7 @@ export function normalizeExtractionResponse(
     });
 }
 
-function stripCodeFences(content: string): string {
+export function stripCodeFences(content: string): string {
   let cleaned = content.trim();
   if (cleaned.startsWith('```')) {
     cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
@@ -955,7 +1177,8 @@ export async function persistExtractedItemsForCandidate(
   extractedItems: ExtractedWorkItem[],
   extractionSource: 'ai' | 'heuristic_fallback' | 'ai_facts_corrected' = 'heuristic_fallback',
   options?: {
-    previousUnits?: Array<{ id: number; capability_key?: string | null; summary?: string | null; role?: string | null }>;
+    previousUnits?: Array<{ id: number; ledger_id?: number | null; capability_key?: string | null; summary?: string | null; role?: string | null }>;
+    repoCapabilities?: RepoCapabilityUnit[];
     isShipped?: boolean;
     shippedAt?: string | null;
     attribution?: Map<number, number>;
@@ -975,16 +1198,47 @@ export async function persistExtractedItemsForCandidate(
   const isShipped = options?.isShipped ?? isCandidateShipped(events);
   const shippedAt = options?.shippedAt ?? extractShippedAt(events);
   const previousUnits = options?.previousUnits ?? (await sql`
-    SELECT id, capability_key, summary, role
+    SELECT id, ledger_id, capability_key, summary, role
     FROM work_units
     WHERE candidate_id = ${candidate.id} AND COALESCE(unit_status, 'active') = 'active'
     ORDER BY id ASC
-  `) as Array<{ id: number; capability_key?: string | null; summary?: string | null; role?: string | null }>;
+  `) as Array<{ id: number; ledger_id?: number | null; capability_key?: string | null; summary?: string | null; role?: string | null }>;
+  const repoCapabilities = options?.repoCapabilities ?? (await loadRepoCapabilityRegistry(repoId, { excludeCandidateIds: [candidate.id] }));
 
   // Split credit across every commit author (proportional to authored commits).
   const attribution = options?.attribution ?? (await resolveAttribution(events, contributorId));
   const previousByKey = new Map(previousUnits.filter((unit) => unit.capability_key).map((unit) => [unit.capability_key!, unit]));
+
+  // Repo-goal anchored capability ledger (Phase 2): canonical nodes, UNIQUE per
+  // (repo, key). A later PR that reuses a key chains to the node's latest unit,
+  // so dedup is enforced structurally — not by the model's memory.
+  const [ledgerRows, goalTree] = await Promise.all([
+    loadCapabilityLedger(repoId, { limit: 500 }).catch(() => []),
+    loadRepoGoalTree(repoId).catch(() => null),
+  ]);
+  const ledgerByKey = new Map<string, CapabilityLedgerRow>();
+  for (const row of ledgerRows) ledgerByKey.set(row.capability_key, row);
+  const treeCentrality = new Map<string, number>();
+  for (const cap of goalTree?.capabilities ?? []) treeCentrality.set(cap.key, cap.centrality);
+
   const matchedIds = new Set<number>();
+
+  // Count how many extracted items target each previous unit. When a previous
+  // pass collapsed several shipped capabilities into one broad roll-up unit and
+  // this pass breaks it apart, multiple items will reference the same previous
+  // unit. That unit must be superseded and each item persisted as its own fresh
+  // chained unit — updating one row in place N times would lose the breakdown.
+  const targetCounts = new Map<number, number>();
+  for (const item of extractedItems) {
+    const matchKey = item.previous_capability_key || item.capability_key;
+    const prev = previousByKey.get(matchKey);
+    if (prev) targetCounts.set(prev.id, (targetCounts.get(prev.id) ?? 0) + 1);
+  }
+
+  // Units created earlier in THIS pass (same candidate), so a duplicate
+  // extraction of the same key chains to the just-written unit instead of
+  // minting another independent copy.
+  const insertedThisPass: Array<{ id: number; ledger_id: number; capability_key: string }> = [];
 
   for (const item of extractedItems) {
     let finalFacts = item.facts;
@@ -995,20 +1249,58 @@ export async function persistExtractedItemsForCandidate(
       itemSource = 'ai_facts_corrected';
     }
 
-    const derived = derive(finalFacts, config.derivation_weights);
+    const capabilityKey = item.capability_key;
+    // Centrality is deterministic from the goal tree (falling back to the
+    // ledger, then 3); it is never re-negotiated by the extraction model.
+    const centrality = clampCentrality(
+      treeCentrality.get(capabilityKey) ?? ledgerByKey.get(capabilityKey)?.centrality ?? 3
+    );
+    const goalAlignment = Math.max(1, Math.min(5, Math.round(Number(item.goal_alignment) || 3)));
+    const derived = { ...derive(finalFacts, config.derivation_weights), centrality, goal_alignment: goalAlignment };
     const rationale = buildRationale(finalFacts, item.work_type);
     const sizeMetrics = JSON.stringify({ additions, deletions, changed_files: changedFiles, commit_count: commitCount });
-    const previous = previousByKey.get(item.previous_capability_key || item.capability_key)
+
+    const treeCap = goalTree?.capabilities.find((c) => c.key === capabilityKey);
+    const goalSlug = treeCap?.goal ?? 'general';
+    const ledgerId = await upsertCapabilityLedgerRow({
+      repoId,
+      capabilityKey,
+      goalSlug,
+      title: item.summary,
+      summary: item.summary,
+      centrality,
+      shippedAt: isShipped ? shippedAt : null,
+    });
+
+    const matchKey = item.previous_capability_key || item.capability_key;
+    const previous =
+      // Structural match first: this candidate's own active unit on the same
+      // ledger node (deterministic; key drift cannot hide a duplicate).
+      previousUnits.find((unit) => unit.ledger_id != null && Number(unit.ledger_id) === ledgerId)
+      // Legacy/key fallback (rows predate the ledger).
+      ?? previousByKey.get(matchKey)
       // Legacy rows predate capability keys. Reuse the only legacy unit rather
       // than creating a duplicate during the first reconciliation pass.
       ?? (previousUnits.length === 1 && !previousUnits[0].capability_key ? previousUnits[0] : undefined);
+    const chainFromThisPass = insertedThisPass.find((u) => u.ledger_id === ledgerId);
+    // A breakdown: one previous unit is referenced by multiple extracted items.
+    // It was a broad roll-up, so it gets superseded and every item becomes its
+    // own chained unit rather than overwriting the same row.
+    const isBreakdown = Boolean(previous && (targetCounts.get(previous.id) ?? 0) > 1);
+    const chainedToId = isBreakdown
+      ? previous?.id
+      : previous
+        ? null // own unit → updated in place below, no chain
+        : chainFromThisPass?.id ?? ledgerByKey.get(matchKey)?.latest_work_unit_id ?? null;
     const sourceCommitShas = item.source_commit_shas.length > 0 ? item.source_commit_shas : extractSourceCommitShas(events);
-    let workUnitId: number | null = previous?.id ?? null;
+    let workUnitId: number | null = null;
 
-    if (previous) {
+    if (previous && !isBreakdown) {
+      workUnitId = previous.id;
       await sql`
         UPDATE work_units
-        SET work_type = ${item.work_type}, role = ${item.role}, capability_key = ${item.capability_key},
+        SET work_type = ${item.work_type}, role = ${item.role}, capability_key = ${capabilityKey},
+            ledger_id = ${ledgerId},
             source_commit_shas = ${sourceCommitShas}, summary = ${item.summary}, facts = ${JSON.stringify(finalFacts)},
             derived = ${JSON.stringify(derived)}, derivation_ruleset_version = ${config.version},
             extraction_confidence = ${item.confidence}, extraction_source = ${itemSource},
@@ -1019,21 +1311,28 @@ export async function persistExtractedItemsForCandidate(
       `;
       matchedIds.add(previous.id);
     } else {
+      // Fresh unit for this candidate. When it reuses a capability built in an
+      // earlier candidate (or is part of breaking a broad roll-up apart), record
+      // that lineage so the lifecycle is traceable without erasing the original
+      // contributor's normalized credit.
       const inserted = await sql`
         INSERT INTO work_units (
           repo_id, candidate_id, work_type, role, capability_key, source_commit_shas, previous_unit_id,
-          unit_status, summary, facts, derived, derivation_ruleset_version,
+          ledger_id, unit_status, summary, facts, derived, derivation_ruleset_version,
           extraction_confidence, extraction_source, flagged_for_review, shipped,
           rationale, size_metrics, shipped_at, source_event_ids
         ) VALUES (
-          ${repoId}, ${candidate.id}, ${item.work_type}, ${item.role}, ${item.capability_key}, ${sourceCommitShas}, NULL,
-          'active', ${item.summary}, ${JSON.stringify(finalFacts)}, ${JSON.stringify(derived)},
+          ${repoId}, ${candidate.id}, ${item.work_type}, ${item.role}, ${capabilityKey}, ${sourceCommitShas}, ${chainedToId},
+          ${ledgerId}, 'active', ${item.summary}, ${JSON.stringify(finalFacts)}, ${JSON.stringify(derived)},
           ${config.version}, ${item.confidence}, ${itemSource}, false, ${isShipped},
           ${JSON.stringify(rationale)}, ${sizeMetrics}, ${isShipped ? shippedAt : null}, ${candidate.source_event_ids}
         )
         RETURNING id
       `;
-      if (inserted.length > 0) workUnitId = inserted[0].id as number;
+      if (inserted.length > 0) {
+        workUnitId = inserted[0].id as number;
+        insertedThisPass.push({ id: workUnitId, ledger_id: ledgerId, capability_key: capabilityKey });
+      }
     }
 
     if (workUnitId !== null) {
@@ -1046,6 +1345,20 @@ export async function persistExtractedItemsForCandidate(
         `;
       }
       persistedCount++;
+
+      // Keep the canonical node pointing at this unit (idempotent upsert).
+      await upsertCapabilityLedgerRow({
+        repoId,
+        capabilityKey,
+        centrality,
+        shippedAt: isShipped ? shippedAt : null,
+        latestWorkUnitId: workUnitId,
+      });
+      const localLedger = ledgerByKey.get(capabilityKey);
+      if (localLedger) {
+        localLedger.latest_work_unit_id = workUnitId;
+        if (isShipped && shippedAt) localLedger.last_shipped_at = shippedAt;
+      }
     }
   }
 
@@ -1059,10 +1372,14 @@ export async function persistExtractedItemsForCandidate(
     }
   }
 
+  // The evidence hash must include the goal tree so a changed tree busts the
+  // classification cache — the tree drives key reuse and goal_alignment.
+  const goalTreeBlockForHash = goalTree ? formatGoalTreeBlock(goalTree) : '';
+
   await sql`
     UPDATE work_unit_candidates
     SET status = 'classified', classified_at = NOW(), extraction_revision = COALESCE(extraction_revision, 0) + 1,
-        evidence_hash = ${buildEvidenceHash(candidate, events, config.version, previousUnits)}
+        evidence_hash = ${buildEvidenceHash(candidate, events, config.version, previousUnits, repoCapabilities, goalTreeBlockForHash)}
     WHERE id = ${candidate.id}
   `;
 
@@ -1110,9 +1427,25 @@ export function buildBatchExtractionPrompt(
     codeEvidence?: string[];
     sourceCommitShas: string[];
     previousUnits: Array<{ id: number; capability_key?: string | null; summary?: string | null; role?: string | null }>;
-  }>
+    repoCapabilities?: RepoCapabilityUnit[];
+  }>,
+  repoOverviewBlock?: string,
+  goalTreeBlock?: string
 ): string {
   let prompt = `Analyze the following ${items.length} GitHub candidates and extract work items for each candidate.\n\n`;
+
+  if (repoOverviewBlock) {
+    prompt += `Repository context (use this to judge how each change fits the whole repo — foundational subsystems matter more than isolated tweaks):\n${repoOverviewBlock}\n\n`;
+  }
+
+  if (goalTreeBlock) {
+    prompt += `Repository goals (assign each work item to an existing capability_key below when it builds/advances/refines/repairs that capability; only mint a NEW capability_key for a genuinely new capability. Set goal_alignment 1-5 per item: how directly the change advances the repository's primary goals):\n${goalTreeBlock}\n\n`;
+  }
+
+  const repoCapabilities = items.find((item) => (item.repoCapabilities?.length ?? 0) > 0)?.repoCapabilities ?? [];
+  if (repoCapabilities.length > 0) {
+    prompt += `Repository capabilities already shipped in earlier PRs/pushes (reuse these exact capability_key values when a candidate builds, advances, refines, or repairs the same capability; do NOT mint a new key for an existing capability):\n${formatCapabilityRegistry(repoCapabilities)}\n\n`;
+  }
 
   items.forEach((item, index) => {
     prompt += `--- CANDIDATE ${index + 1} (correlation_key: "${item.candidate.correlation_key}") ---\n`;
@@ -1160,11 +1493,21 @@ export function buildBatchExtractionPrompt(
 export async function extractAndPersistBatchWorkUnits(
   candidates: WorkUnitCandidate[],
   config: ScoringConfig,
-  aiOptions?: AiCallOptions
+  aiOptions?: AiCallOptions,
+  goalTreeBlock?: string
 ): Promise<number> {
   if (candidates.length === 0) return 0;
   if (candidates.length === 1) {
-    return extractAndPersistWorkUnits(candidates[0], config, aiOptions);
+    return extractAndPersistWorkUnits(candidates[0], config, aiOptions, goalTreeBlock);
+  }
+
+  // Resolve the goal tree block once so every candidate in the batch shares the
+  // same frame of reference (and the same evidence-hash input).
+  let resolvedGoalTreeBlock = goalTreeBlock;
+  if (!resolvedGoalTreeBlock) {
+    const { loadRepoGoalTree, formatGoalTreeBlock } = await import('./goals');
+    const tree = await loadRepoGoalTree(candidates[0].repo_id).catch(() => null);
+    resolvedGoalTreeBlock = tree ? formatGoalTreeBlock(tree) : '';
   }
 
   type BatchCandidateData = {
@@ -1183,11 +1526,24 @@ export async function extractAndPersistBatchWorkUnits(
     codeEvidence: string[];
     sourceCommitShas: string[];
     previousUnits: Array<{ id: number; capability_key?: string | null; summary?: string | null; role?: string | null }>;
+    repoCapabilities: RepoCapabilityUnit[];
     reliableSizeEvidence: boolean;
   };
 
   const uncachedCandidates: (BatchCandidateData | null)[] = [];
   let totalPersisted = 0;
+
+  // One repo-wide capability registry for the whole batch so every candidate
+  // reconciles against the same set of previously shipped capabilities.
+  const batchCandidateIds = candidates.map((c) => c.id);
+  const repoCapabilities = await loadRepoCapabilityRegistry(candidates[0].repo_id, {
+    excludeCandidateIds: batchCandidateIds,
+  });
+
+  // Repo overview shared across the batch so the model can judge each candidate
+  // against the whole repo rather than in a per-PR vacuum.
+  const { buildRepoOverviewBlock } = await import('./repo-context');
+  const repoOverviewBlock = await buildRepoOverviewBlock(candidates[0].repo_id);
 
   for (const candidate of candidates) {
     const events = (await sql`
@@ -1203,7 +1559,7 @@ export async function extractAndPersistBatchWorkUnits(
     const eventType = String(firstEvent.event_type || '');
 
     if (eventType === 'review_submitted') {
-      const units = await extractAndPersistWorkUnits(candidate, config, aiOptions);
+      const units = await extractAndPersistWorkUnits(candidate, config, aiOptions, resolvedGoalTreeBlock);
       totalPersisted += units;
       continue;
     }
@@ -1217,12 +1573,12 @@ export async function extractAndPersistBatchWorkUnits(
     const { additions, deletions, changedFiles, commitCount } = extractMergedSizeMetrics(events);
     const reliableSizeEvidence = additions > 0 || deletions > 0 || changedFiles > 0;
     const previousUnits = (await sql`
-      SELECT id, capability_key, summary, role
+      SELECT id, ledger_id, capability_key, summary, role
       FROM work_units
       WHERE candidate_id = ${candidate.id} AND COALESCE(unit_status, 'active') = 'active'
       ORDER BY id ASC
-    `) as Array<{ id: number; capability_key?: string | null; summary?: string | null; role?: string | null }>;
-    const contentHash = buildEvidenceHash(candidate, events, config.version, previousUnits);
+    `) as Array<{ id: number; ledger_id?: number | null; capability_key?: string | null; summary?: string | null; role?: string | null }>;
+    const contentHash = buildEvidenceHash(candidate, events, config.version, previousUnits, repoCapabilities, resolvedGoalTreeBlock);
 
     const itemData = {
       candidate,
@@ -1234,6 +1590,7 @@ export async function extractAndPersistBatchWorkUnits(
       codeEvidence,
       sourceCommitShas,
       previousUnits,
+      repoCapabilities,
       additions,
       deletions,
       changedFiles,
@@ -1260,7 +1617,7 @@ export async function extractAndPersistBatchWorkUnits(
     }
 
     if (shouldPreferIndividualExtraction(itemData)) {
-      totalPersisted += await extractAndPersistWorkUnits(candidate, config, aiOptions);
+      totalPersisted += await extractAndPersistWorkUnits(candidate, config, aiOptions, resolvedGoalTreeBlock);
       continue;
     }
 
@@ -1299,7 +1656,9 @@ export async function extractAndPersistBatchWorkUnits(
   if (hasApiKey(aiOptions)) {
     try {
       const batchPrompt = buildBatchExtractionPrompt(
-        uncachedCandidates.filter((c): c is NonNullable<typeof c> => c !== null)
+        uncachedCandidates.filter((c): c is NonNullable<typeof c> => c !== null),
+        repoOverviewBlock,
+        goalTreeBlock
       );
       await acquireSlot('openrouter');
 
@@ -1351,8 +1710,14 @@ export async function extractAndPersistBatchWorkUnits(
                     created_at = NOW()
               `.catch(() => {});
 
+              // Reload the registry per candidate so units created earlier in
+              // this same batch are visible for cross-candidate reconciliation.
+              const freshRegistry = await loadRepoCapabilityRegistry(itemData.candidate.repo_id, {
+                excludeCandidateIds: [itemData.candidate.id],
+              });
               const units = await persistExtractedItemsForCandidate(itemData.candidate, itemData.events, config, formattedItems, 'ai', {
                 previousUnits: itemData.previousUnits,
+                repoCapabilities: freshRegistry,
               });
               totalPersisted += units;
               uncachedCandidates[idx] = null;
@@ -1368,9 +1733,164 @@ export async function extractAndPersistBatchWorkUnits(
   // Fallback for remaining uncached candidates
   for (const itemData of uncachedCandidates) {
     if (!itemData) continue;
-    const units = await extractAndPersistWorkUnits(itemData.candidate, config, aiOptions);
+    const units = await extractAndPersistWorkUnits(itemData.candidate, config, aiOptions, resolvedGoalTreeBlock);
     totalPersisted += units;
   }
 
   return totalPersisted;
+}
+
+export interface BroadUnit {
+  id: number;
+  repo_id: number;
+  candidate_id: number;
+  work_type: string;
+  role?: string | null;
+  capability_key?: string | null;
+  summary?: string | null;
+  facts?: Record<string, unknown> | null;
+  size_metrics?: Record<string, unknown> | null;
+}
+
+/**
+ * Find broad roll-up work units in a repo that are candidates for refinement.
+ * A unit is broad when it collapsed multiple shipped capabilities (system_wide
+ * scope, or a long multi-topic summary). Optionally filter to specific ids.
+ */
+export async function findBroadWorkUnits(
+  repoId: number,
+  options?: { unitIds?: number[]; limit?: number }
+): Promise<BroadUnit[]> {
+  const where = options?.unitIds?.length
+    ? sql`AND wu.id = ANY(${options.unitIds}::bigint[])`
+    : sql``;
+  const rows = (await sql`
+    SELECT wu.id, wu.repo_id, wu.candidate_id, wu.work_type, wu.role, wu.capability_key,
+           wu.summary, wu.facts, wu.size_metrics
+    FROM work_units wu
+    WHERE wu.repo_id = ${repoId}
+      AND COALESCE(wu.unit_status, 'active') = 'active'
+      AND wu.work_type <> 'Review'
+      ${where}
+    ORDER BY char_length(wu.summary) DESC,
+             (wu.size_metrics->>'changed_files')::int DESC NULLS LAST
+    LIMIT ${options?.limit ?? 50}
+  `) as unknown as BroadUnit[];
+  return rows.filter((unit) => isBroadWorkUnit({
+    summary: unit.summary,
+    facts: unit.facts as { scope?: string | null } | null,
+    size_metrics: unit.size_metrics as { changed_files?: number | null } | null,
+  }));
+}
+
+/**
+ * Break broad roll-up work units into specific topic units.
+ *
+ * For every broad unit in a repo (or a provided subset), this loads the
+ * candidate's evidence, runs a targeted breakdown prompt, then persists the
+ * resulting specific units chained to the broad unit (previous_unit_id) and
+ * supersedes the broad unit so the finer-grained breakdown replaces it.
+ *
+ * Returns the number of broad units refined.
+ */
+export async function refineBroadWorkUnits(
+  repoId: number,
+  aiOptions?: AiCallOptions,
+  options?: { unitIds?: number[]; limit?: number }
+): Promise<number> {
+  const broadUnits = await findBroadWorkUnits(repoId, options);
+  if (broadUnits.length === 0 || !hasApiKey(aiOptions)) return 0;
+
+  // Reuse the single-candidate prompt version, but drive it through the
+  // breakdown prompt so the model enumerates the hidden capabilities.
+  const config = (await import('./config')).getRepoScoringConfig;
+  const scoringConfig = await config(repoId);
+
+  let refined = 0;
+  for (const broadUnit of broadUnits) {
+    try {
+      const candidateEventIds = (await sql`
+        SELECT source_event_ids FROM work_unit_candidates WHERE id = ${broadUnit.candidate_id}
+      `)[0]?.source_event_ids ?? [];
+      const events = (await sql`
+        SELECT id, repo_id, contributor_id, event_type, payload, created_at, before_sha, after_sha
+        FROM github_events
+        WHERE id = ANY(${candidateEventIds}::bigint[])
+        ORDER BY created_at ASC
+      `) as Array<Record<string, unknown>>;
+
+      if (events.length === 0) continue;
+
+      const titleOrMessage = extractBestTitle(events, String(events[0].event_type ?? ''));
+      const commitMessages = extractCommitMessages(events);
+      const prBody = extractPrBody(events);
+      const changedFilePaths = extractChangedFilePaths(events);
+      const codeEvidence = extractCodeEvidence(events);
+      const sourceCommitShas = extractSourceCommitShas(events);
+
+      const prompt = buildBreakdownPrompt({
+        broadUnit,
+        title: titleOrMessage,
+        commitMessages,
+        changedFilePaths,
+        codeEvidence,
+        prBody,
+      });
+
+      await acquireSlot('openrouter');
+      const aiResponse = await callStructured(
+        [
+          { role: 'system', content: EXTRACTION_SYSTEM_MESSAGE },
+          { role: 'user', content: prompt },
+        ],
+        EXTRACTION_SCHEMA,
+        'work_unit_refinement',
+        aiOptions
+      );
+      if (!aiResponse) continue;
+
+      const items = normalizeExtractionResponse(
+        JSON.parse(stripCodeFences(aiResponse)),
+        titleOrMessage,
+        0,
+        0,
+        sourceCommitShas,
+        false
+      );
+      if (items.length === 0) continue;
+
+      const candidate = {
+        id: broadUnit.candidate_id,
+        repo_id: broadUnit.repo_id,
+        correlation_key: `refine:${broadUnit.id}`,
+        status: 'classified' as const,
+        source_event_ids: (await sql`
+          SELECT source_event_ids FROM work_unit_candidates WHERE id = ${broadUnit.candidate_id}
+        `)[0]?.source_event_ids ?? [],
+        created_at: new Date().toISOString(),
+      };
+
+      const primaryContributorId = events[0].contributor_id as number;
+      const attribution = await resolveAttribution(events, primaryContributorId);
+
+      await persistExtractedItemsForCandidate(
+        candidate,
+        events,
+        scoringConfig,
+        items,
+        'ai',
+        {
+          previousUnits: [{ id: broadUnit.id, capability_key: broadUnit.capability_key, summary: broadUnit.summary, role: broadUnit.role }],
+          repoCapabilities: [],
+          isShipped: true,
+          attribution,
+        }
+      );
+      refined++;
+      console.log(`  Refined unit ${broadUnit.id} (${broadUnit.capability_key ?? '(none)'}) -> ${items.length} specific units`);
+    } catch (err) {
+      console.warn(`Refinement failed for unit ${broadUnit.id}:`, err);
+    }
+  }
+  return refined;
 }

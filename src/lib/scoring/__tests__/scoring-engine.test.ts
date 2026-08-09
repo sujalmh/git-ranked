@@ -118,6 +118,19 @@ describe('scoring engine', () => {
     expect(authorScore.composite).toBeCloseTo(expected, 1);
   });
 
+  it('blends impact toward shipped-code ownership share when data is present', () => {
+    const noData = scoreContributor([baseWorkUnit], rawEvents, config, 'all_time');
+    const lowOwner = scoreContributor([baseWorkUnit], rawEvents, config, 'all_time', new Date(), undefined, 0.05);
+    const highOwner = scoreContributor([baseWorkUnit], rawEvents, config, 'all_time', new Date(), undefined, 0.8);
+
+    // Ownership only applies when present; absent data must not change impact.
+    expect(noData.impact).toEqual(scoreContributor([baseWorkUnit], rawEvents, config, 'all_time', new Date(), undefined, undefined).impact);
+    // Higher ownership raises impact; the blend never exceeds 100.
+    expect(highOwner.impact).toBeGreaterThan(lowOwner.impact);
+    expect(highOwner.impact).toBeGreaterThan(noData.impact);
+    expect(highOwner.impact).toBeLessThanOrEqual(100);
+  });
+
   it('consistency counts only substantive events (no issue-spam inflation)', () => {
     const activity = [
       { id: 1, event_type: 'pr_merged', payload: {}, created_at: '2026-07-20T10:00:00Z', contributor_id: 10, username: 'dev' },

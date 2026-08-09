@@ -3,6 +3,7 @@ import { sql } from '../db';
 import { aggregateRepoCandidates } from './aggregator';
 import { getRepoScoringConfig } from './config';
 import { extractAndPersistBatchWorkUnits } from './extract';
+import { buildGoalTreeBlock } from './goals';
 import { enrichOutcomes } from './outcome';
 import { computePercentiles, scoreContributor } from './scoring-engine';
 import type { DimensionScores, RawEvent, WorkUnit } from './types';
@@ -17,8 +18,29 @@ export * from './heuristic-fallback';
 export * from './aggregator';
 export * from './config';
 export * from './extract';
+export * from './goals';
 export * from './outcome';
 export * from './scoring-engine';
+export * from './repo-context';
+// Explicit (not `export *`) because the refinement module participates in an
+// import cycle with this barrel that drops star re-exports at runtime.
+export {
+  MAX_REFINE_DEPTH,
+  AUDIT_MULTI_FILE_THRESHOLD,
+  REFINE_BATCH_SIZE,
+  PER_RUN_BUDGET,
+  commonDirDepth,
+  commonDir,
+  clusterChangedFiles,
+  auditUnitGranularity,
+  computeConservingWeights,
+  buildRefinePrompt,
+  REFINE_SYSTEM_MESSAGE,
+  REFINE_SCHEMA,
+  enqueueGranularityRefinements,
+  processGranularityRefinements,
+  runRepoRefinementQuality,
+} from './refinement';
 
 import type { AiCallOptions } from '../ai/openrouter';
 
@@ -70,6 +92,11 @@ export async function classifyRepo(
     return 0;
   }
 
+  // Repo goal tree first (Phase 1): extraction is anchored to the repo's actual
+  // goals, and node centrality is deterministic from the tree. Cache-aware, so
+  // re-runs are cheap and never re-hit the model.
+  const goalTreeBlock = await buildGoalTreeBlock(repoId, aiOptions).catch(() => '');
+
   const candidateConcurrency =
     opts?.candidateConcurrency ?? (Number(process.env.CLASSIFY_CANDIDATE_CONCURRENCY) || 20);
   const limit = pLimit(candidateConcurrency);
@@ -105,7 +132,7 @@ export async function classifyRepo(
     candidateBatches.map((batch) =>
       limit(async () => {
         try {
-          return await extractAndPersistBatchWorkUnits(batch, config, aiOptions);
+          return await extractAndPersistBatchWorkUnits(batch, config, aiOptions, goalTreeBlock);
         } finally {
           done += batch.length;
           await updateProgress();
@@ -206,6 +233,16 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
     eventsByContributor.set(event.contributor_id, existing);
   }
 
+  // Git-blame code ownership (opt-in, per repo): how much of the final code
+  // each contributor owns. Absent rows mean no adjustment.
+  const ownershipRows = await sql`
+    SELECT contributor_id, share FROM contributor_code_ownership WHERE repo_id = ${repoId}
+  `;
+  const ownershipByContributor = new Map<number, number>();
+  for (const row of ownershipRows) {
+    ownershipByContributor.set(row.contributor_id as number, Number(row.share ?? 0));
+  }
+
   const allContributorIds = new Set([
     ...Array.from(workUnitsByContributor.keys()),
     ...Array.from(eventsByContributor.keys()),
@@ -238,7 +275,8 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
         config,
         decayProfile,
         new Date(),
-        attributionByContributor.get(contributorId)
+        attributionByContributor.get(contributorId),
+        ownershipByContributor.get(contributorId)
       );
 
       score.contributor_id = contributorId;
@@ -346,4 +384,19 @@ export async function scoreRepo(repoId: number): Promise<DimensionScores[]> {
 export async function enrichAndRescore(repoId: number, contributorId?: number): Promise<void> {
   await enrichOutcomes(repoId, contributorId);
   await scoreRepo(repoId);
+}
+
+/**
+ * Build (or reuse) the repo goal tree, sync the capability ledger, and rescore.
+ * Used after extraction as the repo-goal anchoring pass — the successor to the
+ * old repo_impact multiplier.
+ */
+export async function ensureGoalTreeAndRescore(
+  repoId: number,
+  aiOptions?: AiCallOptions
+): Promise<string> {
+  const { ensureRepoGoalTree, formatGoalTreeBlock } = await import('./goals');
+  const tree = await ensureRepoGoalTree(repoId, aiOptions);
+  await scoreRepo(repoId);
+  return tree ? formatGoalTreeBlock(tree) : '';
 }

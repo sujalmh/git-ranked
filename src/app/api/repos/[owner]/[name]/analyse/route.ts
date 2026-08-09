@@ -139,6 +139,15 @@ export async function POST(
             fn: () => classifyEvents(repoId, repoInfo.owner, repoInfo.name, undefined, undefined, undefined, userAiConfig),
           },
           {
+            step: 'goal_tree',
+            message: 'Building repo goal tree',
+            fn: async () => {
+              const { buildRepoGoalTree } = await import('@/lib/scoring/goals');
+              const tree = await buildRepoGoalTree(repoId, userAiConfig);
+              return { treeBuilt: Boolean(tree), purpose: tree?.purpose ?? '' };
+            },
+          },
+          {
             step: 'work_units',
             message: 'Extracting work units from events',
             fn: async () => {

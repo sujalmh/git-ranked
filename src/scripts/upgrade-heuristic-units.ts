@@ -17,9 +17,6 @@
  */
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import { sql } from '../lib/db';
-import { classifyRepo, scoreRepo } from '../lib/scoring';
-import { generateRepoInsights } from '../lib/insights';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
@@ -29,6 +26,10 @@ export async function upgradeHeuristicUnits(
   repoIds?: number[],
   limit: number = DEFAULT_LIMIT
 ): Promise<{ repos: number; flagged: number; remaining: number }> {
+  const { sql } = await import('../lib/db');
+  const { classifyRepo, scoreRepo } = await import('../lib/scoring');
+  const { generateRepoInsights } = await import('../lib/insights');
+
   const repos = repoIds?.length
     ? await sql`
         SELECT DISTINCT wu.repo_id

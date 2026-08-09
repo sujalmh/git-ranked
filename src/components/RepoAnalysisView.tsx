@@ -150,8 +150,8 @@ export function RepoAnalysisView({
           </div>
           <p className="text-xs sm:text-base text-zinc-300 mb-5">
             {smallTeam
-              ? 'Impact breakdown bar shows shipping, quality, reviews, collaboration and consistency.'
-              : 'Search and sort the full list below the podium.'}
+              ? 'Every collaborator as a stat card — Impact, Quality, Collab, Consistency and a Total score.'
+              : 'Search and sort the full list of contributor stat cards.'}
           </p>
           <Leaderboard
             contributors={contributors}

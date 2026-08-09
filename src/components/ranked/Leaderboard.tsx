@@ -18,7 +18,6 @@ import type { ContributorInsight } from '@/lib/contributor-insights';
 import {
   identityFor,
   podiumStyleForRank,
-  breakdownSegments,
   primaryWorkArea,
   topicChipClass,
   buildRising,
@@ -37,7 +36,17 @@ const SORT_OPTIONS: Array<{ key: SortKey; label: string }> = [
   { key: 'reviews', label: 'Reviews' },
 ];
 
-const INITIAL_ROWS = 6;
+const INITIAL_CARDS = 8;
+
+/** Stat presentation for the four dimension bars, Pokémon-card style. */
+const STATS = [
+  { key: 'impact', label: 'Impact', bar: 'bg-accent', text: 'text-accent', glow: '#ccff00' },
+  { key: 'quality', label: 'Quality', bar: 'bg-[#00ffff]', text: 'text-[#00ffff]', glow: '#00ffff' },
+  { key: 'collab', label: 'Collab', bar: 'bg-[#ff00ff]', text: 'text-[#ff00ff]', glow: '#ff00ff' },
+  { key: 'consistency', label: 'Consistency', bar: 'bg-[#00ff66]', text: 'text-[#00ff66]', glow: '#00ff66' },
+] as const;
+
+type StatKey = (typeof STATS)[number]['key'];
 
 function Avatar({
   src,
@@ -93,56 +102,10 @@ function StreakBadge({ days }: { days: number }) {
   );
 }
 
-function BreakdownLegend() {
-  const segments = [
-    { key: 'featureDelivery', label: 'Shipping', className: 'bg-accent' },
-    { key: 'codeQuality', label: 'Quality', className: 'bg-[#00ffff]' },
-    { key: 'reviews', label: 'Reviews', className: 'bg-[#ff00ff]' },
-    { key: 'collaboration', label: 'Collab', className: 'bg-[#ff5500]' },
-    { key: 'consistency', label: 'Consistency', className: 'bg-[#00ff66]' },
-  ];
-  return (
-    <div className="hidden md:flex flex-wrap gap-x-3 px-1 pb-2">
-      {segments.map((s) => (
-        <span key={s.key} className="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
-          <span className={`w-2 h-2 rounded-sm ${s.className}`} />
-          {s.label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function BreakdownBar({ contributor, animate }: { contributor: ContributorInsight; animate: boolean }) {
-  const segments = breakdownSegments(contributor);
-  const total = segments.reduce((sum, s) => sum + s.value, 0);
-  if (total === 0) return null;
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex h-1.5 w-32 rounded-full overflow-hidden bg-white/5" title="Impact breakdown">
-        {segments.map((s) => (
-          <div
-            key={s.key}
-            className={`h-full ${s.className} ${animate ? 'transition-[width] duration-700 ease-out' : ''}`}
-            style={{ width: animate ? `${(s.value / total) * 100}%` : '0%' }}
-            title={`${s.label}: ${Math.round(s.value)}`}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Cross-repo comparability badge: the contributor's 0-100 percentile vs every
- * other contributor in this repo (current decay profile). A "p94" means they
- * outscore 94% of the repo — a score that means the same thing regardless of
- * whether the repo is tiny or massive.
- */
 function PercentileBadge({ percentile }: { percentile?: number }) {
   if (typeof percentile !== 'number' || !Number.isFinite(percentile)) return null;
   const p = Math.round(percentile);
-  const top = 100 - p; // percentage of contributors they outrank
+  const top = 100 - p;
   return (
     <span
       className="inline-flex items-center rounded-full border border-[#ccff00]/40 bg-[#ccff00]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#ccff00]"
@@ -162,7 +125,30 @@ function deltaFor(rankDeltas: RankDeltaMap | null, userId: number, rank: number)
   return d.previousRank - rank;
 }
 
-function SmallTeamRow({
+function StatBar({ statKey, value }: { statKey: StatKey; value: number }) {
+  const config = STATS.find((s) => s.key === statKey)!;
+  const v = Math.max(0, Math.min(100, Math.round(value)));
+  return (
+    <div className="flex items-center gap-2" title={`${config.label}: ${v}/100`}>
+      <span className={`w-[74px] shrink-0 text-[10px] font-bold uppercase tracking-wider ${config.text}`}>
+        {config.label}
+      </span>
+      <div className="flex-1 h-2 rounded-sm bg-white/5 overflow-hidden">
+        <div
+          className={`h-full ${config.bar} transition-[width] duration-700 ease-out`}
+          style={{ width: `${v}%` }}
+        />
+      </div>
+      <span className="w-7 shrink-0 text-right text-sm font-bold text-white tabular-nums">{v}</span>
+    </div>
+  );
+}
+
+/**
+ * Pokémon-style trading card: the contributor's four dimensions as stat bars,
+ * plus a big TOTAL (composite) — like a card's base-stat total.
+ */
+function ContributorCard({
   contributor,
   rank,
   assignment,
@@ -181,144 +167,104 @@ function SmallTeamRow({
 }) {
   const identity = identityFor(assignment, contributor.id);
   const delta = deltaFor(rankDeltas, contributor.id, rank);
+  const medal = podiumStyleForRank(rank);
+  const medalHex = rank === 1 ? '#ffd700' : rank === 2 ? '#c0c0c0' : rank === 3 ? '#cd7f32' : null;
   const glowHex = randomNeonHex(contributor.username);
+  const area = primaryWorkArea(contributor);
+  const ds = contributor.dimensionScores?.current;
+  const statValue = (key: StatKey): number => {
+    if (!ds) return 0;
+    switch (key) {
+      case 'impact': return ds.impact;
+      case 'quality': return ds.quality;
+      case 'collab': return ds.collaboration;
+      case 'consistency': return ds.consistency;
+    }
+  };
+  const total = Math.round(ds?.composite ?? contributor.impactScore ?? 0);
+  const ownership = contributor.codeOwnership;
+  const totalText = medal?.text ?? (ds && ds.impact > 60 ? 'text-accent' : 'text-white');
+
   return (
     <Link
       href={`/repos/${repoOwner}/${repoName}/${contributor.username}`}
-      className="relative block rounded-none border border-white/10 hover:border-[var(--tw-shadow-color)] bg-black pl-5 pr-4 py-3 transition-all duration-300 ease-out overflow-hidden shadow-[2px_2px_8px_0_var(--tw-shadow-base)] hover:shadow-[0_0_12px_0_var(--tw-shadow-hover)]"
+      className={`relative group flex flex-col rounded-none border-2 bg-black p-4 transition-all duration-300 overflow-hidden shadow-[2px_2px_14px_0_var(--tw-shadow-base)] hover:shadow-[0_0_20px_0_var(--tw-shadow-hover)] hover:-translate-y-0.5 ${
+        medal?.border ?? 'border-white/10'
+      }`}
       style={{
         opacity: animate ? 1 : 0,
         transform: animate ? 'translateY(0)' : 'translateY(6px)',
-        transitionDelay: `${Math.min(rank, 6) * 40}ms`,
-        '--tw-shadow-color': glowHex,
-        '--tw-shadow-base': `${glowHex}0D`,
-        '--tw-shadow-hover': `${glowHex}20`,
+        transitionDelay: `${Math.min(rank, 8) * 35}ms`,
+        '--tw-shadow-color': medalHex ?? glowHex,
+        '--tw-shadow-base': `${medalHex ?? glowHex}22`,
+        '--tw-shadow-hover': `${medalHex ?? glowHex}55`,
       } as React.CSSProperties}
     >
-      
-      <div className="flex items-center gap-4 relative z-10">
-        <span className="w-8 text-center text-3xl font-black text-zinc-500 shrink-0">{rank}</span>
-        <Avatar src={contributor.avatarUrl} name={contributor.username} size={36} ring={identity.ring} />
+      {/* Card header: rank + identity */}
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span
+            className={`w-9 h-9 flex items-center justify-center text-lg font-black border ${
+              medal
+                ? `border-current ${medal.text} bg-white/5`
+                : 'border-white/10 text-zinc-500 bg-white/5'
+            }`}
+          >
+            {rank}
+          </span>
+          {rank === 1 && <Crown className="w-4 h-4 text-[#ffd700]" />}
+          {medal && (
+            <span className={`text-[10px] font-black uppercase tracking-widest ${medal.text}`}>
+              {medal.tier}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <PercentileBadge percentile={ds?.percentile ?? contributor.percentile} />
+          <RankChange delta={delta} />
+        </div>
+      </div>
+
+      {/* Identity */}
+      <div className="flex items-center gap-3 mb-3">
+        <Avatar src={contributor.avatarUrl} name={contributor.username} size={44} ring={identity.ring} />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            <span className="text-lg font-semibold text-white truncate">{contributor.username}</span>
+          <div className="text-base font-bold text-white truncate leading-tight">{contributor.username}</div>
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${topicChipClass(area.label)}`}>
+              {area.label}
+            </span>
             <StreakBadge days={contributor.currentStreak} />
-            <RankChange delta={delta} />
-            <PercentileBadge percentile={contributor.percentile} />
-            <span className="text-sm text-zinc-400 uppercase tracking-wide hidden sm:inline">{contributor.role}</span>
           </div>
-          <div className="mt-1.5">
-            <BreakdownBar contributor={contributor} animate={animate} />
-          </div>
+        </div>
+      </div>
+
+      {/* Dimension stat bars */}
+      <div className="space-y-2 mb-3">
+        {STATS.map((s) => (
+          <StatBar key={s.key} statKey={s.key} value={statValue(s.key)} />
+        ))}
+      </div>
+
+      {/* Ownership + footer total */}
+      <div className="mt-auto flex items-center justify-between border-t border-white/10 pt-2.5">
+        <div className="min-w-0">
+          {typeof ownership === 'number' ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-zinc-300" title="Git-blame share of the repo's final code">
+              <span className={`w-1.5 h-1.5 ${ownership >= 0.5 ? 'bg-accent' : ownership >= 0.1 ? 'bg-[#00ffff]' : 'bg-zinc-500'}`} />
+              Owns {Math.round(ownership * 100)}% of code
+            </span>
+          ) : (
+            <span className="text-[10px] text-zinc-500">Code ownership N/A</span>
+          )}
         </div>
         <div className="text-right shrink-0">
-          <div className="text-2xl font-black text-white leading-none mb-1">
-            {contributor.impactScore}
-            <span className="text-sm text-zinc-500 font-medium ml-0.5">/100</span>
+          <div className="text-[9px] uppercase tracking-widest text-zinc-400 font-semibold">Total</div>
+          <div className="flex items-baseline gap-0.5">
+            <span className={`text-2xl font-black leading-none ${totalText}`}>{total}</span>
+            <span className="text-xs text-zinc-500 font-medium">/100</span>
           </div>
-          <div className="text-sm uppercase text-zinc-400 tracking-wider font-semibold">Impact</div>
         </div>
-      </div>
-    </Link>
-  );
-}
-
-function PodiumCard({
-  contributor,
-  rank,
-  repoOwner,
-  repoName,
-}: {
-  contributor: ContributorInsight;
-  rank: number;
-  repoOwner: string;
-  repoName: string;
-}) {
-  const style = podiumStyleForRank(rank);
-  const area = primaryWorkArea(contributor);
-  const isGold = rank === 1;
-  const medalHex = rank === 1 ? '#ffd700' : rank === 2 ? '#c0c0c0' : '#cd7f32';
-  
-  return (
-    <Link
-      href={`/repos/${repoOwner}/${repoName}/${contributor.username}`}
-      className={`relative rounded-none border-2 ${style?.border ?? 'border-white/10'} bg-black p-4 flex flex-col items-center text-center transition-all duration-300 shadow-[2px_2px_16px_0_var(--tw-shadow-base)] hover:shadow-[0_0_24px_0_var(--tw-shadow-hover)] origin-bottom ${
-        rank === 1 ? 'order-1 sm:order-2 z-10 sm:scale-100' : rank === 2 ? 'order-2 sm:order-1 sm:scale-[0.92]' : 'order-3 sm:order-3 sm:scale-[0.85]'
-      }`}
-      style={{ 
-        '--tw-shadow-color': medalHex,
-        '--tw-shadow-base': `${medalHex}66`,
-        '--tw-shadow-hover': `${medalHex}99`
-      } as React.CSSProperties}
-    >
-      <div className="relative flex flex-col items-center gap-3">
-        <div className="flex items-center gap-1">
-          {isGold && <Crown className="w-5 h-5 text-[#ffd700]" />}
-          <span className={`text-base font-black uppercase tracking-wide ${style?.text ?? 'text-zinc-400'}`}>
-            #{rank} {style ? style.tier : ''}
-          </span>
-        </div>
-        <Avatar
-          src={contributor.avatarUrl}
-          name={contributor.username}
-          size={rank === 1 ? 64 : 52}
-          ring={style?.ring}
-        />
-        <span className="text-lg font-bold text-white truncate max-w-full">{contributor.username}</span>
-        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium ${topicChipClass(area.label)}`}>
-          {area.label}
-        </span>
-        <div className="mt-1">
-          <span className="text-3xl font-black text-white">
-            {contributor.impactScore}
-            <span className="text-base text-zinc-400 font-medium">/100</span>
-          </span>
-        </div>
-        {contributor.currentStreak > 0 && <StreakBadge days={contributor.currentStreak} />}
-      </div>
-    </Link>
-  );
-}
-
-function CompactRow({
-  contributor,
-  rank,
-  rankDeltas,
-  repoOwner,
-  repoName,
-}: {
-  contributor: ContributorInsight;
-  rank: number;
-  rankDeltas: RankDeltaMap | null;
-  repoOwner: string;
-  repoName: string;
-}) {
-  const delta = deltaFor(rankDeltas, contributor.id, rank);
-  const glowHex = randomNeonHex(contributor.username);
-  
-  return (
-    <Link
-      href={`/repos/${repoOwner}/${repoName}/${contributor.username}`}
-      className="relative flex items-center gap-3 rounded-none border border-[var(--tw-shadow-color)] bg-black pl-4 pr-3 py-2 transition-all duration-300 overflow-hidden shadow-[2px_2px_12px_0_var(--tw-shadow-base)] hover:shadow-[0_0_16px_0_var(--tw-shadow-hover)]"
-      style={{ 
-        '--tw-shadow-color': glowHex,
-        '--tw-shadow-base': `${glowHex}40`,
-        '--tw-shadow-hover': `${glowHex}80`
-      } as React.CSSProperties}
-    >
-      <span className="w-8 text-center text-xl font-black text-zinc-500 shrink-0 relative z-10">{rank}</span>
-      <Avatar src={contributor.avatarUrl} name={contributor.username} size={28} />
-      <div className="min-w-0 flex-1">
-        <span className="text-base font-medium text-white truncate">{contributor.username}</span>
-      </div>
-      <StreakBadge days={contributor.currentStreak} />
-      <RankChange delta={delta} />
-      <PercentileBadge percentile={contributor.percentile} />
-      <div className="text-right shrink-0 w-12">
-        <span className="text-base font-bold text-white">
-          {contributor.impactScore}
-          <span className="text-sm text-zinc-400 ml-0.5">/100</span>
-        </span>
       </div>
     </Link>
   );
@@ -361,7 +307,6 @@ export function Leaderboard({
   repoOwner: string;
   repoName: string;
 }) {
-  const smallTeam = assignment.smallTeam;
   const [animated, setAnimated] = useState(false);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('rank');
@@ -372,38 +317,15 @@ export function Leaderboard({
     return () => window.cancelAnimationFrame(id);
   }, []);
 
-  if (smallTeam) {
-    return (
-      <div className="space-y-2">
-        <BreakdownLegend />
-        {contributors.map((c, idx) => (
-          <SmallTeamRow
-            key={c.id}
-            contributor={c}
-            rank={idx + 1}
-            assignment={assignment}
-            rankDeltas={rankDeltas}
-            repoOwner={repoOwner}
-            repoName={repoName}
-            animate={animated}
-          />
-        ))}
-      </div>
-    );
-  }
-
   const rising = buildRising(contributors, rankDeltas, 3);
   const ranked = [...contributors].sort((a, b) => b.impactScore - a.impactScore);
-  const podium = ranked.slice(0, 3);
-  const rest = ranked.slice(3);
 
-  // True rank by id from the impact-sorted list, so search/sort of the "rest"
-  // list below does not distort the displayed rank (previously rank was the
-  // index into the filtered list).
+  // True rank by id from the composite-sorted list, so search/sort of the
+  // visible list below does not distort the displayed rank.
   const rankById = new Map(ranked.map((c, i) => [c.id, i + 1]));
 
   const q = query.trim().toLowerCase();
-  const filtered = q ? rest.filter((c) => c.username.toLowerCase().includes(q)) : rest;
+  const filtered = q ? ranked.filter((c) => c.username.toLowerCase().includes(q)) : ranked;
   const filteredSorted = [...filtered].sort((a, b) => {
     switch (sort) {
       case 'score':
@@ -417,90 +339,92 @@ export function Leaderboard({
     }
   });
 
-  const visibleRest = expanded ? filteredSorted : filteredSorted.slice(0, INITIAL_ROWS);
-  const hiddenCount = filteredSorted.length - visibleRest.length;
+  const visible = expanded ? filteredSorted : filteredSorted.slice(0, INITIAL_CARDS);
+  const hiddenCount = filteredSorted.length - visible.length;
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 sm:items-end sm:pt-4 sm:pb-2">
-        {podium.map((c, i) => (
-          <PodiumCard
+      <RisingModule entries={rising} />
+
+      <div className="flex items-center gap-2 mb-1">
+        <div className="relative flex-1">
+          <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search contributors…"
+            className="w-full rounded-none bg-white/5 border border-white/10 pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-zinc-400 focus:outline-none focus:border-accent/50"
+          />
+        </div>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as SortKey)}
+          className="rounded-none bg-white/5 border border-white/10 px-2 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-accent/50"
+        >
+          {SORT_OPTIONS.map((o) => (
+            <option key={o.key} value={o.key} className="bg-zinc-900">
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Stat color legend */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 px-1">
+        {STATS.map((s) => (
+          <span key={s.key} className="text-[11px] font-medium text-zinc-400 flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-sm ${s.bar}`} />
+            {s.label}
+          </span>
+        ))}
+        <span className="text-[11px] font-medium text-zinc-400 flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-sm bg-white/40" />
+          Total
+        </span>
+      </div>
+
+      {/* Pokémon-style card grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+        {visible.map((c) => (
+          <ContributorCard
             key={c.id}
             contributor={c}
-            rank={i + 1}
+            rank={rankById.get(c.id) ?? 0}
+            assignment={assignment}
+            rankDeltas={rankDeltas}
             repoOwner={repoOwner}
             repoName={repoName}
+            animate={animated}
           />
         ))}
       </div>
 
-      <RisingModule entries={rising} />
-
-      {rest.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="relative flex-1">
-              <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search contributors…"
-                className="w-full rounded-none bg-white/5 border border-white/10 pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-zinc-400 focus:outline-none focus:border-accent/50"
-              />
-            </div>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
-              className="rounded-none bg-white/5 border border-white/10 px-2 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-accent/50"
-            >
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.key} value={o.key} className="bg-zinc-900">
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            {visibleRest.map((c) => (
-              <CompactRow
-                key={c.id}
-                contributor={c}
-                rank={rankById.get(c.id) ?? 0}
-                rankDeltas={rankDeltas}
-                repoOwner={repoOwner}
-                repoName={repoName}
-              />
-            ))}
-            {visibleRest.length === 0 && (
-              <div className="text-center text-xs text-zinc-400 py-4 flex items-center justify-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                No contributors match &ldquo;{query}&rdquo;
-              </div>
-            )}
-          </div>
-
-          {!expanded && hiddenCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setExpanded(true)}
-              className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white border border-white/5 rounded-none py-2 hover:bg-white/5 transition-colors"
-            >
-              <ChevronDown className="w-3.5 h-3.5" />
-              Show {hiddenCount} more
-            </button>
-          )}
-          {expanded && filteredSorted.length > INITIAL_ROWS && (
-            <button
-              type="button"
-              onClick={() => setExpanded(false)}
-              className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white border border-white/5 rounded-none py-2 hover:bg-white/5 transition-colors"
-            >
-              <ChevronUp className="w-3.5 h-3.5" />
-              Show fewer
-            </button>
-          )}
+      {visible.length === 0 && (
+        <div className="text-center text-xs text-zinc-400 py-4 flex items-center justify-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5" />
+          No contributors match &ldquo;{query}&rdquo;
         </div>
+      )}
+
+      {!expanded && hiddenCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white border border-white/5 rounded-none py-2 hover:bg-white/5 transition-colors"
+        >
+          <ChevronDown className="w-3.5 h-3.5" />
+          Show {hiddenCount} more
+        </button>
+      )}
+      {expanded && filteredSorted.length > INITIAL_CARDS && (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white border border-white/5 rounded-none py-2 hover:bg-white/5 transition-colors"
+        >
+          <ChevronUp className="w-3.5 h-3.5" />
+          Show fewer
+        </button>
       )}
     </div>
   );

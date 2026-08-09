@@ -26,6 +26,7 @@
 ## What it does
 
 - **Evidence-Based Work Extraction** — Commits and PRs are split into shipped capability units using file paths, patches, commit history, PR context, and LLM analysis. Each unit records its lifecycle role (foundation, advancement, refinement, or repair) and reconciles with previous passes.
+- **Repo-Goal-Anchored Scoring** — A per-repo goal tree is built from the README and merged PR titles; every capability node carries a deterministic centrality (1–5) for how core it is to the repo's purpose. A stateful capability ledger (UNIQUE per repo+capability) enforces cross-event dedup, and per-node saturating progress credit makes scores granularity-insensitive — the same work scores the same whether shipped as one big PR or five small ones, and foundational work outranks peripheral tweaks.
 - **Multi-Dimensional Scoring** — Contributors are scored across **Impact**, **Quality**, **Collaboration**, and **Consistency** with both current (decay-weighted) and all-time profiles, plus a **0–100 percentile** so a great score means the same thing in any repo. Co-authored work is credited proportionally and PR commits are never double-counted.
 - **Repository Health Metrics** — Delivery, Collaboration, Code Quality, Review Health, and Knowledge Distribution on a 0–100 scale, computed from the same AI-classified work-unit model that powers contributor scores.
 - **AI-Generated Summaries** — Repository overviews, team insights, contributor profiles, impact analyses, and weekly/monthly reports
