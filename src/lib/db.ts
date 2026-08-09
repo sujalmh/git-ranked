@@ -385,10 +385,17 @@ export async function initSchema() {
   await sql`
     CREATE TABLE IF NOT EXISTS classification_cache (
       content_hash VARCHAR(64) PRIMARY KEY,
+      repo_id BIGINT NOT NULL,
       response JSONB NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `;
+
+  await sql`ALTER TABLE classification_cache ADD COLUMN IF NOT EXISTS repo_id BIGINT`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS classification_cache_repo_idx ON classification_cache(repo_id)`.catch(() => {});
+  // Rows written before repo_id existed have NULL repo_id and are unreachable
+  // (reads filter by repo_id) — drop them so they don't linger or shadow fresh writes.
+  await sql`DELETE FROM classification_cache WHERE repo_id IS NULL`.catch(() => {});
 
   await sql`
     CREATE TABLE IF NOT EXISTS system_settings (

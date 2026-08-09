@@ -76,6 +76,9 @@ export async function POST(
       SET status = 'needs_reclassification'
       WHERE repo_id = ${repoId}
     `;
+    // Repo-scoped classification cache: clearing it forces the worker to re-run
+    // the model on every candidate instead of reusing cached extractions.
+    await sql`DELETE FROM classification_cache WHERE repo_id = ${repoId}`;
   }
 
   const dateTo = new Date().toISOString().split('T')[0];

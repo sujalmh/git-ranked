@@ -401,7 +401,8 @@ export async function extractAndPersistWorkUnits(
 
   // ── Check classification cache ────────────────────────────────────────────
   const cacheHit = await sql`
-    SELECT response FROM classification_cache WHERE content_hash = ${contentHash}
+    SELECT response FROM classification_cache
+    WHERE content_hash = ${contentHash} AND repo_id = ${repoId}
   `;
 
   if (cacheHit.length > 0) {
@@ -465,9 +466,12 @@ export async function extractAndPersistWorkUnits(
           if (extractedItems.length > 0) {
             extractionSource = 'ai';
             await sql`
-              INSERT INTO classification_cache (content_hash, response)
-              VALUES (${contentHash}, ${JSON.stringify(extractedItems)})
-              ON CONFLICT (content_hash) DO NOTHING
+              INSERT INTO classification_cache (content_hash, repo_id, response)
+              VALUES (${contentHash}, ${repoId}, ${JSON.stringify(extractedItems)})
+              ON CONFLICT (content_hash) DO UPDATE
+              SET repo_id = EXCLUDED.repo_id,
+                  response = EXCLUDED.response,
+                  created_at = NOW()
             `.catch(() => {});
           }
         }
@@ -1167,7 +1171,8 @@ export async function extractAndPersistBatchWorkUnits(
     };
 
     const cacheHit = await sql`
-      SELECT response FROM classification_cache WHERE content_hash = ${contentHash}
+      SELECT response FROM classification_cache
+      WHERE content_hash = ${contentHash} AND repo_id = ${candidate.repo_id}
     `;
 
     if (cacheHit.length > 0) {
@@ -1242,9 +1247,12 @@ export async function extractAndPersistBatchWorkUnits(
               );
 
               await sql`
-                INSERT INTO classification_cache (content_hash, response)
-                VALUES (${itemData.contentHash}, ${JSON.stringify(formattedItems)})
-                ON CONFLICT (content_hash) DO NOTHING
+                INSERT INTO classification_cache (content_hash, repo_id, response)
+                VALUES (${itemData.contentHash}, ${itemData.candidate.repo_id}, ${JSON.stringify(formattedItems)})
+                ON CONFLICT (content_hash) DO UPDATE
+                SET repo_id = EXCLUDED.repo_id,
+                    response = EXCLUDED.response,
+                    created_at = NOW()
               `.catch(() => {});
 
               const units = await persistExtractedItemsForCandidate(itemData.candidate, itemData.events, config, formattedItems, 'ai', {
