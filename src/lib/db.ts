@@ -1,19 +1,34 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { neon } from '@neondatabase/serverless';
+import postgres from 'postgres';
 
 let cachedDbUrl: string | null = null;
-let cachedNeonClient: any = null;
+let cachedSqlClient: any = null;
 
-function getNeonSql() {
-  const dbUrl = process.env.DATABASE_URL;
+function getDatabaseUrl() {
+  return (
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    ''
+  );
+}
+function getSqlClient() {
+  const dbUrl = getDatabaseUrl();
   if (!dbUrl) {
     throw new Error('DATABASE_URL is not defined in the environment');
   }
-  if (!cachedNeonClient || cachedDbUrl !== dbUrl) {
+  if (!cachedSqlClient || cachedDbUrl !== dbUrl) {
     cachedDbUrl = dbUrl;
-    cachedNeonClient = neon(dbUrl);
+    // Supabase (and most hosted Postgres) need TLS and disable prepared
+    // statements for pooled/serverless connections.
+    cachedSqlClient = postgres(dbUrl, {
+      ssl: 'require',
+      prepare: false,
+      max: 1,
+    });
   }
-  return cachedNeonClient;
+  return cachedSqlClient;
 }
 
 export type SqlFunction = {
@@ -23,11 +38,11 @@ export type SqlFunction = {
 
 export const sql: SqlFunction = Object.assign(
   (strings: TemplateStringsArray, ...values: any[]) => {
-    return getNeonSql()(strings, ...values);
+    return getSqlClient()(strings, ...values);
   },
   {
     unsafe: (str: string) => {
-      const client = getNeonSql();
+      const client = getSqlClient();
       if (typeof client.unsafe === 'function') {
         return client.unsafe(str);
       }

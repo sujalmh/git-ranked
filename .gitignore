@@ -49,3 +49,4 @@ src/app/mock-*/
 .playwright-mcp/
 .commandcode/
 .claude/
+.env*.local

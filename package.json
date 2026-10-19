@@ -20,6 +20,7 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.25",
     "@neondatabase/serverless": "^1.1.0",
+    "postgres": "^3.4.9",
     "@types/pg": "^8.20.0",
     "@vercel/analytics": "^2.0.1",
     "ai": "^7.0.56",
