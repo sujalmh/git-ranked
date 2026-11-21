@@ -24,7 +24,7 @@ const FEATURED_REPOS = [
   { name: 'facebook/react', label: 'React' },
   { name: 'vercel/next.js', label: 'Next.js' },
   { name: 'tailwindlabs/tailwindcss', label: 'Tailwind' },
-  { name: 'shadcn/ui', label: 'shadcn/ui' },
+  { name: 'shadcn-ui/ui', label: 'shadcn/ui' },
   { name: 'pgboss/pg-boss', label: 'pg-boss' },
   { name: 'torvalds/linux', label: 'Linux' },
 ];
@@ -61,29 +61,34 @@ export function AddPublicRepo() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Debounced search
+  // Debounced search (with request ordering so slow responses can't clobber newer ones)
   useEffect(() => {
     const trimmed = repoQuery.trim();
     if (trimmed.length < 2) return;
 
+    let cancelled = false;
     const timer = setTimeout(async () => {
       setIsSearching(true);
       setError('');
       try {
         const res = await fetch(`/api/repos/search?q=${encodeURIComponent(trimmed)}`);
+        if (cancelled) return;
         if (res.ok) {
           const data = await res.json();
           setSearchResults(data.items || []);
           setShowDropdown(true);
         }
       } catch (err) {
-        console.error('Search error:', err);
+        if (!cancelled) console.error('Search error:', err);
       } finally {
-        setIsSearching(false);
+        if (!cancelled) setIsSearching(false);
       }
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [repoQuery]);
 
   const triggerAnalyzeRepo = async (owner: string, name: string) => {
@@ -229,7 +234,7 @@ export function AddPublicRepo() {
             ) : searchResults.length > 0 ? (
               searchResults.map((item) => (
                 <button
-                  key={item.id}
+                  key={item.full_name}
                   type="button"
                   onClick={() => handleSelectResult(item)}
                   className="w-full p-3.5 text-left hover:bg-zinc-900 transition-colors flex items-start gap-3.5 group cursor-pointer"

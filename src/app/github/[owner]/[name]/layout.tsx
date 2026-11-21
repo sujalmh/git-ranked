@@ -11,11 +11,15 @@ export async function generateMetadata(
   if (!repo) {
     return {
       title: 'Repository Not Found | GitRanked',
+      robots: {
+        index: false,
+        follow: false,
+      },
     };
   }
 
   const title = `${repo.full_name} - GitHub Analytics & Insights | GitRanked`;
-  const description = repo.description 
+  const description = repo.description
     ? `View engineering metrics, contributor analytics, and PR review insights for ${repo.full_name}. ${repo.description}`
     : `Deep GitHub analytics, code quality metrics, and contributor insights for ${repo.full_name}.`;
   const path = `/github/${owner}/${name}`;
@@ -23,6 +27,10 @@ export async function generateMetadata(
   return {
     title,
     description,
+    robots: {
+      index: true,
+      follow: true,
+    },
     alternates: {
       canonical: path,
     },

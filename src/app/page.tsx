@@ -6,6 +6,29 @@ import { Footer } from '@/components/Footer';
 import { auth } from '@/lib/auth';
 
 import { Navbar } from '@/components/Navbar';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'GitRanked — AI-Powered GitHub Repository Analytics',
+  description:
+    'AI-powered GitHub repository analytics. Classify commits, PRs and reviews with AI, score contributors across Impact, Quality, Collaboration & Consistency, and surface team health insights.',
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: 'GitRanked — AI-Powered GitHub Repository Analytics',
+    description:
+      'Rank contributors by true impact with AI. Score teams on Impact, Quality, Collaboration & Consistency with real GitHub repository analytics.',
+    type: 'website',
+    url: '/',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'GitRanked — AI-Powered GitHub Repository Analytics',
+    description:
+      'Rank contributors by true impact with AI across Impact, Quality, Collaboration & Consistency.',
+  },
+};
 
 export default async function Home() {
   const session = await auth();

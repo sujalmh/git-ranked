@@ -61,8 +61,19 @@ export default async function PublicRepoPage(
 
   // Render full analysis if available
   if (analysisData && analysisData.isAnalysed) {
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://gitranked.dev';
+    const repoJsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: `${owner}/${name} — GitHub Analytics`,
+      applicationCategory: 'DeveloperApplication',
+      operatingSystem: 'Web',
+      url: `${siteUrl}/github/${owner}/${name}`,
+      description: githubRepo.description || `Engineering metrics and contributor analytics for ${owner}/${name}.`,
+    };
     return (
       <div className="flex flex-col min-h-screen relative bg-black text-white">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(repoJsonLd) }} />
         <Navbar />
 
         {/* Public Banner */}
@@ -145,8 +156,19 @@ export default async function PublicRepoPage(
   }
 
   // Render placeholder if not tracked or not analyzed
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://gitranked.dev';
+  const placeholderJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: `${owner}/${name} — GitHub Analytics`,
+    applicationCategory: 'DeveloperApplication',
+    operatingSystem: 'Web',
+    url: `${siteUrl}/github/${owner}/${name}`,
+    description: githubRepo.description || `AI-powered GitHub analytics for ${owner}/${name}.`,
+  };
   return (
     <div className="flex flex-col min-h-screen relative bg-black text-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(placeholderJsonLd) }} />
       <Navbar />
       <main className="flex-1 w-full px-4 sm:px-6 py-6 sm:py-8">
         <div className="mb-8">

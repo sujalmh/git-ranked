@@ -35,9 +35,21 @@ type ShowcaseRepo = {
   avatarUrl: string;
   description: string;
   stars: string;
+  starsRaw: number;
   lang: string;
-  score: number;
+  score: number | null;
 };
+
+// Curated fallback so the showcase (and SEO) is never an empty thin page,
+// even when no analyzed public repos exist yet in the database.
+const CURATED_SHOWCASE_REPOS = [
+  { owner: 'facebook', name: 'react' },
+  { owner: 'vercel', name: 'next.js' },
+  { owner: 'tailwindlabs', name: 'tailwindcss' },
+  { owner: 'shadcn-ui', name: 'ui' },
+  { owner: 'pgboss', name: 'pg-boss' },
+  { owner: 'torvalds', name: 'linux' },
+] as const;
 
 function extractHealthScore(payload: unknown): number | null {
   if (!payload) return null;
@@ -57,19 +69,58 @@ function extractHealthScore(payload: unknown): number | null {
   return null;
 }
 
+function formatStars(count: number | undefined): { label: string; raw: number } {
+  if (count === undefined || count === null) return { label: '0', raw: 0 };
+  return {
+    label: count >= 1000 ? `${(count / 1000).toFixed(1)}k` : `${count}`,
+    raw: count,
+  };
+}
+
+async function fetchCuratedFallback(seen: Set<string>): Promise<ShowcaseRepo[]> {
+  const results: (ShowcaseRepo | null)[] = await Promise.all(
+    CURATED_SHOWCASE_REPOS.map(async (repo): Promise<ShowcaseRepo | null> => {
+      const key = `${repo.owner}/${repo.name}`.toLowerCase();
+      if (seen.has(key)) return null;
+      try {
+        const githubInfo = await getPublicRepository(repo.owner, repo.name);
+        if (!githubInfo) return null;
+        const stars = formatStars(githubInfo.stargazers_count);
+        const curated: ShowcaseRepo = {
+          id: `curated-${repo.owner}-${repo.name}`,
+          owner: repo.owner,
+          name: repo.name,
+          avatarUrl: githubInfo.owner?.avatar_url || `https://github.com/${repo.owner}.png`,
+          description: githubInfo.description || 'Public open-source repository analyzed on GitRanked.',
+          stars: stars.label,
+          starsRaw: stars.raw,
+          lang: githubInfo.language || 'Code',
+          score: null,
+        };
+        return curated;
+      } catch {
+        return null;
+      }
+    })
+  );
+  return results.filter((r): r is ShowcaseRepo => r !== null);
+}
+
 export default async function ShowcasePage() {
   const showcaseList: ShowcaseRepo[] = [];
   const seenRepos = new Set<string>();
+  let isFallback = false;
 
   try {
-    // INNER JOIN insight_caches to strictly fetch ONLY analyzed repositories
+    // Only public repos: installation-tracked repos may be private and must
+    // not be probed or listed here (matches the sitemap's public filter).
     const dbRepos = await sql`
-      SELECT DISTINCT ON (r.id) r.id, r.owner, r.name, r.added_at,
+      SELECT r.id, r.owner, r.name, r.added_at,
              ic.payload as health_payload
       FROM repositories r
       INNER JOIN insight_caches ic ON ic.repo_id = r.id AND ic.contributor_id IS NULL AND ic.insight_type = 'health_metrics'
-      WHERE r.is_active = true
-      ORDER BY r.id, r.added_at DESC
+      WHERE r.is_active = true AND (r.installation_id IS NULL OR r.public_enabled = true)
+      ORDER BY r.added_at DESC
       LIMIT 36
     `;
 
@@ -87,20 +138,18 @@ export default async function ShowcasePage() {
         // DO NOT SHOW UNANALYZED REPOSITORIES
         if (healthScore === null) return null;
 
+        const stars = formatStars(githubInfo.stargazers_count);
         return {
           id: String(repo.id),
           owner: repo.owner as string,
           name: repo.name as string,
           avatarUrl: githubInfo.owner?.avatar_url || `https://github.com/${repo.owner}.png`,
           description: githubInfo.description || 'Public open-source repository analyzed on GitRanked.',
-          stars: githubInfo.stargazers_count !== undefined
-            ? githubInfo.stargazers_count >= 1000
-              ? `${(githubInfo.stargazers_count / 1000).toFixed(1)}k`
-              : `${githubInfo.stargazers_count}`
-            : '0',
+          stars: stars.label,
+          starsRaw: stars.raw,
           lang: githubInfo.language || 'Code',
           score: healthScore,
-        };
+        } satisfies ShowcaseRepo;
       })
     );
 
@@ -117,8 +166,31 @@ export default async function ShowcasePage() {
     console.error('Error fetching database repos for showcase:', err);
   }
 
+  // Never serve an empty showcase: fill with curated public repos so visitors
+  // and crawlers always see real, analyzable content.
+  if (showcaseList.length === 0) {
+    const fallback = await fetchCuratedFallback(seenRepos);
+    showcaseList.push(...fallback);
+    isFallback = showcaseList.length > 0;
+  }
+
+  const itemListJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Public Open-Source Repositories Showcase',
+    description:
+      'Open-source GitHub repositories analyzed on GitRanked with engineering health metrics and contributor impact scores.',
+    itemListElement: showcaseList.slice(0, 20).map((repo, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      url: `https://gitranked.dev/github/${repo.owner}/${repo.name}`,
+      name: `${repo.owner}/${repo.name}`,
+    })),
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-black text-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }} />
       <Navbar />
       <main className="flex-1 w-full px-4 sm:px-6 md:px-12 py-8 sm:py-12 space-y-8">
         {/* Header */}
@@ -135,7 +207,7 @@ export default async function ShowcasePage() {
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight flex items-center gap-2 text-white">
-              <Award className="w-6 h-6 text-accent" /> Analyzed Repositories ({showcaseList.length})
+              <Award className="w-6 h-6 text-accent" /> {isFallback ? 'Popular Repositories' : 'Analyzed Repositories'} ({showcaseList.length})
             </h2>
           </div>
 
@@ -177,10 +249,10 @@ export default async function ShowcasePage() {
 
                     <div className="text-right shrink-0">
                       <div className="text-3xl font-black text-accent group-hover:text-black leading-none transition-colors">
-                        {repo.score}
+                        {repo.score ?? '—'}
                       </div>
                       <div className="text-[10px] font-bold uppercase text-zinc-400 group-hover:text-black/80 tracking-wider mt-1 transition-colors">
-                        HEALTH
+                        {repo.score === null ? 'ANALYZE' : 'HEALTH'}
                       </div>
                     </div>
                   </div>

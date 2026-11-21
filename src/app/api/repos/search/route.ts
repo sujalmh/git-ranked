@@ -71,51 +71,75 @@ export async function GET(req: Request) {
   }
 
   try {
-    // 1. Fetch search results from GitHub Public Repository Search API
-    const ghRes = await fetch(
-      `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}+is:public&sort=stars&order=desc&per_page=8`,
-      { headers, next: { revalidate: 300 } }
-    );
-
-    let items: GitHubRepoItem[] = [];
-    if (ghRes.ok) {
-      const data = (await ghRes.json()) as { items?: GitHubRepoItem[] };
-      items = data.items || [];
-    } else {
-      console.warn(`GitHub search API returned HTTP ${ghRes.status}`);
-      // Fallback search in local database if rate limited or GitHub API error
-      const dbRepos = await sql`
-        SELECT owner, name, default_branch
-        FROM repositories
-        WHERE (owner ILIKE ${'%' + q + '%'} OR name ILIKE ${'%' + q + '%'})
-          AND is_active = true
-        LIMIT 8
-      `;
-
-      items = (dbRepos as LocalDbRepo[]).map(toGitHubRepoItem);
+    // 1. Local matches first — cheap, always available, and surfaces repos
+    // GitHub's relevance ranking might miss (including already-tracked ones).
+    // Bounded query: only repos matching the query, never the whole table.
+    let dbRepos: LocalDbRepo[] = [];
+    try {
+      const like = `%${q}%`;
+      const parts = q.split('/').map((s) => s.trim()).filter(Boolean);
+      if (parts.length === 2) {
+        dbRepos = (await sql`
+          SELECT owner, name, default_branch
+          FROM repositories
+          WHERE is_active = true
+            AND ((owner ILIKE ${parts[0]} AND name ILIKE ${parts[1]})
+              OR (owner ILIKE ${like} OR name ILIKE ${like}))
+          LIMIT 8
+        `) as LocalDbRepo[];
+      } else {
+        dbRepos = (await sql`
+          SELECT owner, name, default_branch
+          FROM repositories
+          WHERE is_active = true
+            AND (owner ILIKE ${like} OR name ILIKE ${like})
+          LIMIT 8
+        `) as LocalDbRepo[];
+      }
+    } catch (err) {
+      console.error('Failed to query local repos for search:', err);
     }
 
-    // 2. Cross-reference with tracked repositories in local DB
-    if (items.length > 0) {
-      let dbTracked: Array<{ owner: string; name: string }> = [];
-      try {
-        dbTracked = (await sql`
-          SELECT owner, name FROM repositories WHERE is_active = true
-        `) as Array<{ owner: string; name: string }>;
-      } catch (err) {
-        console.error('Failed to query local tracked repos:', err);
-      }
+    const trackedSet = new Set(
+      dbRepos.map((r) => `${r.owner.toLowerCase()}/${r.name.toLowerCase()}`)
+    );
+    const dbItems = dbRepos.map(toGitHubRepoItem);
 
-      const trackedSet = new Set(
-        dbTracked.map((r) => `${r.owner.toLowerCase()}/${r.name.toLowerCase()}`)
+    // 2. GitHub search for broader public results. On failure (rate limit,
+    // auth, network) degrade to local results instead of an empty list.
+    let ghItems: GitHubRepoItem[] = [];
+    try {
+      const ghRes = await fetch(
+        `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}+is:public&sort=stars&order=desc&per_page=8`,
+        { headers, next: { revalidate: 300 } }
       );
 
-      const formattedItems = items.map((item) => formatRepoItem(item, trackedSet));
-
-      return NextResponse.json({ items: formattedItems });
+      if (ghRes.ok) {
+        const data = (await ghRes.json()) as { items?: GitHubRepoItem[] };
+        ghItems = data.items || [];
+      } else {
+        console.warn(`GitHub search API returned HTTP ${ghRes.status}`);
+      }
+    } catch (err) {
+      console.warn('GitHub search API failed, serving local results:', err);
     }
 
-    return NextResponse.json({ items: [] });
+    // 3. Merge: exact/DB matches first (already flagged tracked), then GitHub
+    // results not already present. Keeps tracked repos discoverable even when
+    // GitHub omits them, and avoids duplicates by full_name.
+    const seen = new Set<string>();
+    const merged: GitHubRepoItem[] = [];
+    for (const item of [...dbItems, ...ghItems]) {
+      const key = (item.full_name || '').toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      merged.push(item);
+      if (merged.length >= 12) break;
+    }
+
+    const formattedItems = merged.map((item) => formatRepoItem(item, trackedSet));
+
+    return NextResponse.json({ items: formattedItems });
   } catch (error) {
     console.error('Failed to search public repositories:', error);
     return NextResponse.json({ error: 'Failed to search repositories' }, { status: 500 });
