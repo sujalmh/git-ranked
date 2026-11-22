@@ -42,7 +42,7 @@ export {
   runRepoRefinementQuality,
 } from './refinement';
 
-import type { AiCallOptions } from '../ai/openrouter';
+import type { AiCallOptions } from '../ai/client';
 
 export type ClassifyProgress = { done: number; total: number };
 

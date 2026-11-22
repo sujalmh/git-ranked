@@ -3,7 +3,7 @@ import { join } from 'path';
 import { cache } from 'react';
 import githubAppJwt from 'universal-github-app-jwt';
 import { isBotUsername } from './contributor-insights';
-import { emitTelemetry } from './ai/openrouter';
+import { emitTelemetry } from './ai/client';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 

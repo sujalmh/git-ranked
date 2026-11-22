@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { getBoss } from './lib/queue';
 import { classifyRepo } from './lib/scoring';
 import { sql } from './lib/db';
-import { getUserAiConfig } from './lib/ai/openrouter';
+import { getUserAiConfig } from './lib/ai/client';
 import type { Job } from 'pg-boss';
 
 type ClassifyRepoData = {

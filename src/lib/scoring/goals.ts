@@ -21,7 +21,7 @@
 
 import { createHash } from 'crypto';
 import { sql } from '../db';
-import { callStructured, hasApiKey, type AiCallOptions } from '../ai/openrouter';
+import { callStructured, hasApiKey, type AiCallOptions } from '../ai/client';
 import { acquireSlot } from '../rate-limit';
 import { getRepoReadme } from '../github-api';
 

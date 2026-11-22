@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
-import { getAiModel, RECOMMENDED_AI_MODELS } from '@/lib/ai/openrouter';
+import { getAiModel, RECOMMENDED_AI_MODELS } from '@/lib/ai/client';
 import {
   AI_PROVIDERS,
   MODELS_BY_PROVIDER,

@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { sql } from '../db';
-import { callStructured, hasApiKey, type AiCallOptions } from '../ai/openrouter';
+import { callStructured, hasApiKey, type AiCallOptions } from '../ai/client';
 import { acquireSlot } from '../rate-limit';
 import { derive } from './derivation';
 import { correctLowConfidenceFacts, extractHeuristicFacts, classifyWorkTypeFromText, determineScope } from './heuristic-fallback';

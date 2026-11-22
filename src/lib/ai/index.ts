@@ -101,7 +101,7 @@ export async function buildTaskContext(
   };
 }
 
-import type { AiCallOptions } from './openrouter';
+import type { AiCallOptions } from './client';
 
 export async function getOrGenerateTask<T>(
   task: AiTask<T>,

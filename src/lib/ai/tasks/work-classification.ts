@@ -1,7 +1,7 @@
 import pLimit from 'p-limit';
 import { z } from 'zod';
 import { sql } from '../../db';
-import { callStructured, hasApiKey, type AiCallOptions } from '../openrouter';
+import { callStructured, hasApiKey, type AiCallOptions } from '../client';
 import { classifyEventsFallback } from '../fallback';
 import { ClassificationSchema } from '../schemas';
 import { asPayload, titleFromPayload } from '../../contributor-insights';

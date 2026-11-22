@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { sql } from "@/lib/db";
-import { getAiModel } from "@/lib/ai/openrouter";
+import { getAiModel } from "@/lib/ai/client";
 import { Users, Database, Package } from "lucide-react";
 import Link from "next/link";
 import { AdminProfileSelector, type RepoProfileItem } from "@/components/AdminProfileSelector";

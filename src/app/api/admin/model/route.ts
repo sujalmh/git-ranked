@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getAiModel, setAiModel, RECOMMENDED_AI_MODELS } from '@/lib/ai/openrouter';
+import { getAiModel, setAiModel, RECOMMENDED_AI_MODELS } from '@/lib/ai/client';
 import { isAdminGithubId } from '@/lib/admin';
 
 export async function GET() {

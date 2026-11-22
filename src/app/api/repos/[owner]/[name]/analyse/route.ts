@@ -11,7 +11,7 @@ import {
   tasks,
 } from '@/lib/ai';
 import { setTelemetryListener, type ApiTelemetryEvent } from '@/lib/ai/telemetry';
-import { getUserAiConfig } from '@/lib/ai/openrouter';
+import { getUserAiConfig } from '@/lib/ai/client';
 import { getRepoAnalysisPeriod } from '@/lib/analysis';
 import { consumeDailySlot } from '@/lib/rate-limit';
 import { enqueueClassifyRepo } from '@/lib/queue';

@@ -11,7 +11,7 @@
  */
 
 import { sql } from '../lib/db';
-import { callStructured, hasApiKey } from '../lib/ai/openrouter';
+import { callStructured, hasApiKey } from '../lib/ai/client';
 
 // Re-implement the OLD extraction logic for comparison
 function oldTitleOrMessage(payload: Record<string, unknown>, eventType: string): string {

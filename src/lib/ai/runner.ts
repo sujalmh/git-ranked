@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { sql } from '../db';
-import { getAiModel, callStructured, hasApiKey, type AiCallOptions } from './openrouter';
+import { getAiModel, callStructured, hasApiKey, type AiCallOptions } from './client';
 import { getPreviousSummary } from './memory';
 import type { AiResult, AiTask, TaskContext } from './types';
 
