@@ -4,6 +4,11 @@ import { GithubIcon } from '@/components/icons/GithubIcon';
 import { auth, signIn } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { ShieldCheck, GitBranch, ArrowRight, Sparkles, Lock } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function SignInPage() {
   const session = await auth();

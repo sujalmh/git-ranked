@@ -291,6 +291,7 @@ export async function initSchema() {
       work_type VARCHAR(24) NOT NULL,
       role VARCHAR(24) NOT NULL DEFAULT 'feature',
       capability_key VARCHAR(160),
+      summary TEXT,
       source_commit_shas TEXT[] NOT NULL DEFAULT '{}',
       previous_unit_id BIGINT REFERENCES work_units(id),
       unit_status VARCHAR(16) NOT NULL DEFAULT 'active',
@@ -314,6 +315,7 @@ export async function initSchema() {
   await sql`ALTER TABLE work_unit_candidates ADD COLUMN IF NOT EXISTS extraction_revision INTEGER NOT NULL DEFAULT 0`.catch(() => {});
   await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS role VARCHAR(24) NOT NULL DEFAULT 'feature'`.catch(() => {});
   await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS capability_key VARCHAR(160)`.catch(() => {});
+  await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS summary TEXT`.catch(() => {});
   await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS source_commit_shas TEXT[] NOT NULL DEFAULT '{}'`.catch(() => {});
   await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS previous_unit_id BIGINT REFERENCES work_units(id)`.catch(() => {});
   await sql`ALTER TABLE work_units ADD COLUMN IF NOT EXISTS unit_status VARCHAR(16) NOT NULL DEFAULT 'active'`.catch(() => {});

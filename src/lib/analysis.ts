@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { sql } from './db';
 import { type ClassificationMap } from './scoring';
 import type { DimensionScores } from './scoring/types';
@@ -478,5 +479,23 @@ export async function getRepoAnalysisData(
     reviewGraph,
   };
 }
+
+/**
+ * A public repo page has real, indexable content once it has at least one
+ * contributor and cached health metrics. Full AI summaries are optional — the
+ * view renders empty states for them. Shared by the page, its metadata, and the
+ * sitemap so "indexable" means the same thing everywhere.
+ */
+export function hasRenderablePublicAnalysis(data: RepoAnalysisData | null): boolean {
+  return !!data && data.contributors.length > 0 && data.healthMetrics !== null;
+}
+
+/**
+ * Read-only analysis for public/shared pages. Never recomputes scores and is
+ * cached per request so generateMetadata and the page share one execution.
+ */
+export const getPublicRepoAnalysis = cache(async (repoId: number): Promise<RepoAnalysisData> => {
+  return getRepoAnalysisData(repoId, { computeScores: false });
+});
 
 export { formatRelativeDate };

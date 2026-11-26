@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth';
-import { sql } from '@/lib/db';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import { GitBranch, Brain, Calendar } from 'lucide-react';
 import { AnalyseButton } from '@/components/AnalyseButton';
@@ -11,6 +11,7 @@ import { RepositoryNeedsInit } from '@/components/InitializeButton';
 import { fetchRepoEvents, getRepoAnalysisData, getRepoAnalysisPeriod } from '@/lib/analysis';
 import { getShareState } from '@/lib/share';
 import { getPublicRepository } from '@/lib/github-api';
+import { getOwnedRepo } from '@/lib/repo-access';
 
 export default async function RepoAnalysisBoard(
   props: { params: Promise<{ owner: string; name: string }> }
@@ -21,17 +22,11 @@ export default async function RepoAnalysisBoard(
   const { owner, name } = params;
   const userId = session?.user?.id ?? -1;
 
-  const repoQuery = await sql`
-    SELECT r.id, r.github_repo_id, r.default_branch, i.github_installation_id, i.status as install_status, r.installation_id
-    FROM repositories r
-    LEFT JOIN installations i ON r.installation_id = i.id
-    WHERE r.owner = ${owner} AND r.name = ${name}
-      AND (i.linked_user_id = ${userId} OR r.added_by_user_id = ${userId})
-  `;
+  const repo = await getOwnedRepo(owner, name, userId);
 
-  if (repoQuery.length === 0) return <div>Repository not found or access denied.</div>;
+  if (!repo) notFound();
 
-  if (repoQuery[0].installation_id !== null && repoQuery[0].install_status === 'deleted') {
+  if (repo.installation_id !== null && repo.install_status === 'deleted') {
     return (
       <div className="flex flex-col min-h-screen relative">
         <Navbar />
@@ -53,7 +48,7 @@ export default async function RepoAnalysisBoard(
     );
   }
 
-  const repoId = repoQuery[0].id;
+  const repoId = repo.id;
   const eventsQuery = await fetchRepoEvents(repoId);
 
   // No events → show initialization CTA (user triggers fetch on demand)

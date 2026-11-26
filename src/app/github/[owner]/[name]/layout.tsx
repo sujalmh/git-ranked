@@ -1,5 +1,7 @@
 import { Metadata } from 'next';
 import { getPublicRepositoryCached } from '@/lib/github-api';
+import { getPublicRepoId } from '@/lib/repo-access';
+import { getPublicRepoAnalysis, hasRenderablePublicAnalysis } from '@/lib/analysis';
 
 export async function generateMetadata(
   props: { params: Promise<{ owner: string; name: string }> }
@@ -10,7 +12,7 @@ export async function generateMetadata(
   const repo = await getPublicRepositoryCached(owner, name);
   if (!repo) {
     return {
-      title: 'Repository Not Found | GitRanked',
+      title: 'Repository Not Found',
       robots: {
         index: false,
         follow: false,
@@ -18,17 +20,26 @@ export async function generateMetadata(
     };
   }
 
-  const title = `${repo.full_name} - GitHub Analytics & Insights | GitRanked`;
+  const title = `${repo.full_name} - GitHub Analytics & Insights`;
   const description = repo.description
     ? `View engineering metrics, contributor analytics, and PR review insights for ${repo.full_name}. ${repo.description}`
     : `Deep GitHub analytics, code quality metrics, and contributor insights for ${repo.full_name}.`;
   const path = `/github/${owner}/${name}`;
 
+  // Only pages with real analysis content should enter the index. Placeholder
+  // pages for tracked-but-unanalysed repos stay crawlable (follow) but noindex.
+  const repoId = await getPublicRepoId(owner, name);
+  let indexable = false;
+  if (repoId !== null) {
+    const analysis = await getPublicRepoAnalysis(repoId);
+    indexable = analysis.isAnalysed || hasRenderablePublicAnalysis(analysis);
+  }
+
   return {
     title,
     description,
     robots: {
-      index: true,
+      index: indexable,
       follow: true,
     },
     alternates: {

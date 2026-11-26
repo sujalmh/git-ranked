@@ -1,13 +1,17 @@
-import { sql } from '@/lib/db';
 import { getPublicRepositoryCached } from '@/lib/github-api';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Navbar } from '@/components/Navbar';
 import { auth } from '@/lib/auth';
-import { getUserRepoId } from '@/lib/repo-access';
+import { getPublicRepoId, getUserRepoId } from '@/lib/repo-access';
 import { Star, GitFork, AlertCircle, ArrowRight, Brain, Code, Calendar } from 'lucide-react';
-import { fetchRepoEvents, getRepoAnalysisData, getRepoAnalysisPeriod } from '@/lib/analysis';
+import {
+  getPublicRepoAnalysis,
+  getRepoAnalysisPeriod,
+  hasRenderablePublicAnalysis,
+  type RepoAnalysisData,
+} from '@/lib/analysis';
 import { RepoAnalysisView } from '@/components/RepoAnalysisView';
 import { ShareButton } from '@/components/ShareButton';
 import { AnalyseButton } from '@/components/AnalyseButton';
@@ -31,36 +35,30 @@ export default async function PublicRepoPage(
   // 2. Check if it's tracked in GitRanked. Only public (non-installation) repos
   // or repos whose owner has enabled public visibility get a public showcase
   // page — installation-tracked repos may be private and must not be exposed.
-  const repoQuery = await sql`
-    SELECT id FROM repositories
-    WHERE owner = ${owner} AND name = ${name}
-      AND (installation_id IS NULL OR public_enabled = true)
-      AND is_active = true
-    LIMIT 1
-  `;
+  const repoId = await getPublicRepoId(owner, name);
 
   // 3. Determine whether the signed-in user owns this repo so the public
   // placeholder can start analysis directly instead of redirecting to the
   // GitHub App install page.
   const isOwner = !!session?.user?.id && (await getUserRepoId(owner, name, session.user.id)) !== null;
 
-  let analysisData = null;
+  let analysisData: RepoAnalysisData | null = null;
   let hasEvents = false;
 
   let periodText = '';
-  if (repoQuery.length > 0) {
-    const repoId = repoQuery[0].id;
-    const eventsQuery = await fetchRepoEvents(repoId);
-    hasEvents = eventsQuery.length > 0;
-
-    if (hasEvents) {
-      analysisData = await getRepoAnalysisData(repoId, { computeScores: false });
-    }
+  if (repoId !== null) {
+    // Shared with generateMetadata via React cache: one analysis per request.
+    analysisData = await getPublicRepoAnalysis(repoId);
+    hasEvents = analysisData.contributors.length > 0;
     periodText = (await getRepoAnalysisPeriod(repoId)).periodText;
   }
 
-  // Render full analysis if available
-  if (analysisData && analysisData.isAnalysed) {
+  // Render the dashboard whenever there is real activity to show. Full AI
+  // summaries are optional; the view renders its own empty states for them.
+  if (analysisData && (analysisData.isAnalysed || hasRenderablePublicAnalysis(analysisData))) {
+    const viewData = analysisData.isAnalysed
+      ? analysisData
+      : { ...analysisData, isAnalysed: true };
     const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://gitranked.dev';
     const repoJsonLd = {
       '@context': 'https://schema.org',
@@ -135,7 +133,7 @@ export default async function PublicRepoPage(
             </div>
           </div>
 
-          <RepoAnalysisView data={analysisData} readOnly={true} repoOwner={owner} repoName={name} />
+          <RepoAnalysisView data={viewData} readOnly={true} repoOwner={owner} repoName={name} />
 
           {/* Bottom CTA for public users */}
           <div className="mt-16 sleek-panel p-10 text-center border-accent/20 bg-gradient-to-b from-transparent to-accent/5">

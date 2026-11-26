@@ -4,8 +4,11 @@ import { Footer } from '@/components/Footer';
 import { Send } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Contact Support & Feedback | GitRanked',
+  title: 'Contact Support & Feedback',
   description: 'Get in touch with the GitRanked team for platform support, enterprise inquiries, feedback, or privacy requests.',
+  alternates: {
+    canonical: '/contact',
+  },
 };
 
 export default function ContactPage() {

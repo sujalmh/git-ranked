@@ -8,20 +8,20 @@ import { Star, ArrowRight, Award, PlusCircle } from 'lucide-react';
 import { getPublicRepository } from '@/lib/github-api';
 
 export const metadata: Metadata = {
-  title: 'Public Open-Source Repositories Showcase | GitRanked',
+  title: 'Public Open-Source Repositories Showcase',
   description: 'Explore active open-source GitHub repositories analyzed on GitRanked with real aggregated health metrics, contributor impact scores, and PR cycle times.',
   alternates: {
     canonical: '/showcase',
   },
   openGraph: {
-    title: 'Public Repositories Showcase | GitRanked',
+    title: 'Public Repositories Showcase',
     description: 'Real engineering health metrics, contributor impact scores, and PR cycle times for open-source GitHub repositories analyzed by GitRanked.',
     type: 'website',
     url: '/showcase',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Public Repositories Showcase | GitRanked',
+    title: 'Public Repositories Showcase',
     description: 'Real health metrics and contributor impact scores for open-source GitHub repositories.',
   },
 };

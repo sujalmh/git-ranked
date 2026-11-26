@@ -8,15 +8,10 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: [
-          '/api/',
-          '/admin/',
-          '/dashboard/',
-          '/repos/',
-          '/shared/',
-          '/settings/',
-          '/setup/',
-        ],
+        // Private HTML pages are intentionally crawlable and marked noindex in
+        // their metadata. Blocking them in robots.txt would hide that signal
+        // and leave stale URLs stuck as "Blocked by robots.txt" / soft 404s.
+        disallow: ['/api', '/admin'],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,

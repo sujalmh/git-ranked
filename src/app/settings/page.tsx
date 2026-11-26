@@ -3,6 +3,11 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { UserAiSettings } from '@/components/UserAiSettings';
 import { Sparkles, ArrowRight } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function SettingsPage() {
   const session = await auth();

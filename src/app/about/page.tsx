@@ -5,8 +5,11 @@ import { Zap, BarChart3, Code2, Users, Cpu } from 'lucide-react';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'About Us | GitRanked',
+  title: 'About Us',
   description: 'Learn about GitRanked, our mission, AI-driven engineering metrics framework, and how we help engineering leaders optimize code review performance.',
+  alternates: {
+    canonical: '/about',
+  },
 };
 
 export default function AboutPage() {

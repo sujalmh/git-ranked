@@ -18,7 +18,7 @@ export type SEOPageData = {
 export const seoPages: Record<string, SEOPageData> = {
   'github-insights': {
     slug: 'github-insights',
-    title: 'GitHub Insights & Engineering Analytics Guide | GitRanked',
+    title: 'GitHub Insights & Engineering Analytics Guide',
     metaDescription: 'Comprehensive guide to GitHub insights and analytics for engineering teams. Learn how to track pull request bottlenecks, measure true contributor impact, and optimize delivery speed.',
     heroTitle: 'DEEP GITHUB',
     heroHighlight: 'INSIGHTS & ANALYTICS',
@@ -58,7 +58,7 @@ export const seoPages: Record<string, SEOPageData> = {
   },
   'pr-review-metrics': {
     slug: 'pr-review-metrics',
-    title: 'PR Review Metrics & Velocity Optimization | GitRanked',
+    title: 'PR Review Metrics & Velocity Optimization',
     metaDescription: 'Optimize code review velocity and eliminate engineering bottlenecks. Discover how to measure PR cycle times, review turnaround, and developer reviewer load.',
     heroTitle: 'PULL REQUEST',
     heroHighlight: 'REVIEW METRICS',
@@ -98,7 +98,7 @@ export const seoPages: Record<string, SEOPageData> = {
   },
   'repository-health': {
     slug: 'repository-health',
-    title: 'GitHub Repository Health Check & Quality Metrics | GitRanked',
+    title: 'GitHub Repository Health Check & Quality Metrics',
     metaDescription: 'Evaluate GitHub repository health, code stability, maintenance risks, and contributor collaboration graphs with AI-assisted repository health audits.',
     heroTitle: 'REPOSITORY',
     heroHighlight: 'HEALTH & AUDITING',
@@ -138,7 +138,7 @@ export const seoPages: Record<string, SEOPageData> = {
   },
   'engineering-metrics': {
     slug: 'engineering-metrics',
-    title: 'Engineering Metrics & DORA Analytics Dashboard | GitRanked',
+    title: 'Engineering Metrics & DORA Analytics Dashboard',
     metaDescription: 'Build a modern engineering metrics dashboard. Track DORA metrics, deployment frequency, lead time for changes, and developer productivity with AI context.',
     heroTitle: 'ENGINEERING',
     heroHighlight: 'METRICS DASHBOARD',
@@ -178,7 +178,7 @@ export const seoPages: Record<string, SEOPageData> = {
   },
   'github-contributor-analytics': {
     slug: 'github-contributor-analytics',
-    title: 'GitHub Contributor Analytics & Impact Scoring | GitRanked',
+    title: 'GitHub Contributor Analytics & Impact Scoring',
     metaDescription: 'Analyze GitHub contributor impact beyond simple commit counts. Discover maintainer personas, code review champion awards, and fair contribution scoring.',
     heroTitle: 'CONTRIBUTOR',
     heroHighlight: 'ANALYTICS & IMPACT',

@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { GitBranch, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { notFound } from 'next/navigation';
+import { GitBranch, ShieldCheck } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { RepoAnalysisView } from '@/components/RepoAnalysisView';
 import { fetchRepoEvents, getRepoAnalysisData } from '@/lib/analysis';
@@ -12,24 +13,7 @@ export default async function SharedRepoAnalysis(
   const { token } = await props.params;
 
   const repo = await getRepoByShareToken(token);
-  if (!repo) {
-    return (
-      <div className="flex flex-col min-h-screen">
-        <Navbar />
-        <main className="flex-1 max-w-3xl mx-auto w-full px-6 mt-12 text-center">
-          <div className="sleek-panel p-8">
-            <h1 className="text-xl font-bold mb-2">Link invalid or sharing disabled</h1>
-            <p className="text-sm text-zinc-400 mb-5 max-w-md mx-auto">
-              This share link is no longer valid. The repository owner may have revoked it.
-            </p>
-            <Link href="/" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-black hover:bg-white transition-colors font-semibold text-sm">
-              <ArrowLeft className="w-4 h-4" /> Go home
-            </Link>
-          </div>
-        </main>
-      </div>
-    );
-  }
+  if (!repo) notFound();
 
   const repoId = repo.id;
   await fetchRepoEvents(repoId);

@@ -1,4 +1,5 @@
 import { randomBytes } from 'crypto';
+import { cache } from 'react';
 import { sql } from './db';
 
 export type ShareTokenRow = {
@@ -42,7 +43,9 @@ export async function revokeShareToken(repoId: number): Promise<void> {
   `;
 }
 
-export async function getRepoByShareToken(token: string): Promise<ShareTokenRow | null> {
+// Cached per request: the segment layout validates the token before the
+// loading boundary and the page reads the same row.
+export const getRepoByShareToken = cache(async (token: string): Promise<ShareTokenRow | null> => {
   const rows = await sql`
     SELECT id, owner, name, share_token, share_enabled
     FROM repositories
@@ -50,7 +53,7 @@ export async function getRepoByShareToken(token: string): Promise<ShareTokenRow 
   `;
   if (rows.length === 0) return null;
   return rows[0] as ShareTokenRow;
-}
+});
 
 export async function getShareState(repoId: number): Promise<{ token: string | null; enabled: boolean }> {
   const rows = await sql`

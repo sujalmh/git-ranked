@@ -2,6 +2,11 @@ import { Navbar } from '@/components/Navbar';
 import { SetupSuccess } from '@/components/SetupSuccess';
 import { AlertCircle, GitBranch } from 'lucide-react';
 import { auth } from '@/lib/auth';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 type SetupPageProps = {
   searchParams: Promise<{

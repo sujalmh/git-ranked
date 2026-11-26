@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { ArrowLeft, Zap, MessageSquare, ShieldCheck, Activity } from 'lucide-react';
 import Image from 'next/image';
 import { getRepoScoringConfig, scoreRepo, type DimensionScores } from '@/lib/scoring';
@@ -36,7 +37,7 @@ export default async function ComparePage(
       AND (i.linked_user_id = ${userId} OR r.added_by_user_id = ${userId})
   `;
 
-  if (repoQuery.length === 0) return <div>Repository not found.</div>;
+  if (repoQuery.length === 0) notFound();
 
   const repoId = repoQuery[0].id;
   const config = await getRepoScoringConfig(repoId);

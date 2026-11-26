@@ -72,11 +72,6 @@ export function Footer() {
               </Link>
             </li>
             <li>
-              <Link href="/dashboard" className="hover:text-white transition-colors">
-                Dashboard
-              </Link>
-            </li>
-            <li>
               <a 
                 href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || 'git-ranked-dev'}/installations/new`}
                 className="hover:text-white transition-colors"

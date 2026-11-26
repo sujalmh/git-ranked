@@ -52,9 +52,6 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
     type: "website",
     siteName: "GitRanked",
@@ -109,7 +106,7 @@ export default function RootLayout({
                 "@type": "Organization",
                 name: "GitRanked",
                 url: siteUrl,
-                logo: `${siteUrl}/logo.png`,
+                logo: `${siteUrl}/opengraph-image.png`,
                 description:
                   "AI-powered GitHub repository analytics and contributor impact scoring for engineering teams.",
                 sameAs: ["https://github.com/sujalmh/git-ranked"],

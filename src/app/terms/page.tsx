@@ -4,8 +4,11 @@ import { Footer } from '@/components/Footer';
 import { FileCheck, Shield, AlertCircle } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | GitRanked',
+  title: 'Terms of Service',
   description: 'GitRanked terms of service, user agreements, GitHub integration rules, and acceptable use policies.',
+  alternates: {
+    canonical: '/terms',
+  },
 };
 
 export default function TermsPage() {

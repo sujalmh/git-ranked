@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { Navbar } from '@/components/Navbar';
 import { ArrowLeft, Star, CheckCircle, Cpu } from 'lucide-react';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import { sql } from '@/lib/db';
 import { getRepoScoringConfig, scoreRepo, type DimensionScores, type WorkUnit } from '@/lib/scoring';
@@ -43,7 +44,7 @@ export default async function ContributorDetail(
       AND (i.linked_user_id = ${userId} OR r.added_by_user_id = ${userId})
   `;
 
-  if (repoQuery.length === 0) return <div className="p-8">Repository not found.</div>;
+  if (repoQuery.length === 0) notFound();
 
   const repoId = repoQuery[0].id;
   const config = await getRepoScoringConfig(repoId);
@@ -55,7 +56,7 @@ export default async function ContributorDetail(
     LIMIT 1
   `;
 
-  if (dbData.length === 0) return <div className="p-8">Contributor not found.</div>;
+  if (dbData.length === 0) notFound();
 
   const contributorId = dbData[0].contributor_id;
   const avatarUrl = dbData[0].avatar_url;

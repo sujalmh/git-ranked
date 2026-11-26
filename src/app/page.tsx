@@ -9,7 +9,7 @@ import { Navbar } from '@/components/Navbar';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'GitRanked — AI-Powered GitHub Repository Analytics',
+  title: { absolute: 'GitRanked — AI-Powered GitHub Repository Analytics' },
   description:
     'AI-powered GitHub repository analytics. Classify commits, PRs and reviews with AI, score contributors across Impact, Quality, Collaboration & Consistency, and surface team health insights.',
   alternates: {

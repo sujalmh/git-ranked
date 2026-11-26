@@ -7,6 +7,24 @@ export type { HealthMetrics } from './scoring/repo-score';
 const clamp = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
 const MS_PER_DAY = 86_400_000;
 
+/**
+ * Health metrics are stored in a jsonb column. Older rows were written with an
+ * explicit JSON.stringify(), so the column holds a JSON *string* rather than an
+ * object. Accept both shapes so readers never receive a string typed as
+ * HealthMetrics.
+ */
+function parseHealthMetrics(payload: unknown): HealthMetrics | null {
+  if (!payload) return null;
+  if (typeof payload === 'string') {
+    try {
+      return JSON.parse(payload) as HealthMetrics;
+    } catch {
+      return null;
+    }
+  }
+  return typeof payload === 'object' ? (payload as HealthMetrics) : null;
+}
+
 function asPayload(payload: unknown): Record<string, unknown> {
   if (!payload) return {};
   if (typeof payload === 'string') {
@@ -173,9 +191,9 @@ export async function generateRepoInsights(repoId: number) {
   try {
     await sql`
       INSERT INTO insight_caches (repo_id, contributor_id, insight_type, payload, schema_version, prompt_version, confidence, source)
-      VALUES (${repoId}, NULL, 'health_metrics', ${JSON.stringify(metrics)}, 'deterministic', ${HEALTH_METRICS_PROMPT_VERSION}, 1.0, 'deterministic')
+      VALUES (${repoId}, NULL, 'health_metrics', ${metrics}, 'deterministic', ${HEALTH_METRICS_PROMPT_VERSION}, 1.0, 'deterministic')
       ON CONFLICT (repo_id, insight_type) WHERE contributor_id IS NULL DO UPDATE
-      SET payload = ${JSON.stringify(metrics)}, generated_at = CURRENT_TIMESTAMP,
+      SET payload = ${metrics}, generated_at = CURRENT_TIMESTAMP,
           schema_version = 'deterministic', prompt_version = ${HEALTH_METRICS_PROMPT_VERSION},
           confidence = 1.0, source = 'deterministic'
     `;
@@ -184,7 +202,7 @@ export async function generateRepoInsights(repoId: number) {
     await sql`DELETE FROM insight_caches WHERE repo_id = ${repoId} AND contributor_id IS NULL AND insight_type = 'health_metrics'`;
     await sql`
       INSERT INTO insight_caches (repo_id, contributor_id, insight_type, payload, schema_version, prompt_version, confidence, source)
-      VALUES (${repoId}, NULL, 'health_metrics', ${JSON.stringify(metrics)}, 'deterministic', ${HEALTH_METRICS_PROMPT_VERSION}, 1.0, 'deterministic')
+      VALUES (${repoId}, NULL, 'health_metrics', ${metrics}, 'deterministic', ${HEALTH_METRICS_PROMPT_VERSION}, 1.0, 'deterministic')
     `;
   }
 
@@ -215,7 +233,8 @@ export async function getRepoInsightsBatch(repoIds: number[]): Promise<Map<numbe
   for (const row of rows) {
     if (row.prompt_version !== HEALTH_METRICS_PROMPT_VERSION) continue;
     if (new Date(row.generated_at).getTime() < cutoff) continue;
-    result.set(row.repo_id as number, row.payload as HealthMetrics);
+    const parsed = parseHealthMetrics(row.payload);
+    if (parsed) result.set(row.repo_id as number, parsed);
   }
   return result;
 }
@@ -238,7 +257,7 @@ export async function getRepoInsights(repoId: number, generateIfMissing: boolean
       // computation is a single bounded query + upsert).
       return await generateRepoInsights(repoId);
     }
-    return cache[0].payload as HealthMetrics;
+    return parseHealthMetrics(cache[0].payload);
   }
 
   if (!generateIfMissing) {

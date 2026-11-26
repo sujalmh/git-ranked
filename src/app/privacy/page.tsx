@@ -4,8 +4,11 @@ import { Footer } from '@/components/Footer';
 import { Eye, FileText, Cookie, Lock } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | GitRanked',
+  title: 'Privacy Policy',
   description: 'GitRanked privacy policy, data collection policies, DART cookie disclosures, and Google AdSense compliance details.',
+  alternates: {
+    canonical: '/privacy',
+  },
 };
 
 export default function PrivacyPage() {

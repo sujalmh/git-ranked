@@ -7,7 +7,9 @@ export const revalidate = 3600; // Revalidate every hour
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://gitranked.dev';
 
-  // 1. Core pages, legal compliance pages, and public showcase
+  // 1. Core pages, legal compliance pages, and public showcase. These are
+  // static, so no lastModified is emitted — a fabricated "now" timestamp on
+  // every build teaches crawlers to distrust the sitemap.
   const staticRoutes = [
     '',
     'showcase',
@@ -20,32 +22,41 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     ...staticRoutes.map((route) => ({
       url: route ? `${baseUrl}/${route}` : baseUrl,
-      lastModified: new Date(),
       changeFrequency: (route === '' || route === 'showcase' ? 'daily' : 'monthly') as 'daily' | 'monthly',
       priority: route === '' ? 1.0 : route === 'showcase' ? 0.9 : 0.7,
     })),
     ...Object.keys(seoPages).map((slug) => ({
       url: `${baseUrl}/${slug}`,
-      lastModified: new Date(),
       changeFrequency: 'weekly' as const,
       priority: 0.8,
     })),
   ];
 
-  // 2. Dynamic public repository pages only (exclude private organization repos)
+  // 2. Public repository pages that actually render an analysis. A repo is
+  // indexable only when it has cached health metrics and real activity — the
+  // same condition the page's metadata uses (hasRenderablePublicAnalysis).
+  // Listing unanalysed, deleted, or private repos here caused soft 404s and
+  // 5xx responses in Search Console.
   let repoPages: MetadataRoute.Sitemap = [];
   try {
     const repos = await sql`
-      SELECT owner, name, added_at
-      FROM repositories
-      WHERE is_active = true AND (installation_id IS NULL OR public_enabled = true)
-      ORDER BY added_at DESC
+      SELECT r.owner, r.name, MAX(ic.generated_at) AS updated_at
+      FROM repositories r
+      INNER JOIN insight_caches ic
+        ON ic.repo_id = r.id
+        AND ic.contributor_id IS NULL
+        AND ic.insight_type = 'health_metrics'
+      WHERE r.is_active = true
+        AND (r.installation_id IS NULL OR r.public_enabled = true)
+        AND EXISTS (SELECT 1 FROM github_events e WHERE e.repo_id = r.id)
+      GROUP BY r.id, r.owner, r.name
+      ORDER BY updated_at DESC
       LIMIT 1000
     `;
 
     repoPages = repos.map((repo) => ({
       url: `${baseUrl}/github/${repo.owner}/${repo.name}`,
-      lastModified: repo.added_at ? new Date(repo.added_at) : new Date(),
+      lastModified: repo.updated_at ? new Date(repo.updated_at as string) : undefined,
       changeFrequency: 'daily' as const,
       priority: 0.8,
     }));
